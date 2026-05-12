@@ -12,11 +12,3 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       # Isikan Chat ID Grup atau Chat ID Anda
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared-tunnel
-    restart: unless-stopped
-    depends_on:
-      - tv-telegram-webhook
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
