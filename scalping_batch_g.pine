@@ -1,0 +1,502 @@
+// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// Generated on 2026-05-12 from real IDX prices
+
+//@version=6
+indicator("SCALPING SCREENER IDX - BATCH G (10 Emiten)", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// INPUT
+// ============================================================================
+tf = input.timeframe("5", "Timeframe Screener")
+pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+// ============================================================================
+// TICKER DEFINITIONS (harga per 2026-05-12)
+// ============================================================================
+tk1 = "IDX:AMOR"  // ~Rp348
+tk2 = "IDX:CFIN"  // ~Rp346
+tk3 = "IDX:MINA"  // ~Rp346
+tk4 = "IDX:PEHA"  // ~Rp346
+tk5 = "IDX:SAME"  // ~Rp346
+tk6 = "IDX:PYFA"  // ~Rp344
+tk7 = "IDX:GOOD"  // ~Rp342
+tk8 = "IDX:KBLM"  // ~Rp340
+tk9 = "IDX:UNSP"  // ~Rp340
+tk10 = "IDX:TIFA"  // ~Rp334
+
+// ============================================================================
+// DATA FETCH - request.security with tuple (1 call per emiten)
+// ============================================================================
+[c1, h1, l1, v1, o1] = request.security(tk1, tf, [close, high, low, volume, open])
+[c2, h2, l2, v2, o2] = request.security(tk2, tf, [close, high, low, volume, open])
+[c3, h3, l3, v3, o3] = request.security(tk3, tf, [close, high, low, volume, open])
+[c4, h4, l4, v4, o4] = request.security(tk4, tf, [close, high, low, volume, open])
+[c5, h5, l5, v5, o5] = request.security(tk5, tf, [close, high, low, volume, open])
+[c6, h6, l6, v6, o6] = request.security(tk6, tf, [close, high, low, volume, open])
+[c7, h7, l7, v7, o7] = request.security(tk7, tf, [close, high, low, volume, open])
+[c8, h8, l8, v8, o8] = request.security(tk8, tf, [close, high, low, volume, open])
+[c9, h9, l9, v9, o9] = request.security(tk9, tf, [close, high, low, volume, open])
+[c10, h10, l10, v10, o10] = request.security(tk10, tf, [close, high, low, volume, open])
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+// --- AMOR ---
+pv1 = (h1[1] + l1[1] + c1[1]) / 3
+atr1 = ta.atr(14)
+entry1 = math.round(2 * pv1 - h1[1])
+tp1    = math.round(entry1 * 1.03)
+sl1    = math.round(entry1 - atr1 * 0.5)
+pft1   = entry1 > 0 ? (c1 - entry1) / entry1 * 100 : 0
+rsi1   = ta.rsi(c1, 14)
+avgv1  = ta.sma(v1, 20)
+rvol1  = avgv1 > 0 ? v1 / avgv1 : 0
+val1   = v1 * c1
+bb_b1  = ta.sma(c1, 20)
+bb_d1  = 2 * ta.stdev(c1, 20)
+zona1  = c1 <= bb_b1 - bb_d1 ? "MURAH" : c1 >= bb_b1 + bb_d1 ? "MAHAL" : "MID"
+st1    = c1 <= entry1 and rsi1 < 35 and rvol1 > 1.5 ? "FRESH BUY" : c1 >= tp1 ? "PROFIT (>3%)" : c1 > entry1 ? "RUNNING" : "WAIT"
+bd1    = v1 > avgv1 * 3 and c1 >= o1 ? "BIG ACCUM" : v1 > avgv1 * 1.5 and c1 >= o1 ? "ACCUM" : "NORMAL"
+act1   = st1 == "FRESH BUY" and bd1 != "NORMAL" ? "HAKA" : (st1 == "RUNNING" or st1 == "PROFIT (>3%)") ? (rsi1 > 80 ? "SELL" : "HOLD") : zona1 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c1  = st1 == "FRESH BUY" ? color.lime : st1 == "PROFIT (>3%)" ? color.fuchsia : st1 == "RUNNING" ? color.yellow : color.gray
+zn_c1  = zona1 == "MURAH" ? color.lime : zona1 == "MAHAL" ? color.red : color.yellow
+rs_c1  = rsi1 < 30 ? color.lime : rsi1 > 70 ? color.red : color.white
+bd_c1  = bd1 == "BIG ACCUM" ? color.fuchsia : bd1 == "ACCUM" ? color.lime : color.gray
+ac_c1  = act1 == "HAKA" ? color.lime : act1 == "SELL" ? color.red : act1 == "HOLD" ? color.yellow : act1 == "SKIP" ? color.red : color.gray
+rv_c1  = rvol1 > 2 ? color.lime : rvol1 > 1 ? color.yellow : color.gray
+// --- CFIN ---
+pv2 = (h2[1] + l2[1] + c2[1]) / 3
+atr2 = ta.atr(14)
+entry2 = math.round(2 * pv2 - h2[1])
+tp2    = math.round(entry2 * 1.03)
+sl2    = math.round(entry2 - atr2 * 0.5)
+pft2   = entry2 > 0 ? (c2 - entry2) / entry2 * 100 : 0
+rsi2   = ta.rsi(c2, 14)
+avgv2  = ta.sma(v2, 20)
+rvol2  = avgv2 > 0 ? v2 / avgv2 : 0
+val2   = v2 * c2
+bb_b2  = ta.sma(c2, 20)
+bb_d2  = 2 * ta.stdev(c2, 20)
+zona2  = c2 <= bb_b2 - bb_d2 ? "MURAH" : c2 >= bb_b2 + bb_d2 ? "MAHAL" : "MID"
+st2    = c2 <= entry2 and rsi2 < 35 and rvol2 > 1.5 ? "FRESH BUY" : c2 >= tp2 ? "PROFIT (>3%)" : c2 > entry2 ? "RUNNING" : "WAIT"
+bd2    = v2 > avgv2 * 3 and c2 >= o2 ? "BIG ACCUM" : v2 > avgv2 * 1.5 and c2 >= o2 ? "ACCUM" : "NORMAL"
+act2   = st2 == "FRESH BUY" and bd2 != "NORMAL" ? "HAKA" : (st2 == "RUNNING" or st2 == "PROFIT (>3%)") ? (rsi2 > 80 ? "SELL" : "HOLD") : zona2 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c2  = st2 == "FRESH BUY" ? color.lime : st2 == "PROFIT (>3%)" ? color.fuchsia : st2 == "RUNNING" ? color.yellow : color.gray
+zn_c2  = zona2 == "MURAH" ? color.lime : zona2 == "MAHAL" ? color.red : color.yellow
+rs_c2  = rsi2 < 30 ? color.lime : rsi2 > 70 ? color.red : color.white
+bd_c2  = bd2 == "BIG ACCUM" ? color.fuchsia : bd2 == "ACCUM" ? color.lime : color.gray
+ac_c2  = act2 == "HAKA" ? color.lime : act2 == "SELL" ? color.red : act2 == "HOLD" ? color.yellow : act2 == "SKIP" ? color.red : color.gray
+rv_c2  = rvol2 > 2 ? color.lime : rvol2 > 1 ? color.yellow : color.gray
+// --- MINA ---
+pv3 = (h3[1] + l3[1] + c3[1]) / 3
+atr3 = ta.atr(14)
+entry3 = math.round(2 * pv3 - h3[1])
+tp3    = math.round(entry3 * 1.03)
+sl3    = math.round(entry3 - atr3 * 0.5)
+pft3   = entry3 > 0 ? (c3 - entry3) / entry3 * 100 : 0
+rsi3   = ta.rsi(c3, 14)
+avgv3  = ta.sma(v3, 20)
+rvol3  = avgv3 > 0 ? v3 / avgv3 : 0
+val3   = v3 * c3
+bb_b3  = ta.sma(c3, 20)
+bb_d3  = 2 * ta.stdev(c3, 20)
+zona3  = c3 <= bb_b3 - bb_d3 ? "MURAH" : c3 >= bb_b3 + bb_d3 ? "MAHAL" : "MID"
+st3    = c3 <= entry3 and rsi3 < 35 and rvol3 > 1.5 ? "FRESH BUY" : c3 >= tp3 ? "PROFIT (>3%)" : c3 > entry3 ? "RUNNING" : "WAIT"
+bd3    = v3 > avgv3 * 3 and c3 >= o3 ? "BIG ACCUM" : v3 > avgv3 * 1.5 and c3 >= o3 ? "ACCUM" : "NORMAL"
+act3   = st3 == "FRESH BUY" and bd3 != "NORMAL" ? "HAKA" : (st3 == "RUNNING" or st3 == "PROFIT (>3%)") ? (rsi3 > 80 ? "SELL" : "HOLD") : zona3 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c3  = st3 == "FRESH BUY" ? color.lime : st3 == "PROFIT (>3%)" ? color.fuchsia : st3 == "RUNNING" ? color.yellow : color.gray
+zn_c3  = zona3 == "MURAH" ? color.lime : zona3 == "MAHAL" ? color.red : color.yellow
+rs_c3  = rsi3 < 30 ? color.lime : rsi3 > 70 ? color.red : color.white
+bd_c3  = bd3 == "BIG ACCUM" ? color.fuchsia : bd3 == "ACCUM" ? color.lime : color.gray
+ac_c3  = act3 == "HAKA" ? color.lime : act3 == "SELL" ? color.red : act3 == "HOLD" ? color.yellow : act3 == "SKIP" ? color.red : color.gray
+rv_c3  = rvol3 > 2 ? color.lime : rvol3 > 1 ? color.yellow : color.gray
+// --- PEHA ---
+pv4 = (h4[1] + l4[1] + c4[1]) / 3
+atr4 = ta.atr(14)
+entry4 = math.round(2 * pv4 - h4[1])
+tp4    = math.round(entry4 * 1.03)
+sl4    = math.round(entry4 - atr4 * 0.5)
+pft4   = entry4 > 0 ? (c4 - entry4) / entry4 * 100 : 0
+rsi4   = ta.rsi(c4, 14)
+avgv4  = ta.sma(v4, 20)
+rvol4  = avgv4 > 0 ? v4 / avgv4 : 0
+val4   = v4 * c4
+bb_b4  = ta.sma(c4, 20)
+bb_d4  = 2 * ta.stdev(c4, 20)
+zona4  = c4 <= bb_b4 - bb_d4 ? "MURAH" : c4 >= bb_b4 + bb_d4 ? "MAHAL" : "MID"
+st4    = c4 <= entry4 and rsi4 < 35 and rvol4 > 1.5 ? "FRESH BUY" : c4 >= tp4 ? "PROFIT (>3%)" : c4 > entry4 ? "RUNNING" : "WAIT"
+bd4    = v4 > avgv4 * 3 and c4 >= o4 ? "BIG ACCUM" : v4 > avgv4 * 1.5 and c4 >= o4 ? "ACCUM" : "NORMAL"
+act4   = st4 == "FRESH BUY" and bd4 != "NORMAL" ? "HAKA" : (st4 == "RUNNING" or st4 == "PROFIT (>3%)") ? (rsi4 > 80 ? "SELL" : "HOLD") : zona4 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c4  = st4 == "FRESH BUY" ? color.lime : st4 == "PROFIT (>3%)" ? color.fuchsia : st4 == "RUNNING" ? color.yellow : color.gray
+zn_c4  = zona4 == "MURAH" ? color.lime : zona4 == "MAHAL" ? color.red : color.yellow
+rs_c4  = rsi4 < 30 ? color.lime : rsi4 > 70 ? color.red : color.white
+bd_c4  = bd4 == "BIG ACCUM" ? color.fuchsia : bd4 == "ACCUM" ? color.lime : color.gray
+ac_c4  = act4 == "HAKA" ? color.lime : act4 == "SELL" ? color.red : act4 == "HOLD" ? color.yellow : act4 == "SKIP" ? color.red : color.gray
+rv_c4  = rvol4 > 2 ? color.lime : rvol4 > 1 ? color.yellow : color.gray
+// --- SAME ---
+pv5 = (h5[1] + l5[1] + c5[1]) / 3
+atr5 = ta.atr(14)
+entry5 = math.round(2 * pv5 - h5[1])
+tp5    = math.round(entry5 * 1.03)
+sl5    = math.round(entry5 - atr5 * 0.5)
+pft5   = entry5 > 0 ? (c5 - entry5) / entry5 * 100 : 0
+rsi5   = ta.rsi(c5, 14)
+avgv5  = ta.sma(v5, 20)
+rvol5  = avgv5 > 0 ? v5 / avgv5 : 0
+val5   = v5 * c5
+bb_b5  = ta.sma(c5, 20)
+bb_d5  = 2 * ta.stdev(c5, 20)
+zona5  = c5 <= bb_b5 - bb_d5 ? "MURAH" : c5 >= bb_b5 + bb_d5 ? "MAHAL" : "MID"
+st5    = c5 <= entry5 and rsi5 < 35 and rvol5 > 1.5 ? "FRESH BUY" : c5 >= tp5 ? "PROFIT (>3%)" : c5 > entry5 ? "RUNNING" : "WAIT"
+bd5    = v5 > avgv5 * 3 and c5 >= o5 ? "BIG ACCUM" : v5 > avgv5 * 1.5 and c5 >= o5 ? "ACCUM" : "NORMAL"
+act5   = st5 == "FRESH BUY" and bd5 != "NORMAL" ? "HAKA" : (st5 == "RUNNING" or st5 == "PROFIT (>3%)") ? (rsi5 > 80 ? "SELL" : "HOLD") : zona5 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c5  = st5 == "FRESH BUY" ? color.lime : st5 == "PROFIT (>3%)" ? color.fuchsia : st5 == "RUNNING" ? color.yellow : color.gray
+zn_c5  = zona5 == "MURAH" ? color.lime : zona5 == "MAHAL" ? color.red : color.yellow
+rs_c5  = rsi5 < 30 ? color.lime : rsi5 > 70 ? color.red : color.white
+bd_c5  = bd5 == "BIG ACCUM" ? color.fuchsia : bd5 == "ACCUM" ? color.lime : color.gray
+ac_c5  = act5 == "HAKA" ? color.lime : act5 == "SELL" ? color.red : act5 == "HOLD" ? color.yellow : act5 == "SKIP" ? color.red : color.gray
+rv_c5  = rvol5 > 2 ? color.lime : rvol5 > 1 ? color.yellow : color.gray
+// --- PYFA ---
+pv6 = (h6[1] + l6[1] + c6[1]) / 3
+atr6 = ta.atr(14)
+entry6 = math.round(2 * pv6 - h6[1])
+tp6    = math.round(entry6 * 1.03)
+sl6    = math.round(entry6 - atr6 * 0.5)
+pft6   = entry6 > 0 ? (c6 - entry6) / entry6 * 100 : 0
+rsi6   = ta.rsi(c6, 14)
+avgv6  = ta.sma(v6, 20)
+rvol6  = avgv6 > 0 ? v6 / avgv6 : 0
+val6   = v6 * c6
+bb_b6  = ta.sma(c6, 20)
+bb_d6  = 2 * ta.stdev(c6, 20)
+zona6  = c6 <= bb_b6 - bb_d6 ? "MURAH" : c6 >= bb_b6 + bb_d6 ? "MAHAL" : "MID"
+st6    = c6 <= entry6 and rsi6 < 35 and rvol6 > 1.5 ? "FRESH BUY" : c6 >= tp6 ? "PROFIT (>3%)" : c6 > entry6 ? "RUNNING" : "WAIT"
+bd6    = v6 > avgv6 * 3 and c6 >= o6 ? "BIG ACCUM" : v6 > avgv6 * 1.5 and c6 >= o6 ? "ACCUM" : "NORMAL"
+act6   = st6 == "FRESH BUY" and bd6 != "NORMAL" ? "HAKA" : (st6 == "RUNNING" or st6 == "PROFIT (>3%)") ? (rsi6 > 80 ? "SELL" : "HOLD") : zona6 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c6  = st6 == "FRESH BUY" ? color.lime : st6 == "PROFIT (>3%)" ? color.fuchsia : st6 == "RUNNING" ? color.yellow : color.gray
+zn_c6  = zona6 == "MURAH" ? color.lime : zona6 == "MAHAL" ? color.red : color.yellow
+rs_c6  = rsi6 < 30 ? color.lime : rsi6 > 70 ? color.red : color.white
+bd_c6  = bd6 == "BIG ACCUM" ? color.fuchsia : bd6 == "ACCUM" ? color.lime : color.gray
+ac_c6  = act6 == "HAKA" ? color.lime : act6 == "SELL" ? color.red : act6 == "HOLD" ? color.yellow : act6 == "SKIP" ? color.red : color.gray
+rv_c6  = rvol6 > 2 ? color.lime : rvol6 > 1 ? color.yellow : color.gray
+// --- GOOD ---
+pv7 = (h7[1] + l7[1] + c7[1]) / 3
+atr7 = ta.atr(14)
+entry7 = math.round(2 * pv7 - h7[1])
+tp7    = math.round(entry7 * 1.03)
+sl7    = math.round(entry7 - atr7 * 0.5)
+pft7   = entry7 > 0 ? (c7 - entry7) / entry7 * 100 : 0
+rsi7   = ta.rsi(c7, 14)
+avgv7  = ta.sma(v7, 20)
+rvol7  = avgv7 > 0 ? v7 / avgv7 : 0
+val7   = v7 * c7
+bb_b7  = ta.sma(c7, 20)
+bb_d7  = 2 * ta.stdev(c7, 20)
+zona7  = c7 <= bb_b7 - bb_d7 ? "MURAH" : c7 >= bb_b7 + bb_d7 ? "MAHAL" : "MID"
+st7    = c7 <= entry7 and rsi7 < 35 and rvol7 > 1.5 ? "FRESH BUY" : c7 >= tp7 ? "PROFIT (>3%)" : c7 > entry7 ? "RUNNING" : "WAIT"
+bd7    = v7 > avgv7 * 3 and c7 >= o7 ? "BIG ACCUM" : v7 > avgv7 * 1.5 and c7 >= o7 ? "ACCUM" : "NORMAL"
+act7   = st7 == "FRESH BUY" and bd7 != "NORMAL" ? "HAKA" : (st7 == "RUNNING" or st7 == "PROFIT (>3%)") ? (rsi7 > 80 ? "SELL" : "HOLD") : zona7 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c7  = st7 == "FRESH BUY" ? color.lime : st7 == "PROFIT (>3%)" ? color.fuchsia : st7 == "RUNNING" ? color.yellow : color.gray
+zn_c7  = zona7 == "MURAH" ? color.lime : zona7 == "MAHAL" ? color.red : color.yellow
+rs_c7  = rsi7 < 30 ? color.lime : rsi7 > 70 ? color.red : color.white
+bd_c7  = bd7 == "BIG ACCUM" ? color.fuchsia : bd7 == "ACCUM" ? color.lime : color.gray
+ac_c7  = act7 == "HAKA" ? color.lime : act7 == "SELL" ? color.red : act7 == "HOLD" ? color.yellow : act7 == "SKIP" ? color.red : color.gray
+rv_c7  = rvol7 > 2 ? color.lime : rvol7 > 1 ? color.yellow : color.gray
+// --- KBLM ---
+pv8 = (h8[1] + l8[1] + c8[1]) / 3
+atr8 = ta.atr(14)
+entry8 = math.round(2 * pv8 - h8[1])
+tp8    = math.round(entry8 * 1.03)
+sl8    = math.round(entry8 - atr8 * 0.5)
+pft8   = entry8 > 0 ? (c8 - entry8) / entry8 * 100 : 0
+rsi8   = ta.rsi(c8, 14)
+avgv8  = ta.sma(v8, 20)
+rvol8  = avgv8 > 0 ? v8 / avgv8 : 0
+val8   = v8 * c8
+bb_b8  = ta.sma(c8, 20)
+bb_d8  = 2 * ta.stdev(c8, 20)
+zona8  = c8 <= bb_b8 - bb_d8 ? "MURAH" : c8 >= bb_b8 + bb_d8 ? "MAHAL" : "MID"
+st8    = c8 <= entry8 and rsi8 < 35 and rvol8 > 1.5 ? "FRESH BUY" : c8 >= tp8 ? "PROFIT (>3%)" : c8 > entry8 ? "RUNNING" : "WAIT"
+bd8    = v8 > avgv8 * 3 and c8 >= o8 ? "BIG ACCUM" : v8 > avgv8 * 1.5 and c8 >= o8 ? "ACCUM" : "NORMAL"
+act8   = st8 == "FRESH BUY" and bd8 != "NORMAL" ? "HAKA" : (st8 == "RUNNING" or st8 == "PROFIT (>3%)") ? (rsi8 > 80 ? "SELL" : "HOLD") : zona8 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c8  = st8 == "FRESH BUY" ? color.lime : st8 == "PROFIT (>3%)" ? color.fuchsia : st8 == "RUNNING" ? color.yellow : color.gray
+zn_c8  = zona8 == "MURAH" ? color.lime : zona8 == "MAHAL" ? color.red : color.yellow
+rs_c8  = rsi8 < 30 ? color.lime : rsi8 > 70 ? color.red : color.white
+bd_c8  = bd8 == "BIG ACCUM" ? color.fuchsia : bd8 == "ACCUM" ? color.lime : color.gray
+ac_c8  = act8 == "HAKA" ? color.lime : act8 == "SELL" ? color.red : act8 == "HOLD" ? color.yellow : act8 == "SKIP" ? color.red : color.gray
+rv_c8  = rvol8 > 2 ? color.lime : rvol8 > 1 ? color.yellow : color.gray
+// --- UNSP ---
+pv9 = (h9[1] + l9[1] + c9[1]) / 3
+atr9 = ta.atr(14)
+entry9 = math.round(2 * pv9 - h9[1])
+tp9    = math.round(entry9 * 1.03)
+sl9    = math.round(entry9 - atr9 * 0.5)
+pft9   = entry9 > 0 ? (c9 - entry9) / entry9 * 100 : 0
+rsi9   = ta.rsi(c9, 14)
+avgv9  = ta.sma(v9, 20)
+rvol9  = avgv9 > 0 ? v9 / avgv9 : 0
+val9   = v9 * c9
+bb_b9  = ta.sma(c9, 20)
+bb_d9  = 2 * ta.stdev(c9, 20)
+zona9  = c9 <= bb_b9 - bb_d9 ? "MURAH" : c9 >= bb_b9 + bb_d9 ? "MAHAL" : "MID"
+st9    = c9 <= entry9 and rsi9 < 35 and rvol9 > 1.5 ? "FRESH BUY" : c9 >= tp9 ? "PROFIT (>3%)" : c9 > entry9 ? "RUNNING" : "WAIT"
+bd9    = v9 > avgv9 * 3 and c9 >= o9 ? "BIG ACCUM" : v9 > avgv9 * 1.5 and c9 >= o9 ? "ACCUM" : "NORMAL"
+act9   = st9 == "FRESH BUY" and bd9 != "NORMAL" ? "HAKA" : (st9 == "RUNNING" or st9 == "PROFIT (>3%)") ? (rsi9 > 80 ? "SELL" : "HOLD") : zona9 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c9  = st9 == "FRESH BUY" ? color.lime : st9 == "PROFIT (>3%)" ? color.fuchsia : st9 == "RUNNING" ? color.yellow : color.gray
+zn_c9  = zona9 == "MURAH" ? color.lime : zona9 == "MAHAL" ? color.red : color.yellow
+rs_c9  = rsi9 < 30 ? color.lime : rsi9 > 70 ? color.red : color.white
+bd_c9  = bd9 == "BIG ACCUM" ? color.fuchsia : bd9 == "ACCUM" ? color.lime : color.gray
+ac_c9  = act9 == "HAKA" ? color.lime : act9 == "SELL" ? color.red : act9 == "HOLD" ? color.yellow : act9 == "SKIP" ? color.red : color.gray
+rv_c9  = rvol9 > 2 ? color.lime : rvol9 > 1 ? color.yellow : color.gray
+// --- TIFA ---
+pv10 = (h10[1] + l10[1] + c10[1]) / 3
+atr10 = ta.atr(14)
+entry10 = math.round(2 * pv10 - h10[1])
+tp10    = math.round(entry10 * 1.03)
+sl10    = math.round(entry10 - atr10 * 0.5)
+pft10   = entry10 > 0 ? (c10 - entry10) / entry10 * 100 : 0
+rsi10   = ta.rsi(c10, 14)
+avgv10  = ta.sma(v10, 20)
+rvol10  = avgv10 > 0 ? v10 / avgv10 : 0
+val10   = v10 * c10
+bb_b10  = ta.sma(c10, 20)
+bb_d10  = 2 * ta.stdev(c10, 20)
+zona10  = c10 <= bb_b10 - bb_d10 ? "MURAH" : c10 >= bb_b10 + bb_d10 ? "MAHAL" : "MID"
+st10    = c10 <= entry10 and rsi10 < 35 and rvol10 > 1.5 ? "FRESH BUY" : c10 >= tp10 ? "PROFIT (>3%)" : c10 > entry10 ? "RUNNING" : "WAIT"
+bd10    = v10 > avgv10 * 3 and c10 >= o10 ? "BIG ACCUM" : v10 > avgv10 * 1.5 and c10 >= o10 ? "ACCUM" : "NORMAL"
+act10   = st10 == "FRESH BUY" and bd10 != "NORMAL" ? "HAKA" : (st10 == "RUNNING" or st10 == "PROFIT (>3%)") ? (rsi10 > 80 ? "SELL" : "HOLD") : zona10 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c10  = st10 == "FRESH BUY" ? color.lime : st10 == "PROFIT (>3%)" ? color.fuchsia : st10 == "RUNNING" ? color.yellow : color.gray
+zn_c10  = zona10 == "MURAH" ? color.lime : zona10 == "MAHAL" ? color.red : color.yellow
+rs_c10  = rsi10 < 30 ? color.lime : rsi10 > 70 ? color.red : color.white
+bd_c10  = bd10 == "BIG ACCUM" ? color.fuchsia : bd10 == "ACCUM" ? color.lime : color.gray
+ac_c10  = act10 == "HAKA" ? color.lime : act10 == "SELL" ? color.red : act10 == "HOLD" ? color.yellow : act10 == "SKIP" ? color.red : color.gray
+rv_c10  = rvol10 > 2 ? color.lime : rvol10 > 1 ? color.yellow : color.gray
+
+// ============================================================================
+// TABLE DISPLAY
+// ============================================================================
+tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+
+var tbl = table.new(tbl_pos, 14, 11, border_width=1, border_color=#333333)
+
+if barstate.islast
+    // Header row
+    hdr_bg = #ff8c00
+    hdr_clr = color.black
+    table.cell(tbl, 0, 0, "EMITEN", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 1, 0, "TF", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 2, 0, "ENTRY", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 3, 0, "NOW", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 4, 0, "TP", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 5, 0, "SL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 6, 0, "PROFIT", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 7, 0, "STATUS", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 8, 0, "ZONA", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 9, 0, "RSI", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 10, 0, "RVOL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 11, 0, "VALUE", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 12, 0, "BANDAR", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 13, 0, "ACTION", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+
+if barstate.islast
+    // Row 1: AMOR
+    row1 = 1
+    table.cell(tbl, 0, row1, "AMOR", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row1, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row1, str.tostring(entry1, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row1, str.tostring(c1, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row1, str.tostring(tp1, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row1, str.tostring(sl1, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row1, str.tostring(pft1, "#.##") + "%", text_color=pft1 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row1, st1, text_color=color.black, bgcolor=st_c1, text_size=size.small)
+    table.cell(tbl, 8, row1, zona1, text_color=color.black, bgcolor=zn_c1, text_size=size.small)
+    table.cell(tbl, 9, row1, str.tostring(rsi1, "#.#"), text_color=rs_c1, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row1, str.tostring(rvol1, "#.##"), text_color=rv_c1, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row1, val1 > 1e9 ? str.tostring(val1/1e9, "#.#") + "B" : str.tostring(val1/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row1, bd1, text_color=color.black, bgcolor=bd_c1, text_size=size.small)
+    table.cell(tbl, 13, row1, act1, text_color=color.black, bgcolor=ac_c1, text_size=size.small)
+    // Row 2: CFIN
+    row2 = 2
+    table.cell(tbl, 0, row2, "CFIN", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row2, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row2, str.tostring(entry2, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row2, str.tostring(c2, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row2, str.tostring(tp2, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row2, str.tostring(sl2, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row2, str.tostring(pft2, "#.##") + "%", text_color=pft2 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row2, st2, text_color=color.black, bgcolor=st_c2, text_size=size.small)
+    table.cell(tbl, 8, row2, zona2, text_color=color.black, bgcolor=zn_c2, text_size=size.small)
+    table.cell(tbl, 9, row2, str.tostring(rsi2, "#.#"), text_color=rs_c2, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row2, str.tostring(rvol2, "#.##"), text_color=rv_c2, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row2, val2 > 1e9 ? str.tostring(val2/1e9, "#.#") + "B" : str.tostring(val2/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row2, bd2, text_color=color.black, bgcolor=bd_c2, text_size=size.small)
+    table.cell(tbl, 13, row2, act2, text_color=color.black, bgcolor=ac_c2, text_size=size.small)
+    // Row 3: MINA
+    row3 = 3
+    table.cell(tbl, 0, row3, "MINA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row3, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row3, str.tostring(entry3, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row3, str.tostring(c3, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row3, str.tostring(tp3, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row3, str.tostring(sl3, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row3, str.tostring(pft3, "#.##") + "%", text_color=pft3 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row3, st3, text_color=color.black, bgcolor=st_c3, text_size=size.small)
+    table.cell(tbl, 8, row3, zona3, text_color=color.black, bgcolor=zn_c3, text_size=size.small)
+    table.cell(tbl, 9, row3, str.tostring(rsi3, "#.#"), text_color=rs_c3, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row3, str.tostring(rvol3, "#.##"), text_color=rv_c3, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row3, val3 > 1e9 ? str.tostring(val3/1e9, "#.#") + "B" : str.tostring(val3/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row3, bd3, text_color=color.black, bgcolor=bd_c3, text_size=size.small)
+    table.cell(tbl, 13, row3, act3, text_color=color.black, bgcolor=ac_c3, text_size=size.small)
+    // Row 4: PEHA
+    row4 = 4
+    table.cell(tbl, 0, row4, "PEHA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row4, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row4, str.tostring(entry4, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row4, str.tostring(c4, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row4, str.tostring(tp4, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row4, str.tostring(sl4, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row4, str.tostring(pft4, "#.##") + "%", text_color=pft4 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row4, st4, text_color=color.black, bgcolor=st_c4, text_size=size.small)
+    table.cell(tbl, 8, row4, zona4, text_color=color.black, bgcolor=zn_c4, text_size=size.small)
+    table.cell(tbl, 9, row4, str.tostring(rsi4, "#.#"), text_color=rs_c4, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row4, str.tostring(rvol4, "#.##"), text_color=rv_c4, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row4, val4 > 1e9 ? str.tostring(val4/1e9, "#.#") + "B" : str.tostring(val4/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row4, bd4, text_color=color.black, bgcolor=bd_c4, text_size=size.small)
+    table.cell(tbl, 13, row4, act4, text_color=color.black, bgcolor=ac_c4, text_size=size.small)
+    // Row 5: SAME
+    row5 = 5
+    table.cell(tbl, 0, row5, "SAME", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row5, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row5, str.tostring(entry5, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row5, str.tostring(c5, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row5, str.tostring(tp5, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row5, str.tostring(sl5, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row5, str.tostring(pft5, "#.##") + "%", text_color=pft5 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row5, st5, text_color=color.black, bgcolor=st_c5, text_size=size.small)
+    table.cell(tbl, 8, row5, zona5, text_color=color.black, bgcolor=zn_c5, text_size=size.small)
+    table.cell(tbl, 9, row5, str.tostring(rsi5, "#.#"), text_color=rs_c5, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row5, str.tostring(rvol5, "#.##"), text_color=rv_c5, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row5, val5 > 1e9 ? str.tostring(val5/1e9, "#.#") + "B" : str.tostring(val5/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row5, bd5, text_color=color.black, bgcolor=bd_c5, text_size=size.small)
+    table.cell(tbl, 13, row5, act5, text_color=color.black, bgcolor=ac_c5, text_size=size.small)
+    // Row 6: PYFA
+    row6 = 6
+    table.cell(tbl, 0, row6, "PYFA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row6, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row6, str.tostring(entry6, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row6, str.tostring(c6, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row6, str.tostring(tp6, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row6, str.tostring(sl6, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row6, str.tostring(pft6, "#.##") + "%", text_color=pft6 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row6, st6, text_color=color.black, bgcolor=st_c6, text_size=size.small)
+    table.cell(tbl, 8, row6, zona6, text_color=color.black, bgcolor=zn_c6, text_size=size.small)
+    table.cell(tbl, 9, row6, str.tostring(rsi6, "#.#"), text_color=rs_c6, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row6, str.tostring(rvol6, "#.##"), text_color=rv_c6, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row6, val6 > 1e9 ? str.tostring(val6/1e9, "#.#") + "B" : str.tostring(val6/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row6, bd6, text_color=color.black, bgcolor=bd_c6, text_size=size.small)
+    table.cell(tbl, 13, row6, act6, text_color=color.black, bgcolor=ac_c6, text_size=size.small)
+    // Row 7: GOOD
+    row7 = 7
+    table.cell(tbl, 0, row7, "GOOD", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row7, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row7, str.tostring(entry7, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row7, str.tostring(c7, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row7, str.tostring(tp7, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row7, str.tostring(sl7, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row7, str.tostring(pft7, "#.##") + "%", text_color=pft7 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row7, st7, text_color=color.black, bgcolor=st_c7, text_size=size.small)
+    table.cell(tbl, 8, row7, zona7, text_color=color.black, bgcolor=zn_c7, text_size=size.small)
+    table.cell(tbl, 9, row7, str.tostring(rsi7, "#.#"), text_color=rs_c7, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row7, str.tostring(rvol7, "#.##"), text_color=rv_c7, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row7, val7 > 1e9 ? str.tostring(val7/1e9, "#.#") + "B" : str.tostring(val7/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row7, bd7, text_color=color.black, bgcolor=bd_c7, text_size=size.small)
+    table.cell(tbl, 13, row7, act7, text_color=color.black, bgcolor=ac_c7, text_size=size.small)
+    // Row 8: KBLM
+    row8 = 8
+    table.cell(tbl, 0, row8, "KBLM", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row8, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row8, str.tostring(entry8, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row8, str.tostring(c8, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row8, str.tostring(tp8, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row8, str.tostring(sl8, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row8, str.tostring(pft8, "#.##") + "%", text_color=pft8 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row8, st8, text_color=color.black, bgcolor=st_c8, text_size=size.small)
+    table.cell(tbl, 8, row8, zona8, text_color=color.black, bgcolor=zn_c8, text_size=size.small)
+    table.cell(tbl, 9, row8, str.tostring(rsi8, "#.#"), text_color=rs_c8, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row8, str.tostring(rvol8, "#.##"), text_color=rv_c8, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row8, val8 > 1e9 ? str.tostring(val8/1e9, "#.#") + "B" : str.tostring(val8/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row8, bd8, text_color=color.black, bgcolor=bd_c8, text_size=size.small)
+    table.cell(tbl, 13, row8, act8, text_color=color.black, bgcolor=ac_c8, text_size=size.small)
+    // Row 9: UNSP
+    row9 = 9
+    table.cell(tbl, 0, row9, "UNSP", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row9, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row9, str.tostring(entry9, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row9, str.tostring(c9, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row9, str.tostring(tp9, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row9, str.tostring(sl9, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row9, str.tostring(pft9, "#.##") + "%", text_color=pft9 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row9, st9, text_color=color.black, bgcolor=st_c9, text_size=size.small)
+    table.cell(tbl, 8, row9, zona9, text_color=color.black, bgcolor=zn_c9, text_size=size.small)
+    table.cell(tbl, 9, row9, str.tostring(rsi9, "#.#"), text_color=rs_c9, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row9, str.tostring(rvol9, "#.##"), text_color=rv_c9, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row9, val9 > 1e9 ? str.tostring(val9/1e9, "#.#") + "B" : str.tostring(val9/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row9, bd9, text_color=color.black, bgcolor=bd_c9, text_size=size.small)
+    table.cell(tbl, 13, row9, act9, text_color=color.black, bgcolor=ac_c9, text_size=size.small)
+    // Row 10: TIFA
+    row10 = 10
+    table.cell(tbl, 0, row10, "TIFA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row10, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row10, str.tostring(entry10, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row10, str.tostring(c10, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row10, str.tostring(tp10, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row10, str.tostring(sl10, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row10, str.tostring(pft10, "#.##") + "%", text_color=pft10 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row10, st10, text_color=color.black, bgcolor=st_c10, text_size=size.small)
+    table.cell(tbl, 8, row10, zona10, text_color=color.black, bgcolor=zn_c10, text_size=size.small)
+    table.cell(tbl, 9, row10, str.tostring(rsi10, "#.#"), text_color=rs_c10, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row10, str.tostring(rvol10, "#.##"), text_color=rv_c10, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row10, val10 > 1e9 ? str.tostring(val10/1e9, "#.#") + "B" : str.tostring(val10/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row10, bd10, text_color=color.black, bgcolor=bd_c10, text_size=size.small)
+    table.cell(tbl, 13, row10, act10, text_color=color.black, bgcolor=ac_c10, text_size=size.small)
+
+// ============================================================================
+// ALERTS - Webhook JSON payload for each HAKA signal
+// ============================================================================
+if barstate.islast
+    if st1 == "FRESH BUY" and act1 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"AMOR","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry1) + ',"tp":' + str.tostring(tp1) + ',"sl":' + str.tostring(sl1) + ',"rsi":' + str.tostring(rsi1, "#.#") + ',"rvol":' + str.tostring(rvol1, "#.##") + ',"zona":"' + zona1 + '","bandar":"' + bd1 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st2 == "FRESH BUY" and act2 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"CFIN","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry2) + ',"tp":' + str.tostring(tp2) + ',"sl":' + str.tostring(sl2) + ',"rsi":' + str.tostring(rsi2, "#.#") + ',"rvol":' + str.tostring(rvol2, "#.##") + ',"zona":"' + zona2 + '","bandar":"' + bd2 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st3 == "FRESH BUY" and act3 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"MINA","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry3) + ',"tp":' + str.tostring(tp3) + ',"sl":' + str.tostring(sl3) + ',"rsi":' + str.tostring(rsi3, "#.#") + ',"rvol":' + str.tostring(rvol3, "#.##") + ',"zona":"' + zona3 + '","bandar":"' + bd3 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st4 == "FRESH BUY" and act4 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"PEHA","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry4) + ',"tp":' + str.tostring(tp4) + ',"sl":' + str.tostring(sl4) + ',"rsi":' + str.tostring(rsi4, "#.#") + ',"rvol":' + str.tostring(rvol4, "#.##") + ',"zona":"' + zona4 + '","bandar":"' + bd4 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st5 == "FRESH BUY" and act5 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"SAME","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry5) + ',"tp":' + str.tostring(tp5) + ',"sl":' + str.tostring(sl5) + ',"rsi":' + str.tostring(rsi5, "#.#") + ',"rvol":' + str.tostring(rvol5, "#.##") + ',"zona":"' + zona5 + '","bandar":"' + bd5 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st6 == "FRESH BUY" and act6 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"PYFA","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry6) + ',"tp":' + str.tostring(tp6) + ',"sl":' + str.tostring(sl6) + ',"rsi":' + str.tostring(rsi6, "#.#") + ',"rvol":' + str.tostring(rvol6, "#.##") + ',"zona":"' + zona6 + '","bandar":"' + bd6 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st7 == "FRESH BUY" and act7 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"GOOD","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry7) + ',"tp":' + str.tostring(tp7) + ',"sl":' + str.tostring(sl7) + ',"rsi":' + str.tostring(rsi7, "#.#") + ',"rvol":' + str.tostring(rvol7, "#.##") + ',"zona":"' + zona7 + '","bandar":"' + bd7 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st8 == "FRESH BUY" and act8 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"KBLM","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry8) + ',"tp":' + str.tostring(tp8) + ',"sl":' + str.tostring(sl8) + ',"rsi":' + str.tostring(rsi8, "#.#") + ',"rvol":' + str.tostring(rvol8, "#.##") + ',"zona":"' + zona8 + '","bandar":"' + bd8 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st9 == "FRESH BUY" and act9 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"UNSP","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry9) + ',"tp":' + str.tostring(tp9) + ',"sl":' + str.tostring(sl9) + ',"rsi":' + str.tostring(rsi9, "#.#") + ',"rvol":' + str.tostring(rvol9, "#.##") + ',"zona":"' + zona9 + '","bandar":"' + bd9 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st10 == "FRESH BUY" and act10 == "HAKA"
+        alert('{"type":"SCALP","batch":"G","ticker":"TIFA","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry10) + ',"tp":' + str.tostring(tp10) + ',"sl":' + str.tostring(sl10) + ',"rsi":' + str.tostring(rsi10, "#.#") + ',"rvol":' + str.tostring(rvol10, "#.##") + ',"zona":"' + zona10 + '","bandar":"' + bd10 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+
+// ============================================================================
+// PLOT (hidden, for alert placeholders)
+// ============================================================================
+plot(close, display=display.none)

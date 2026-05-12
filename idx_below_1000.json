@@ -1,0 +1,1004 @@
+{
+  "date": "2026-05-12",
+  "total": 191,
+  "batches": 20,
+  "stocks": [
+    {
+      "ticker": "DRMA",
+      "price": 980.0
+    },
+    {
+      "ticker": "HRUM",
+      "price": 910.0
+    },
+    {
+      "ticker": "SOTS",
+      "price": 890.0
+    },
+    {
+      "ticker": "PBSA",
+      "price": 875.0
+    },
+    {
+      "ticker": "KLBF",
+      "price": 870.0
+    },
+    {
+      "ticker": "BSIM",
+      "price": 855.0
+    },
+    {
+      "ticker": "MARK",
+      "price": 840.0
+    },
+    {
+      "ticker": "MAIN",
+      "price": 835.0
+    },
+    {
+      "ticker": "JECC",
+      "price": 815.0
+    },
+    {
+      "ticker": "ESSA",
+      "price": 805.0
+    },
+    {
+      "ticker": "BJBR",
+      "price": 795.0
+    },
+    {
+      "ticker": "BNBA",
+      "price": 790.0
+    },
+    {
+      "ticker": "CMNT",
+      "price": 780.0
+    },
+    {
+      "ticker": "ASSA",
+      "price": 770.0
+    },
+    {
+      "ticker": "DKFT",
+      "price": 770.0
+    },
+    {
+      "ticker": "BFIN",
+      "price": 765.0
+    },
+    {
+      "ticker": "BRMS",
+      "price": 755.0
+    },
+    {
+      "ticker": "BSDE",
+      "price": 755.0
+    },
+    {
+      "ticker": "PRAY",
+      "price": 750.0
+    },
+    {
+      "ticker": "HMSP",
+      "price": 740.0
+    },
+    {
+      "ticker": "EMTK",
+      "price": 730.0
+    },
+    {
+      "ticker": "ELSA",
+      "price": 710.0
+    },
+    {
+      "ticker": "LPGI",
+      "price": 705.0
+    },
+    {
+      "ticker": "TBLA",
+      "price": 690.0
+    },
+    {
+      "ticker": "CTRA",
+      "price": 680.0
+    },
+    {
+      "ticker": "RIGS",
+      "price": 680.0
+    },
+    {
+      "ticker": "MSIN",
+      "price": 665.0
+    },
+    {
+      "ticker": "SIMP",
+      "price": 655.0
+    },
+    {
+      "ticker": "KAEF",
+      "price": 630.0
+    },
+    {
+      "ticker": "STAR",
+      "price": 625.0
+    },
+    {
+      "ticker": "ROTI",
+      "price": 610.0
+    },
+    {
+      "ticker": "MBMA",
+      "price": 605.0
+    },
+    {
+      "ticker": "LPCK",
+      "price": 600.0
+    },
+    {
+      "ticker": "BJTM",
+      "price": 595.0
+    },
+    {
+      "ticker": "BANK",
+      "price": 580.0
+    },
+    {
+      "ticker": "TOBA",
+      "price": 570.0
+    },
+    {
+      "ticker": "KEJU",
+      "price": 555.0
+    },
+    {
+      "ticker": "NRCA",
+      "price": 555.0
+    },
+    {
+      "ticker": "TRIM",
+      "price": 555.0
+    },
+    {
+      "ticker": "IKBI",
+      "price": 550.0
+    },
+    {
+      "ticker": "PSAB",
+      "price": 525.0
+    },
+    {
+      "ticker": "NOBU",
+      "price": 515.0
+    },
+    {
+      "ticker": "MTLA",
+      "price": 500.0
+    },
+    {
+      "ticker": "PDES",
+      "price": 500.0
+    },
+    {
+      "ticker": "ARNA",
+      "price": 488.0
+    },
+    {
+      "ticker": "SIDO",
+      "price": 472.0
+    },
+    {
+      "ticker": "TOWR",
+      "price": 470.0
+    },
+    {
+      "ticker": "DEWA",
+      "price": 466.0
+    },
+    {
+      "ticker": "BPII",
+      "price": 462.0
+    },
+    {
+      "ticker": "BULL",
+      "price": 454.0
+    },
+    {
+      "ticker": "KDSI",
+      "price": 448.0
+    },
+    {
+      "ticker": "LPIN",
+      "price": 432.0
+    },
+    {
+      "ticker": "BSML",
+      "price": 410.0
+    },
+    {
+      "ticker": "CLEO",
+      "price": 402.0
+    },
+    {
+      "ticker": "ERAA",
+      "price": 402.0
+    },
+    {
+      "ticker": "ACES",
+      "price": 380.0
+    },
+    {
+      "ticker": "INDS",
+      "price": 378.0
+    },
+    {
+      "ticker": "SAFE",
+      "price": 358.0
+    },
+    {
+      "ticker": "MMLP",
+      "price": 354.0
+    },
+    {
+      "ticker": "SGER",
+      "price": 352.0
+    },
+    {
+      "ticker": "AMOR",
+      "price": 348.0
+    },
+    {
+      "ticker": "CFIN",
+      "price": 346.0
+    },
+    {
+      "ticker": "MINA",
+      "price": 346.0
+    },
+    {
+      "ticker": "PEHA",
+      "price": 346.0
+    },
+    {
+      "ticker": "SAME",
+      "price": 346.0
+    },
+    {
+      "ticker": "PYFA",
+      "price": 344.0
+    },
+    {
+      "ticker": "GOOD",
+      "price": 342.0
+    },
+    {
+      "ticker": "KBLM",
+      "price": 340.0
+    },
+    {
+      "ticker": "UNSP",
+      "price": 340.0
+    },
+    {
+      "ticker": "TIFA",
+      "price": 334.0
+    },
+    {
+      "ticker": "KBLI",
+      "price": 326.0
+    },
+    {
+      "ticker": "SMDR",
+      "price": 322.0
+    },
+    {
+      "ticker": "SMRA",
+      "price": 322.0
+    },
+    {
+      "ticker": "FUJI",
+      "price": 318.0
+    },
+    {
+      "ticker": "KKGI",
+      "price": 312.0
+    },
+    {
+      "ticker": "MCAS",
+      "price": 312.0
+    },
+    {
+      "ticker": "PWON",
+      "price": 310.0
+    },
+    {
+      "ticker": "NELY",
+      "price": 306.0
+    },
+    {
+      "ticker": "BBYB",
+      "price": 300.0
+    },
+    {
+      "ticker": "ARII",
+      "price": 298.0
+    },
+    {
+      "ticker": "AMAN",
+      "price": 294.0
+    },
+    {
+      "ticker": "WOMF",
+      "price": 294.0
+    },
+    {
+      "ticker": "INET",
+      "price": 284.0
+    },
+    {
+      "ticker": "PNLF",
+      "price": 270.0
+    },
+    {
+      "ticker": "TOTO",
+      "price": 264.0
+    },
+    {
+      "ticker": "MLIA",
+      "price": 260.0
+    },
+    {
+      "ticker": "SDRA",
+      "price": 258.0
+    },
+    {
+      "ticker": "ITIC",
+      "price": 248.0
+    },
+    {
+      "ticker": "SCMA",
+      "price": 246.0
+    },
+    {
+      "ticker": "PTPP",
+      "price": 244.0
+    },
+    {
+      "ticker": "PSKT",
+      "price": 240.0
+    },
+    {
+      "ticker": "MITI",
+      "price": 234.0
+    },
+    {
+      "ticker": "AGAR",
+      "price": 232.0
+    },
+    {
+      "ticker": "URBN",
+      "price": 230.0
+    },
+    {
+      "ticker": "VOKS",
+      "price": 224.0
+    },
+    {
+      "ticker": "MNCN",
+      "price": 222.0
+    },
+    {
+      "ticker": "BUMI",
+      "price": 214.0
+    },
+    {
+      "ticker": "RAAM",
+      "price": 212.0
+    },
+    {
+      "ticker": "SPMA",
+      "price": 212.0
+    },
+    {
+      "ticker": "BUDI",
+      "price": 210.0
+    },
+    {
+      "ticker": "GTBO",
+      "price": 210.0
+    },
+    {
+      "ticker": "PPGL",
+      "price": 206.0
+    },
+    {
+      "ticker": "NIRO",
+      "price": 204.0
+    },
+    {
+      "ticker": "BNII",
+      "price": 202.0
+    },
+    {
+      "ticker": "CAMP",
+      "price": 202.0
+    },
+    {
+      "ticker": "ADHI",
+      "price": 200.0
+    },
+    {
+      "ticker": "AMAR",
+      "price": 200.0
+    },
+    {
+      "ticker": "DEFI",
+      "price": 200.0
+    },
+    {
+      "ticker": "PSGO",
+      "price": 199.0
+    },
+    {
+      "ticker": "HELI",
+      "price": 196.0
+    },
+    {
+      "ticker": "SMBR",
+      "price": 195.0
+    },
+    {
+      "ticker": "BMHS",
+      "price": 192.0
+    },
+    {
+      "ticker": "CINT",
+      "price": 191.0
+    },
+    {
+      "ticker": "GZCO",
+      "price": 189.0
+    },
+    {
+      "ticker": "AGRO",
+      "price": 181.0
+    },
+    {
+      "ticker": "APLN",
+      "price": 180.0
+    },
+    {
+      "ticker": "APEX",
+      "price": 177.0
+    },
+    {
+      "ticker": "KIJA",
+      "price": 175.0
+    },
+    {
+      "ticker": "PPRI",
+      "price": 175.0
+    },
+    {
+      "ticker": "FOOD",
+      "price": 173.0
+    },
+    {
+      "ticker": "BOLA",
+      "price": 170.0
+    },
+    {
+      "ticker": "PADA",
+      "price": 168.0
+    },
+    {
+      "ticker": "SMKL",
+      "price": 168.0
+    },
+    {
+      "ticker": "BNBR",
+      "price": 158.0
+    },
+    {
+      "ticker": "UFOE",
+      "price": 153.0
+    },
+    {
+      "ticker": "CAKK",
+      "price": 151.0
+    },
+    {
+      "ticker": "GWSA",
+      "price": 149.0
+    },
+    {
+      "ticker": "BUKA",
+      "price": 143.0
+    },
+    {
+      "ticker": "DNAR",
+      "price": 140.0
+    },
+    {
+      "ticker": "DGIK",
+      "price": 139.0
+    },
+    {
+      "ticker": "FIRE",
+      "price": 136.0
+    },
+    {
+      "ticker": "TRJA",
+      "price": 136.0
+    },
+    {
+      "ticker": "BACA",
+      "price": 135.0
+    },
+    {
+      "ticker": "ASRI",
+      "price": 128.0
+    },
+    {
+      "ticker": "WEHA",
+      "price": 128.0
+    },
+    {
+      "ticker": "BCIC",
+      "price": 125.0
+    },
+    {
+      "ticker": "DILD",
+      "price": 125.0
+    },
+    {
+      "ticker": "TMAS",
+      "price": 123.0
+    },
+    {
+      "ticker": "BGTG",
+      "price": 122.0
+    },
+    {
+      "ticker": "AISA",
+      "price": 121.0
+    },
+    {
+      "ticker": "BWPT",
+      "price": 119.0
+    },
+    {
+      "ticker": "LCKM",
+      "price": 114.0
+    },
+    {
+      "ticker": "LUCK",
+      "price": 113.0
+    },
+    {
+      "ticker": "GPRA",
+      "price": 112.0
+    },
+    {
+      "ticker": "HDFA",
+      "price": 110.0
+    },
+    {
+      "ticker": "MDIA",
+      "price": 110.0
+    },
+    {
+      "ticker": "BKSL",
+      "price": 102.0
+    },
+    {
+      "ticker": "CENT",
+      "price": 100.0
+    },
+    {
+      "ticker": "KIOS",
+      "price": 100.0
+    },
+    {
+      "ticker": "RICY",
+      "price": 99.0
+    },
+    {
+      "ticker": "IKAN",
+      "price": 97.0
+    },
+    {
+      "ticker": "YELO",
+      "price": 95.0
+    },
+    {
+      "ticker": "ACST",
+      "price": 94.0
+    },
+    {
+      "ticker": "CARS",
+      "price": 94.0
+    },
+    {
+      "ticker": "WTON",
+      "price": 88.0
+    },
+    {
+      "ticker": "GEMA",
+      "price": 87.0
+    },
+    {
+      "ticker": "TOOL",
+      "price": 87.0
+    },
+    {
+      "ticker": "LPPS",
+      "price": 85.0
+    },
+    {
+      "ticker": "EMDE",
+      "price": 80.0
+    },
+    {
+      "ticker": "LPKR",
+      "price": 80.0
+    },
+    {
+      "ticker": "VRNA",
+      "price": 79.0
+    },
+    {
+      "ticker": "BCIP",
+      "price": 76.0
+    },
+    {
+      "ticker": "JKON",
+      "price": 76.0
+    },
+    {
+      "ticker": "MCOR",
+      "price": 70.0
+    },
+    {
+      "ticker": "AGRS",
+      "price": 68.0
+    },
+    {
+      "ticker": "GIAA",
+      "price": 65.0
+    },
+    {
+      "ticker": "HOKI",
+      "price": 64.0
+    },
+    {
+      "ticker": "COAL",
+      "price": 57.0
+    },
+    {
+      "ticker": "MDLN",
+      "price": 52.0
+    },
+    {
+      "ticker": "REAL",
+      "price": 52.0
+    },
+    {
+      "ticker": "BABP",
+      "price": 51.0
+    },
+    {
+      "ticker": "GOTO",
+      "price": 50.0
+    },
+    {
+      "ticker": "CNKO",
+      "price": 44.0
+    },
+    {
+      "ticker": "IPTV",
+      "price": 42.0
+    },
+    {
+      "ticker": "VIVA",
+      "price": 42.0
+    },
+    {
+      "ticker": "ELTY",
+      "price": 41.0
+    },
+    {
+      "ticker": "WMPP",
+      "price": 41.0
+    },
+    {
+      "ticker": "DIGI",
+      "price": 38.0
+    },
+    {
+      "ticker": "PCAR",
+      "price": 36.0
+    },
+    {
+      "ticker": "PBRX",
+      "price": 35.0
+    },
+    {
+      "ticker": "PURA",
+      "price": 31.0
+    },
+    {
+      "ticker": "MARI",
+      "price": 30.0
+    },
+    {
+      "ticker": "BEKS",
+      "price": 26.0
+    },
+    {
+      "ticker": "IKAI",
+      "price": 24.0
+    },
+    {
+      "ticker": "BAPI",
+      "price": 23.0
+    },
+    {
+      "ticker": "PPRO",
+      "price": 20.0
+    },
+    {
+      "ticker": "HADE",
+      "price": 18.0
+    },
+    {
+      "ticker": "WSBP",
+      "price": 18.0
+    },
+    {
+      "ticker": "KREN",
+      "price": 16.0
+    },
+    {
+      "ticker": "TAXI",
+      "price": 16.0
+    },
+    {
+      "ticker": "BTEK",
+      "price": 13.0
+    }
+  ],
+  "batch_groups": {
+    "batch_A": [
+      "DRMA",
+      "HRUM",
+      "SOTS",
+      "PBSA",
+      "KLBF",
+      "BSIM",
+      "MARK",
+      "MAIN",
+      "JECC",
+      "ESSA"
+    ],
+    "batch_B": [
+      "BJBR",
+      "BNBA",
+      "CMNT",
+      "ASSA",
+      "DKFT",
+      "BFIN",
+      "BRMS",
+      "BSDE",
+      "PRAY",
+      "HMSP"
+    ],
+    "batch_C": [
+      "EMTK",
+      "ELSA",
+      "LPGI",
+      "TBLA",
+      "CTRA",
+      "RIGS",
+      "MSIN",
+      "SIMP",
+      "KAEF",
+      "STAR"
+    ],
+    "batch_D": [
+      "ROTI",
+      "MBMA",
+      "LPCK",
+      "BJTM",
+      "BANK",
+      "TOBA",
+      "KEJU",
+      "NRCA",
+      "TRIM",
+      "IKBI"
+    ],
+    "batch_E": [
+      "PSAB",
+      "NOBU",
+      "MTLA",
+      "PDES",
+      "ARNA",
+      "SIDO",
+      "TOWR",
+      "DEWA",
+      "BPII",
+      "BULL"
+    ],
+    "batch_F": [
+      "KDSI",
+      "LPIN",
+      "BSML",
+      "CLEO",
+      "ERAA",
+      "ACES",
+      "INDS",
+      "SAFE",
+      "MMLP",
+      "SGER"
+    ],
+    "batch_G": [
+      "AMOR",
+      "CFIN",
+      "MINA",
+      "PEHA",
+      "SAME",
+      "PYFA",
+      "GOOD",
+      "KBLM",
+      "UNSP",
+      "TIFA"
+    ],
+    "batch_H": [
+      "KBLI",
+      "SMDR",
+      "SMRA",
+      "FUJI",
+      "KKGI",
+      "MCAS",
+      "PWON",
+      "NELY",
+      "BBYB",
+      "ARII"
+    ],
+    "batch_I": [
+      "AMAN",
+      "WOMF",
+      "INET",
+      "PNLF",
+      "TOTO",
+      "MLIA",
+      "SDRA",
+      "ITIC",
+      "SCMA",
+      "PTPP"
+    ],
+    "batch_J": [
+      "PSKT",
+      "MITI",
+      "AGAR",
+      "URBN",
+      "VOKS",
+      "MNCN",
+      "BUMI",
+      "RAAM",
+      "SPMA",
+      "BUDI"
+    ],
+    "batch_K": [
+      "GTBO",
+      "PPGL",
+      "NIRO",
+      "BNII",
+      "CAMP",
+      "ADHI",
+      "AMAR",
+      "DEFI",
+      "PSGO",
+      "HELI"
+    ],
+    "batch_L": [
+      "SMBR",
+      "BMHS",
+      "CINT",
+      "GZCO",
+      "AGRO",
+      "APLN",
+      "APEX",
+      "KIJA",
+      "PPRI",
+      "FOOD"
+    ],
+    "batch_M": [
+      "BOLA",
+      "PADA",
+      "SMKL",
+      "BNBR",
+      "UFOE",
+      "CAKK",
+      "GWSA",
+      "BUKA",
+      "DNAR",
+      "DGIK"
+    ],
+    "batch_N": [
+      "FIRE",
+      "TRJA",
+      "BACA",
+      "ASRI",
+      "WEHA",
+      "BCIC",
+      "DILD",
+      "TMAS",
+      "BGTG",
+      "AISA"
+    ],
+    "batch_O": [
+      "BWPT",
+      "LCKM",
+      "LUCK",
+      "GPRA",
+      "HDFA",
+      "MDIA",
+      "BKSL",
+      "CENT",
+      "KIOS",
+      "RICY"
+    ],
+    "batch_P": [
+      "IKAN",
+      "YELO",
+      "ACST",
+      "CARS",
+      "WTON",
+      "GEMA",
+      "TOOL",
+      "LPPS",
+      "EMDE",
+      "LPKR"
+    ],
+    "batch_Q": [
+      "VRNA",
+      "BCIP",
+      "JKON",
+      "MCOR",
+      "AGRS",
+      "GIAA",
+      "HOKI",
+      "COAL",
+      "MDLN",
+      "REAL"
+    ],
+    "batch_R": [
+      "BABP",
+      "GOTO",
+      "CNKO",
+      "IPTV",
+      "VIVA",
+      "ELTY",
+      "WMPP",
+      "DIGI",
+      "PCAR",
+      "PBRX"
+    ],
+    "batch_S": [
+      "PURA",
+      "MARI",
+      "BEKS",
+      "IKAI",
+      "BAPI",
+      "PPRO",
+      "HADE",
+      "WSBP",
+      "KREN",
+      "TAXI"
+    ],
+    "batch_T": [
+      "BTEK"
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+//@version=5
+indicator("BANDAR AI ENGINE PRO v2", overlay=true, max_labels_count=500)
+
+//=====================================================
+// INPUT
+//=====================================================
+emaSlowLen     = input.int(200, "EMA Trend")
+volMultiplier  = input.float(1.5, "Vol Spike Multiplier")
+showAbsorb     = input.bool(true, "Show Absorption")
+showSniper     = input.bool(true, "Show Sniper Entry")
+showDashboard  = input.bool(true, "Show Dashboard")
+
+//=====================================================
+// ENGINE
+//=====================================================
+emaSlow = ta.ema(close, emaSlowLen)
+bullTrend = close > emaSlow
+bearTrend = close < emaSlow
+
+volMA = ta.sma(volume, 20)
+volSpike = volume > volMA * volMultiplier
+
+body = math.abs(close - open)
+candleRange = high - low
+lowerWick = math.min(open, close) - low
+upperWick = high - math.max(open, close)
+
+// Logika Anti-Repaint: Sinyal dihitung saat bar sedang jalan, 
+// tapi dieksekusi hanya saat barstate.isconfirmed
+bullAbsorb = lowerWick > body * 1.1 and volume > volMA * 1.3 and close > low + (candleRange * 0.4)
+bearAbsorb = upperWick > body * 1.1 and volume > volMA * 1.3 and close < high - (candleRange * 0.4)
+
+sniperBuy = bullTrend and volSpike and (close > open) and barstate.isconfirmed
+sniperSell = bearTrend and volSpike and (close < open) and barstate.isconfirmed
+
+//=====================================================
+// VISUAL (ANTI-TUMPUK)
+//=====================================================
+plot(emaSlow, color=color.new(color.aqua, 50), linewidth=2, title="Trend Line")
+
+// SNIPER SIGNALS (Utama)
+plotshape(showSniper and sniperBuy, title="SNIPER BUY", text="SNIPER\nBUY", style=shape.labelup, location=location.belowbar, color=color.lime, textcolor=color.black, size=size.small)
+plotshape(showSniper and sniperSell, title="SNIPER SELL", text="SNIPER\nSELL", style=shape.labeldown, location=location.abovebar, color=color.red, textcolor=color.white, size=size.small)
+
+// ABSORPTION (Dibuat label kecil agar tidak menutupi candle)
+plotshape(showAbsorb and bullAbsorb and barstate.isconfirmed, title="BULL ABSORB", text="ABS", style=shape.labelup, location=location.belowbar, color=color.new(color.aqua, 20), textcolor=color.black, size=size.tiny)
+plotshape(showAbsorb and bearAbsorb and barstate.isconfirmed, title="BEAR ABSORB", text="DIST", style=shape.labeldown, location=location.abovebar, color=color.new(color.orange, 20), textcolor=color.black, size=size.tiny)
+
+//=====================================================
+// ALERTS (Koneksi ke Python)
+//=====================================================
+if sniperBuy
+    alert('{"message": "🚀 SNIPER BUY: ' + syminfo.ticker + ' pada harga ' + str.tostring(close) + '"}', alert.freq_once_per_bar_close)
+
+if sniperSell
+    alert('{"message": "⚠️ SNIPER SELL: ' + syminfo.ticker + ' pada harga ' + str.tostring(close) + '"}', alert.freq_once_per_bar_close)

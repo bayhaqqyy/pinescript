@@ -1,0 +1,106 @@
+// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// Generated on 2026-05-12 from real IDX prices
+
+//@version=6
+indicator("SCALPING SCREENER IDX - BATCH T (1 Emiten)", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// INPUT
+// ============================================================================
+tf = input.timeframe("5", "Timeframe Screener")
+pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+// ============================================================================
+// TICKER DEFINITIONS (harga per 2026-05-12)
+// ============================================================================
+tk1 = "IDX:BTEK"  // ~Rp13
+
+// ============================================================================
+// DATA FETCH - request.security with tuple (1 call per emiten)
+// ============================================================================
+[c1, h1, l1, v1, o1] = request.security(tk1, tf, [close, high, low, volume, open])
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+// --- BTEK ---
+pv1 = (h1[1] + l1[1] + c1[1]) / 3
+atr1 = ta.atr(14)
+entry1 = math.round(2 * pv1 - h1[1])
+tp1    = math.round(entry1 * 1.03)
+sl1    = math.round(entry1 - atr1 * 0.5)
+pft1   = entry1 > 0 ? (c1 - entry1) / entry1 * 100 : 0
+rsi1   = ta.rsi(c1, 14)
+avgv1  = ta.sma(v1, 20)
+rvol1  = avgv1 > 0 ? v1 / avgv1 : 0
+val1   = v1 * c1
+bb_b1  = ta.sma(c1, 20)
+bb_d1  = 2 * ta.stdev(c1, 20)
+zona1  = c1 <= bb_b1 - bb_d1 ? "MURAH" : c1 >= bb_b1 + bb_d1 ? "MAHAL" : "MID"
+st1    = c1 <= entry1 and rsi1 < 35 and rvol1 > 1.5 ? "FRESH BUY" : c1 >= tp1 ? "PROFIT (>3%)" : c1 > entry1 ? "RUNNING" : "WAIT"
+bd1    = v1 > avgv1 * 3 and c1 >= o1 ? "BIG ACCUM" : v1 > avgv1 * 1.5 and c1 >= o1 ? "ACCUM" : "NORMAL"
+act1   = st1 == "FRESH BUY" and bd1 != "NORMAL" ? "HAKA" : (st1 == "RUNNING" or st1 == "PROFIT (>3%)") ? (rsi1 > 80 ? "SELL" : "HOLD") : zona1 == "MAHAL" ? "SKIP" : "WAIT"
+
+st_c1  = st1 == "FRESH BUY" ? color.lime : st1 == "PROFIT (>3%)" ? color.fuchsia : st1 == "RUNNING" ? color.yellow : color.gray
+zn_c1  = zona1 == "MURAH" ? color.lime : zona1 == "MAHAL" ? color.red : color.yellow
+rs_c1  = rsi1 < 30 ? color.lime : rsi1 > 70 ? color.red : color.white
+bd_c1  = bd1 == "BIG ACCUM" ? color.fuchsia : bd1 == "ACCUM" ? color.lime : color.gray
+ac_c1  = act1 == "HAKA" ? color.lime : act1 == "SELL" ? color.red : act1 == "HOLD" ? color.yellow : act1 == "SKIP" ? color.red : color.gray
+rv_c1  = rvol1 > 2 ? color.lime : rvol1 > 1 ? color.yellow : color.gray
+
+// ============================================================================
+// TABLE DISPLAY
+// ============================================================================
+tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+
+var tbl = table.new(tbl_pos, 14, 2, border_width=1, border_color=#333333)
+
+if barstate.islast
+    // Header row
+    hdr_bg = #ff8c00
+    hdr_clr = color.black
+    table.cell(tbl, 0, 0, "EMITEN", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 1, 0, "TF", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 2, 0, "ENTRY", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 3, 0, "NOW", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 4, 0, "TP", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 5, 0, "SL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 6, 0, "PROFIT", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 7, 0, "STATUS", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 8, 0, "ZONA", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 9, 0, "RSI", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 10, 0, "RVOL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 11, 0, "VALUE", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 12, 0, "BANDAR", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 13, 0, "ACTION", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+
+if barstate.islast
+    // Row 1: BTEK
+    row1 = 1
+    table.cell(tbl, 0, row1, "BTEK", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row1, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row1, str.tostring(entry1, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row1, str.tostring(c1, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row1, str.tostring(tp1, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row1, str.tostring(sl1, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row1, str.tostring(pft1, "#.##") + "%", text_color=pft1 > 0 ? color.lime : color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row1, st1, text_color=color.black, bgcolor=st_c1, text_size=size.small)
+    table.cell(tbl, 8, row1, zona1, text_color=color.black, bgcolor=zn_c1, text_size=size.small)
+    table.cell(tbl, 9, row1, str.tostring(rsi1, "#.#"), text_color=rs_c1, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row1, str.tostring(rvol1, "#.##"), text_color=rv_c1, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 11, row1, val1 > 1e9 ? str.tostring(val1/1e9, "#.#") + "B" : str.tostring(val1/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 12, row1, bd1, text_color=color.black, bgcolor=bd_c1, text_size=size.small)
+    table.cell(tbl, 13, row1, act1, text_color=color.black, bgcolor=ac_c1, text_size=size.small)
+
+// ============================================================================
+// ALERTS - Webhook JSON payload for each HAKA signal
+// ============================================================================
+if barstate.islast
+    if st1 == "FRESH BUY" and act1 == "HAKA"
+        alert('{"type":"SCALP","batch":"T","ticker":"BTEK","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry1) + ',"tp":' + str.tostring(tp1) + ',"sl":' + str.tostring(sl1) + ',"rsi":' + str.tostring(rsi1, "#.#") + ',"rvol":' + str.tostring(rvol1, "#.##") + ',"zona":"' + zona1 + '","bandar":"' + bd1 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+
+// ============================================================================
+// PLOT (hidden, for alert placeholders)
+// ============================================================================
+plot(close, display=display.none)
