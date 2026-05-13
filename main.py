@@ -16,11 +16,14 @@ async def send_to_telegram(text: str):
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": text,
-        "parse_mode": "Markdown"
+        "parse_mode": "HTML"
     }
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(url, json=payload)
+            # Print response text if error to see exactly what Telegram complains about
+            if response.status_code != 200:
+                print(f"Telegram API Error: {response.text}")
             response.raise_for_status()
             print(f"Message sent to Telegram successfully: {text[:30]}...")
         except Exception as e:
@@ -46,9 +49,9 @@ async def handle_webhook(request: Request):
         price = data.get("price", "0")
         
         icon = "🚀" if "BUY" in signal or "BULL" in signal else "⚠️"
-        message_text = f"{icon} *{signal}* {icon}\n"
-        message_text += f"🏢 *Emiten*: `{ticker}`\n"
-        message_text += f"💰 *Harga*: Rp{price}\n"
+        message_text = f"{icon} <b>{signal}</b> {icon}\n"
+        message_text += f"🏢 <b>Emiten</b>: <code>{ticker}</code>\n"
+        message_text += f"💰 <b>Harga</b>: Rp{price}\n"
         message_text += f"#BANDAR_AI"
 
     # 3. Handle Scalping Batch Screener
@@ -63,17 +66,17 @@ async def handle_webhook(request: Request):
         
         # Color coding with emojis based on Action
         icon = "🔥" if action == "HAKA" else "💡"
-        message_text = f"{icon} *SCALPING {action}* {icon}\n"
-        message_text += f"🏢 *Emiten*: `{ticker}`\n"
-        message_text += f"🎯 *Entry*: Rp{entry}\n"
-        message_text += f"✅ *TP*: Rp{tp} (3%)\n"
-        message_text += f"🛑 *SL*: Rp{sl}\n"
-        message_text += f"📊 *Bandar*: {bandar} | *Zona*: {zona}\n"
+        message_text = f"{icon} <b>SCALPING {action}</b> {icon}\n"
+        message_text += f"🏢 <b>Emiten</b>: <code>{ticker}</code>\n"
+        message_text += f"🎯 <b>Entry</b>: Rp{entry}\n"
+        message_text += f"✅ <b>TP</b>: Rp{tp} (3%)\n"
+        message_text += f"🛑 <b>SL</b>: Rp{sl}\n"
+        message_text += f"📊 <b>Bandar</b>: {bandar} | <b>Zona</b>: {zona}\n"
         message_text += f"#SCALPING"
     
     else:
         # Fallback if TradingView sends unknown JSON format
-        message_text = f"🔔 *TradingView Alert*\n```json\n{data}\n```"
+        message_text = f"🔔 <b>TradingView Alert</b>\n<pre>{data}</pre>"
 
     if message_text:
         await send_to_telegram(message_text)
