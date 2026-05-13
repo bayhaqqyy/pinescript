@@ -85,5 +85,5 @@ async def health_check():
     return {"status": "Webhook is running!", "telegram_configured": bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)}
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 443))
     uvicorn.run(app, host="0.0.0.0", port=port)
