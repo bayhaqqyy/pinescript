@@ -1,0 +1,321 @@
+{
+  "date": "2026-05-12",
+  "strategy": "BANDAR_AI",
+  "description": "Saham IDX mid-cap untuk swing trading. TF: 10 menit. Deteksi akumulasi bandar/institusi.",
+  "total": 50,
+  "batches": 5,
+  "stocks": [
+    {
+      "ticker": "SMRA",
+      "price": 322,
+      "sector": "Property"
+    },
+    {
+      "ticker": "PWON",
+      "price": 310,
+      "sector": "Property"
+    },
+    {
+      "ticker": "CTRA",
+      "price": 680,
+      "sector": "Property"
+    },
+    {
+      "ticker": "BSDE",
+      "price": 755,
+      "sector": "Property"
+    },
+    {
+      "ticker": "APLN",
+      "price": 180,
+      "sector": "Property"
+    },
+    {
+      "ticker": "KIJA",
+      "price": 175,
+      "sector": "Property"
+    },
+    {
+      "ticker": "LPKR",
+      "price": 80,
+      "sector": "Property"
+    },
+    {
+      "ticker": "ASRI",
+      "price": 128,
+      "sector": "Property"
+    },
+    {
+      "ticker": "BKSL",
+      "price": 102,
+      "sector": "Property"
+    },
+    {
+      "ticker": "DILD",
+      "price": 125,
+      "sector": "Property"
+    },
+    {
+      "ticker": "BUMI",
+      "price": 214,
+      "sector": "Mining"
+    },
+    {
+      "ticker": "BRMS",
+      "price": 755,
+      "sector": "Mining"
+    },
+    {
+      "ticker": "DEWA",
+      "price": 466,
+      "sector": "Mining"
+    },
+    {
+      "ticker": "ANTM",
+      "price": 1400,
+      "sector": "Mining"
+    },
+    {
+      "ticker": "HRUM",
+      "price": 910,
+      "sector": "Mining"
+    },
+    {
+      "ticker": "MBMA",
+      "price": 605,
+      "sector": "Mining"
+    },
+    {
+      "ticker": "TOBA",
+      "price": 570,
+      "sector": "Mining"
+    },
+    {
+      "ticker": "ESSA",
+      "price": 805,
+      "sector": "Energy"
+    },
+    {
+      "ticker": "ELSA",
+      "price": 710,
+      "sector": "Energy"
+    },
+    {
+      "ticker": "MEDC",
+      "price": 1200,
+      "sector": "Energy"
+    },
+    {
+      "ticker": "PTPP",
+      "price": 244,
+      "sector": "Construction"
+    },
+    {
+      "ticker": "ADHI",
+      "price": 200,
+      "sector": "Construction"
+    },
+    {
+      "ticker": "WIKA",
+      "price": 300,
+      "sector": "Construction"
+    },
+    {
+      "ticker": "WSKT",
+      "price": 200,
+      "sector": "Construction"
+    },
+    {
+      "ticker": "WTON",
+      "price": 88,
+      "sector": "Construction"
+    },
+    {
+      "ticker": "ERAA",
+      "price": 402,
+      "sector": "Retail"
+    },
+    {
+      "ticker": "ACES",
+      "price": 380,
+      "sector": "Retail"
+    },
+    {
+      "ticker": "ROTI",
+      "price": 610,
+      "sector": "Consumer"
+    },
+    {
+      "ticker": "CLEO",
+      "price": 402,
+      "sector": "Consumer"
+    },
+    {
+      "ticker": "SIDO",
+      "price": 472,
+      "sector": "Healthcare"
+    },
+    {
+      "ticker": "BJBR",
+      "price": 795,
+      "sector": "Banking"
+    },
+    {
+      "ticker": "BJTM",
+      "price": 595,
+      "sector": "Banking"
+    },
+    {
+      "ticker": "BBTN",
+      "price": 1200,
+      "sector": "Banking"
+    },
+    {
+      "ticker": "BFIN",
+      "price": 765,
+      "sector": "Finance"
+    },
+    {
+      "ticker": "ASSA",
+      "price": 770,
+      "sector": "Transport"
+    },
+    {
+      "ticker": "EMTK",
+      "price": 730,
+      "sector": "Media"
+    },
+    {
+      "ticker": "SCMA",
+      "price": 246,
+      "sector": "Media"
+    },
+    {
+      "ticker": "MNCN",
+      "price": 222,
+      "sector": "Media"
+    },
+    {
+      "ticker": "KAEF",
+      "price": 630,
+      "sector": "Healthcare"
+    },
+    {
+      "ticker": "KLBF",
+      "price": 870,
+      "sector": "Healthcare"
+    },
+    {
+      "ticker": "HMSP",
+      "price": 740,
+      "sector": "Tobacco"
+    },
+    {
+      "ticker": "TBLA",
+      "price": 690,
+      "sector": "Plantation"
+    },
+    {
+      "ticker": "DRMA",
+      "price": 980,
+      "sector": "Industry"
+    },
+    {
+      "ticker": "ARNA",
+      "price": 488,
+      "sector": "Industry"
+    },
+    {
+      "ticker": "TOWR",
+      "price": 470,
+      "sector": "Telco"
+    },
+    {
+      "ticker": "MAPI",
+      "price": 1300,
+      "sector": "Retail"
+    },
+    {
+      "ticker": "SMGR",
+      "price": 3800,
+      "sector": "Industry"
+    },
+    {
+      "ticker": "INDF",
+      "price": 6800,
+      "sector": "Consumer"
+    },
+    {
+      "ticker": "CPIN",
+      "price": 4800,
+      "sector": "Consumer"
+    },
+    {
+      "ticker": "PGAS",
+      "price": 1500,
+      "sector": "Energy"
+    }
+  ],
+  "batch_groups": {
+    "batch_a": [
+      "SMRA",
+      "PWON",
+      "CTRA",
+      "BSDE",
+      "APLN",
+      "KIJA",
+      "LPKR",
+      "ASRI",
+      "BKSL",
+      "DILD"
+    ],
+    "batch_b": [
+      "BUMI",
+      "BRMS",
+      "DEWA",
+      "ANTM",
+      "HRUM",
+      "MBMA",
+      "TOBA",
+      "ESSA",
+      "ELSA",
+      "MEDC"
+    ],
+    "batch_c": [
+      "PTPP",
+      "ADHI",
+      "WIKA",
+      "WSKT",
+      "WTON",
+      "ERAA",
+      "ACES",
+      "ROTI",
+      "CLEO",
+      "SIDO"
+    ],
+    "batch_d": [
+      "BJBR",
+      "BJTM",
+      "BBTN",
+      "BFIN",
+      "ASSA",
+      "EMTK",
+      "SCMA",
+      "MNCN",
+      "KAEF",
+      "KLBF"
+    ],
+    "batch_e": [
+      "HMSP",
+      "TBLA",
+      "DRMA",
+      "ARNA",
+      "TOWR",
+      "MAPI",
+      "SMGR",
+      "INDF",
+      "CPIN",
+      "PGAS"
+    ]
+  }
+}

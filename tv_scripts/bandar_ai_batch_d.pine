@@ -10,7 +10,7 @@
 //   Cocok untuk mendeteksi akumulasi/distribusi bandar dan institusi.
 
 //@version=6
-indicator("BANDAR AI SCREENER - BATCH A (10 Emiten)", overlay=true, max_bars_back=500)
+indicator("BANDAR AI SCREENER - BATCH D (10 Emiten)", overlay=true, max_bars_back=500)
 
 // ============================================================================
 // INPUT
@@ -23,16 +23,16 @@ pos            = input.string("Top Right", "Table Position", options=["Top Right
 // ============================================================================
 // TICKER DEFINITIONS (harga per 2026-05-12)
 // ============================================================================
-tk1 = "IDX:SMRA"  // ~Rp322
-tk2 = "IDX:PWON"  // ~Rp310
-tk3 = "IDX:CTRA"  // ~Rp680
-tk4 = "IDX:BSDE"  // ~Rp755
-tk5 = "IDX:APLN"  // ~Rp180
-tk6 = "IDX:KIJA"  // ~Rp175
-tk7 = "IDX:LPKR"  // ~Rp80
-tk8 = "IDX:ASRI"  // ~Rp128
-tk9 = "IDX:BKSL"  // ~Rp102
-tk10 = "IDX:DILD"  // ~Rp125
+tk1 = "IDX:BJBR"  // ~Rp795
+tk2 = "IDX:BJTM"  // ~Rp595
+tk3 = "IDX:BBTN"  // ~Rp1200
+tk4 = "IDX:BFIN"  // ~Rp765
+tk5 = "IDX:ASSA"  // ~Rp770
+tk6 = "IDX:EMTK"  // ~Rp730
+tk7 = "IDX:SCMA"  // ~Rp246
+tk8 = "IDX:MNCN"  // ~Rp222
+tk9 = "IDX:KAEF"  // ~Rp630
+tk10 = "IDX:KLBF"  // ~Rp870
 
 // ============================================================================
 // CORE ENGINE FUNCTION (Dihitung di masing-masing emiten)
@@ -91,34 +91,34 @@ if barstate.islast
     table.cell(tbl, 1, 0, "PRICE", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
     table.cell(tbl, 2, 0, "SIGNAL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
     
-    table.cell(tbl, 0, 1, "SMRA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 1, "BJBR", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 1, str.tostring(c1, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 1, st1, text_color=color.black, bgcolor=f_get_color(st1), text_size=size.small)
-    table.cell(tbl, 0, 2, "PWON", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 2, "BJTM", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 2, str.tostring(c2, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 2, st2, text_color=color.black, bgcolor=f_get_color(st2), text_size=size.small)
-    table.cell(tbl, 0, 3, "CTRA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 3, "BBTN", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 3, str.tostring(c3, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 3, st3, text_color=color.black, bgcolor=f_get_color(st3), text_size=size.small)
-    table.cell(tbl, 0, 4, "BSDE", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 4, "BFIN", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 4, str.tostring(c4, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 4, st4, text_color=color.black, bgcolor=f_get_color(st4), text_size=size.small)
-    table.cell(tbl, 0, 5, "APLN", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 5, "ASSA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 5, str.tostring(c5, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 5, st5, text_color=color.black, bgcolor=f_get_color(st5), text_size=size.small)
-    table.cell(tbl, 0, 6, "KIJA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 6, "EMTK", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 6, str.tostring(c6, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 6, st6, text_color=color.black, bgcolor=f_get_color(st6), text_size=size.small)
-    table.cell(tbl, 0, 7, "LPKR", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 7, "SCMA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 7, str.tostring(c7, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 7, st7, text_color=color.black, bgcolor=f_get_color(st7), text_size=size.small)
-    table.cell(tbl, 0, 8, "ASRI", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 8, "MNCN", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 8, str.tostring(c8, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 8, st8, text_color=color.black, bgcolor=f_get_color(st8), text_size=size.small)
-    table.cell(tbl, 0, 9, "BKSL", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 9, "KAEF", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 9, str.tostring(c9, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 9, st9, text_color=color.black, bgcolor=f_get_color(st9), text_size=size.small)
-    table.cell(tbl, 0, 10, "DILD", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, 10, "KLBF", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, 10, str.tostring(c10, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, 10, st10, text_color=color.black, bgcolor=f_get_color(st10), text_size=size.small)
 
@@ -127,24 +127,24 @@ if barstate.islast
 // ============================================================================
 if barstate.islast and barstate.isconfirmed
     if st1 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"SMRA","price":' + str.tostring(c1) + ',"signal":"' + st1 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"BJBR","price":' + str.tostring(c1) + ',"signal":"' + st1 + '"}', alert.freq_once_per_bar_close)
     if st2 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"PWON","price":' + str.tostring(c2) + ',"signal":"' + st2 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"BJTM","price":' + str.tostring(c2) + ',"signal":"' + st2 + '"}', alert.freq_once_per_bar_close)
     if st3 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"CTRA","price":' + str.tostring(c3) + ',"signal":"' + st3 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"BBTN","price":' + str.tostring(c3) + ',"signal":"' + st3 + '"}', alert.freq_once_per_bar_close)
     if st4 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"BSDE","price":' + str.tostring(c4) + ',"signal":"' + st4 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"BFIN","price":' + str.tostring(c4) + ',"signal":"' + st4 + '"}', alert.freq_once_per_bar_close)
     if st5 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"APLN","price":' + str.tostring(c5) + ',"signal":"' + st5 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"ASSA","price":' + str.tostring(c5) + ',"signal":"' + st5 + '"}', alert.freq_once_per_bar_close)
     if st6 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"KIJA","price":' + str.tostring(c6) + ',"signal":"' + st6 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"EMTK","price":' + str.tostring(c6) + ',"signal":"' + st6 + '"}', alert.freq_once_per_bar_close)
     if st7 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"LPKR","price":' + str.tostring(c7) + ',"signal":"' + st7 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"SCMA","price":' + str.tostring(c7) + ',"signal":"' + st7 + '"}', alert.freq_once_per_bar_close)
     if st8 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"ASRI","price":' + str.tostring(c8) + ',"signal":"' + st8 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"MNCN","price":' + str.tostring(c8) + ',"signal":"' + st8 + '"}', alert.freq_once_per_bar_close)
     if st9 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"BKSL","price":' + str.tostring(c9) + ',"signal":"' + st9 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"KAEF","price":' + str.tostring(c9) + ',"signal":"' + st9 + '"}', alert.freq_once_per_bar_close)
     if st10 != "WAIT"
-        alert('{"type":"BANDAR_AI","batch":"A","ticker":"DILD","price":' + str.tostring(c10) + ',"signal":"' + st10 + '"}', alert.freq_once_per_bar_close)
+        alert('{"type":"BANDAR_AI","batch":"D","ticker":"KLBF","price":' + str.tostring(c10) + ',"signal":"' + st10 + '"}', alert.freq_once_per_bar_close)
 
 plot(close, display=display.none)

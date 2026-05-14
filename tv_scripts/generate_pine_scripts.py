@@ -1,36 +1,32 @@
 """
-Auto-generate Pine Script v6 scalping screener scripts from idx_below_1000.json
-Each batch = 40 emiten max, using tuple request.security() for efficiency
+Auto-generate Pine Script v6 screener scripts for 2 strategies:
+  1. SCALPING  — from scalping_stocks.json  (TF: 5 min, saham murah Rp50-500)
+  2. BANDAR AI — from bandar_ai_stocks.json (TF: 15 min, mid-cap + blue chip)
 """
 import json
 import os
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-with open(os.path.join(SCRIPT_DIR, "idx_below_1000.json"), "r") as f:
-    data = json.load(f)
 
-batch_groups = data["batch_groups"]
-stocks_map = {s["ticker"]: s["price"] for s in data["stocks"]}
-
-def generate_pine_script(batch_name, tickers, batch_label):
-    """Generate a complete Pine Script v6 for a batch of tickers."""
+# ============================================================================
+# SCALPING GENERATOR
+# ============================================================================
+def generate_scalping_script(tickers, batch_label, stocks_map, date_str):
+    """Generate Pine Script v6 scalping screener for a batch of tickers."""
     n = len(tickers)
     
-    # Build ticker declarations
     ticker_lines = []
     for i, t in enumerate(tickers):
         price = stocks_map.get(t, 0)
         ticker_lines.append(f'tk{i+1} = "IDX:{t}"  // ~Rp{price:.0f}')
     
-    # Build request.security blocks
     security_lines = []
     for i in range(n):
         security_lines.append(
             f'[c{i+1}, h{i+1}, l{i+1}, v{i+1}, o{i+1}] = request.security(tk{i+1}, tf, [close, high, low, volume, open])'
         )
     
-    # Build calculation function calls
     calc_lines = []
     for i in range(n):
         idx = i + 1
@@ -59,20 +55,15 @@ bd_c{idx}  = bd{idx} == "BIG ACCUM" ? color.fuchsia : bd{idx} == "ACCUM" ? color
 ac_c{idx}  = act{idx} == "HAKA" ? color.lime : act{idx} == "SELL" ? color.red : act{idx} == "HOLD" ? color.yellow : act{idx} == "SKIP" ? color.red : color.gray
 rv_c{idx}  = rvol{idx} > 2 ? color.lime : rvol{idx} > 1 ? color.yellow : color.gray''')
     
-    # Build table row drawing
     row_chunks = []
     current_chunk = []
-    
     for i in range(n):
         idx = i + 1
         t = tickers[i]
-        row = i + 1  # row 0 = header
-        
-        # Start a new chunk every 10 items
+        row = i + 1
         if i > 0 and i % 10 == 0:
             row_chunks.append(chr(10).join(current_chunk))
             current_chunk = []
-            
         current_chunk.append(f'''    // Row {row}: {t}
     row{idx} = {row}
     table.cell(tbl, 0, row{idx}, "{t}", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
@@ -89,13 +80,10 @@ rv_c{idx}  = rvol{idx} > 2 ? color.lime : rvol{idx} > 1 ? color.yellow : color.g
     table.cell(tbl, 11, row{idx}, val{idx} > 1e9 ? str.tostring(val{idx}/1e9, "#.#") + "B" : str.tostring(val{idx}/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 12, row{idx}, bd{idx}, text_color=color.black, bgcolor=bd_c{idx}, text_size=size.small)
     table.cell(tbl, 13, row{idx}, act{idx}, text_color=color.black, bgcolor=ac_c{idx}, text_size=size.small)''')
-    
     if current_chunk:
         row_chunks.append(chr(10).join(current_chunk))
-        
     formatted_rows = chr(10).join([f"if barstate.islast\n{chunk}" for chunk in row_chunks])
     
-    # Build alert lines
     alert_lines = []
     for i in range(n):
         idx = i + 1
@@ -105,7 +93,13 @@ rv_c{idx}  = rvol{idx} > 2 ? color.lime : rvol{idx} > 1 ? color.yellow : color.g
     
     script = f'''// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
 // https://mozilla.org/MPL/2.0/
-// Generated on {data["date"]} from real IDX prices
+// Generated on {date_str} | Strategy: SCALPING (Intraday)
+//
+// @description Scalping screener untuk saham IDX murah (Rp50-500).
+//   Default Timeframe: 1 menit. Holding period: menit-jam (intraday).
+//   Strategi: Pivot Entry + RSI Oversold (<35) + Volume Spike (RVOL>1.5).
+//   Sinyal HAKA = Entry segera saat semua kondisi terpenuhi + ada akumulasi bandar.
+//   TP: +3% dari entry | SL: 0.5x ATR di bawah entry.
 
 //@version=6
 indicator("SCALPING SCREENER IDX - BATCH {batch_label} ({n} Emiten)", overlay=true, max_bars_back=500)
@@ -113,11 +107,11 @@ indicator("SCALPING SCREENER IDX - BATCH {batch_label} ({n} Emiten)", overlay=tr
 // ============================================================================
 // INPUT
 // ============================================================================
-tf = input.timeframe("5", "Timeframe Screener")
+tf = input.timeframe("1", "Timeframe Screener")
 pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
 
 // ============================================================================
-// TICKER DEFINITIONS (harga per {data["date"]})
+// TICKER DEFINITIONS (harga per {date_str})
 // ============================================================================
 {chr(10).join(ticker_lines)}
 
@@ -173,18 +167,166 @@ plot(close, display=display.none)
     return script
 
 
-# Generate all batch scripts
-for batch_key, tickers in batch_groups.items():
-    label = batch_key.split("_")[1].upper()
-    filename = f"scalping_batch_{label.lower()}.pine"
-    filepath = os.path.join(SCRIPT_DIR, filename)
+# ============================================================================
+# BANDAR AI GENERATOR
+# ============================================================================
+def generate_bandar_ai_script(tickers, batch_label, stocks_map, date_str):
+    """Generate Bandar AI screener for a batch of tickers."""
+    n = len(tickers)
     
-    script = generate_pine_script(batch_key, tickers, label)
+    ticker_lines = []
+    for i, t in enumerate(tickers):
+        price = stocks_map.get(t, 0)
+        ticker_lines.append(f'tk{i+1} = "IDX:{t}"  // ~Rp{price:.0f}')
+        
+    security_lines = []
+    for i in range(n):
+        idx = i + 1
+        security_lines.append(f'[c{idx}, st{idx}] = request.security(tk{idx}, tf, f_engine(emaSlowLen, volMultiplier))')
+        
+    row_lines = []
+    for i in range(n):
+        idx = i + 1
+        t = tickers[i]
+        row = i + 1
+        row_lines.append(f'''    table.cell(tbl, 0, {row}, "{t}", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, {row}, str.tostring(c{idx}, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, {row}, st{idx}, text_color=color.black, bgcolor=f_get_color(st{idx}), text_size=size.small)''')
+    formatted_rows = chr(10).join(row_lines)
     
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(script)
-    
-    print(f"[OK] {filename} - {len(tickers)} emiten ({len(script)} chars)")
+    alert_lines = []
+    for i in range(n):
+        idx = i + 1
+        t = tickers[i]
+        alert_lines.append(f'''    if st{idx} != "WAIT"
+        alert('{{"type":"BANDAR_AI","batch":"{batch_label}","ticker":"{t}","price":' + str.tostring(c{idx}) + ',"signal":"' + st{idx} + '"}}', alert.freq_once_per_bar_close)''')
+        
+    script = f'''// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// Generated on {date_str} | Strategy: BANDAR AI (Swing Detection)
+//
+// @description Bandar AI screener untuk saham IDX mid-cap dan blue chip.
+//   Default Timeframe: 10 menit. Holding period: hari-minggu (swing).
+//   Strategi: EMA 200 Trend + Volume Spike + Candle Absorption Pattern.
+//   Sinyal: SNIPER BUY (bullish trend + vol spike), BULL ABSORB (lower wick absorption),
+//           SNIPER SELL (bearish trend + vol spike), BEAR ABSORB (upper wick absorption).
+//   Cocok untuk mendeteksi akumulasi/distribusi bandar dan institusi.
 
-print(f"\n[DONE] Generated {len(batch_groups)} Pine Script files")
-print("Files saved to:", SCRIPT_DIR)
+//@version=6
+indicator("BANDAR AI SCREENER - BATCH {batch_label} ({n} Emiten)", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// INPUT
+// ============================================================================
+tf             = input.timeframe("10", "Timeframe Screener")
+emaSlowLen     = input.int(200, "EMA Trend")
+volMultiplier  = input.float(1.5, "Vol Spike Multiplier")
+pos            = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+// ============================================================================
+// TICKER DEFINITIONS (harga per {date_str})
+// ============================================================================
+{chr(10).join(ticker_lines)}
+
+// ============================================================================
+// CORE ENGINE FUNCTION (Dihitung di masing-masing emiten)
+// ============================================================================
+f_engine(ema_len, vol_mult) =>
+    emaSlow = ta.ema(close, ema_len)
+    bullTrend = close > emaSlow
+    bearTrend = close < emaSlow
+    
+    volMA = ta.sma(volume, 20)
+    volSpike = volume > volMA * vol_mult
+    
+    body = math.abs(close - open)
+    candleRange = high - low
+    lowerWick = math.min(open, close) - low
+    upperWick = high - math.max(open, close)
+    
+    bullAbsorb = lowerWick > body * 1.1 and volume > volMA * 1.3 and close > low + (candleRange * 0.4)
+    bearAbsorb = upperWick > body * 1.1 and volume > volMA * 1.3 and close < high - (candleRange * 0.4)
+    
+    sniperBuy = bullTrend and volSpike and (close > open)
+    sniperSell = bearTrend and volSpike and (close < open)
+    
+    // Status Text
+    status = sniperBuy ? "SNIPER BUY" : sniperSell ? "SNIPER SELL" : bullAbsorb ? "BULL ABSORB" : bearAbsorb ? "BEAR ABSORB" : "WAIT"
+    [close, status]
+
+// ============================================================================
+// DATA FETCH (request.security)
+// ============================================================================
+{chr(10).join(security_lines)}
+
+// ============================================================================
+// TABLE DISPLAY
+// ============================================================================
+tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+var tbl = table.new(tbl_pos, 3, {n + 1}, border_width=1, border_color=#333333)
+
+f_get_color(st) =>
+    st == "SNIPER BUY" ? color.lime : st == "SNIPER SELL" ? color.red : st == "BULL ABSORB" ? color.aqua : st == "BEAR ABSORB" ? color.orange : color.gray
+
+if barstate.islast
+    // Header
+    hdr_bg = #6a0dad
+    hdr_clr = color.white
+    table.cell(tbl, 0, 0, "EMITEN", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 1, 0, "PRICE", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 2, 0, "SIGNAL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    
+{formatted_rows}
+
+// ============================================================================
+// ALERTS UNTUK TELEGRAM (JSON PAYLOAD)
+// ============================================================================
+if barstate.islast and barstate.isconfirmed
+{chr(10).join(alert_lines)}
+
+plot(close, display=display.none)
+'''
+    return script
+
+
+# ============================================================================
+# MAIN — Generate all scripts
+# ============================================================================
+if __name__ == "__main__":
+    # --- 1. SCALPING ---
+    with open(os.path.join(SCRIPT_DIR, "scalping_stocks.json"), "r") as f:
+        scalp_data = json.load(f)
+    scalp_map = {s["ticker"]: s["price"] for s in scalp_data["stocks"]}
+    
+    scalp_count = 0
+    for batch_key, tickers in scalp_data["batch_groups"].items():
+        label = batch_key.split("_")[1].upper()
+        filename = f"scalping_batch_{label.lower()}.pine"
+        filepath = os.path.join(SCRIPT_DIR, filename)
+        script = generate_scalping_script(tickers, label, scalp_map, scalp_data["date"])
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(script)
+        scalp_count += 1
+        print(f"  [SCALP]     Batch {label} -> {len(tickers)} emiten ({len(script):,} chars)")
+    
+    # --- 2. BANDAR AI ---
+    with open(os.path.join(SCRIPT_DIR, "bandar_ai_stocks.json"), "r") as f:
+        bandar_data = json.load(f)
+    bandar_map = {s["ticker"]: s["price"] for s in bandar_data["stocks"]}
+    
+    bandar_count = 0
+    for batch_key, tickers in bandar_data["batch_groups"].items():
+        label = batch_key.split("_")[1].upper()
+        filename = f"bandar_ai_batch_{label.lower()}.pine"
+        filepath = os.path.join(SCRIPT_DIR, filename)
+        script = generate_bandar_ai_script(tickers, label, bandar_map, bandar_data["date"])
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(script)
+        bandar_count += 1
+        print(f"  [BANDAR AI] Batch {label} -> {len(tickers)} emiten ({len(script):,} chars)")
+    
+    total = scalp_count + bandar_count
+    print(f"\n[DONE] Generated {total} Pine Script files ({scalp_count} Scalping + {bandar_count} Bandar AI)")
+    print(f"  Scalping:  {scalp_data['total']} emiten, TF=5min,  {scalp_count} batches")
+    print(f"  Bandar AI: {bandar_data['total']} emiten, TF=15min, {bandar_count} batches")
+    print(f"Files saved to: {SCRIPT_DIR}")

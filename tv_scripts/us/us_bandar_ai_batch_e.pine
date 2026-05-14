@@ -1,0 +1,207 @@
+// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// Generated on 2026-05-15 | Strategy: US BANDAR AI v2 (Smart Money Flow)
+//
+// @description US Stock Bandar AI screener for GoTrade users.
+//   Default Timeframe: 10 menit. Holding period: hari-minggu (swing).
+//   Strategi: EMA 200 Trend + Volume Spike + Candle Absorption Pattern.
+//   Sinyal: SNIPER BUY (bullish trend + vol spike), BULL ABSORB (lower wick absorption),
+//           SNIPER SELL (bearish trend + vol spike), BEAR ABSORB (upper wick absorption).
+//   Deteksi akumulasi/distribusi institusi (smart money flow).
+//   Signal Strength: 0-100% dengan gradient visual 5-level.
+//   ⚠️ PDT Rule: Max 3 day trades per 5 hari jika account < $25K.
+
+//@version=6
+indicator("US BANDAR AI v2 - BATCH E (10 Tickers)", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// INPUT
+// ============================================================================
+tf             = input.timeframe("10", "Timeframe Screener")
+emaSlowLen     = input.int(200, "EMA Trend")
+volMultiplier  = input.float(1.5, "Vol Spike Multiplier")
+pos            = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+// ============================================================================
+// TICKER DEFINITIONS (prices as of 2026-05-15)
+// ============================================================================
+tk1 = "NASDAQ:BITF"  // ~$2.00
+tk2 = "NASDAQ:CLSK"  // ~$9.00
+tk3 = "NASDAQ:GEVO"  // ~$1.20
+tk4 = "NASDAQ:BLNK"  // ~$1.50
+tk5 = "NASDAQ:WKHS"  // ~$2.00
+tk6 = "NYSE:CHPT"  // ~$1.50
+tk7 = "NASDAQ:BYND"  // ~$3.90
+tk8 = "NYSE:RIG"  // ~$4.00
+tk9 = "NYSE:VALE"  // ~$10.00
+tk10 = "NYSE:NOK"  // ~$4.50
+
+// ============================================================================
+// CORE ENGINE FUNCTION (Bandar AI Detection)
+// ============================================================================
+f_engine(ema_len, vol_mult) =>
+    emaSlow = ta.ema(close, ema_len)
+    bullTrend = close > emaSlow
+    bearTrend = close < emaSlow
+
+    volMA = ta.sma(volume, 20)
+    volSpike = volume > volMA * vol_mult
+
+    body = math.abs(close - open)
+    candleRange = high - low
+    lowerWick = math.min(open, close) - low
+    upperWick = high - math.max(open, close)
+
+    bullAbsorb = lowerWick > body * 1.1 and volume > volMA * 1.3 and close > low + (candleRange * 0.4)
+    bearAbsorb = upperWick > body * 1.1 and volume > volMA * 1.3 and close < high - (candleRange * 0.4)
+
+    sniperBuy = bullTrend and volSpike and (close > open)
+    sniperSell = bearTrend and volSpike and (close < open)
+
+    // Money Flow Detection
+    flow = volume > volMA * 3 and close >= open ? "BIG ACCUM" :
+           volume > volMA * 1.5 and close >= open ? "ACCUM" :
+           volume > volMA * 3 and close < open ? "BIG DISTRIB" :
+           volume > volMA * 1.5 and close < open ? "DISTRIB" : "NORMAL"
+
+    // Perbaikan Signal Strength (0-100)
+    rsi = ta.rsi(close, 14)
+
+    // Base scores
+    trendStr = bullTrend ? 25.0 : bearTrend ? -25.0 : 0.0
+    rsiStr = rsi < 30 ? 15.0 : rsi > 70 ? -15.0 : 0.0
+
+    // Volume multiplier (0 to 20 max) berdasarkan arah flow
+    volStr = volMA > 0 ? math.min(volume / volMA * 10, 20) : 0
+    volImpact = (flow == "BIG ACCUM" or flow == "ACCUM") ? volStr : (flow == "BIG DISTRIB" or flow == "DISTRIB") ? -volStr : 0
+
+    // Kalkulasi final: Base 50 + Trend(±25) + RSI(±15) + Vol(±20) = Max 110 (di-cap 100)
+    strength = math.max(0, math.min(100, 50 + trendStr + rsiStr + volImpact))
+
+    status = sniperBuy ? "SNIPER BUY" : sniperSell ? "SNIPER SELL" : bullAbsorb ? "BULL ABSORB" : bearAbsorb ? "BEAR ABSORB" : "WAIT"
+    [close, status, flow, strength]
+
+// ============================================================================
+// DATA FETCH (request.security) — 10 calls (limit: 40) ✓
+// ============================================================================
+[c1, st1, fl1, str1] = request.security(tk1, tf, f_engine(emaSlowLen, volMultiplier))
+[c2, st2, fl2, str2] = request.security(tk2, tf, f_engine(emaSlowLen, volMultiplier))
+[c3, st3, fl3, str3] = request.security(tk3, tf, f_engine(emaSlowLen, volMultiplier))
+[c4, st4, fl4, str4] = request.security(tk4, tf, f_engine(emaSlowLen, volMultiplier))
+[c5, st5, fl5, str5] = request.security(tk5, tf, f_engine(emaSlowLen, volMultiplier))
+[c6, st6, fl6, str6] = request.security(tk6, tf, f_engine(emaSlowLen, volMultiplier))
+[c7, st7, fl7, str7] = request.security(tk7, tf, f_engine(emaSlowLen, volMultiplier))
+[c8, st8, fl8, str8] = request.security(tk8, tf, f_engine(emaSlowLen, volMultiplier))
+[c9, st9, fl9, str9] = request.security(tk9, tf, f_engine(emaSlowLen, volMultiplier))
+[c10, st10, fl10, str10] = request.security(tk10, tf, f_engine(emaSlowLen, volMultiplier))
+
+// ============================================================================
+// TABLE DISPLAY
+// ============================================================================
+tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+var tbl = table.new(tbl_pos, 5, 11, border_width=1, border_color=#333333)
+
+f_get_color(st) =>
+    st == "SNIPER BUY" ? color.lime : st == "SNIPER SELL" ? color.red : st == "BULL ABSORB" ? color.aqua : st == "BEAR ABSORB" ? color.orange : color.gray
+
+// 5-level gradient for Signal Strength
+f_str_gradient(val) =>
+    val > 80 ? #00ff00 : val > 60 ? #66ff66 : val > 40 ? #ffff00 : val > 20 ? #ff6666 : #ff0000
+
+if barstate.islast
+    hdr_bg = #6a0dad
+    hdr_clr = color.white
+    table.cell(tbl, 0, 0, "TICKER", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 0, "PRICE", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 0, "FLOW", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 0, "STR%", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 0, "SIGNAL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
+
+if barstate.islast
+    table.cell(tbl, 0, 1, "BITF", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 1, str.tostring(c1, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 1, fl1, text_color=color.black, bgcolor=fl1 == "BIG ACCUM" ? color.fuchsia : fl1 == "ACCUM" ? color.lime : fl1 == "DISTRIB" ? color.orange : fl1 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 1, str.tostring(str1, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str1), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 1, st1, text_color=color.black, bgcolor=f_get_color(st1), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 0, 2, "CLSK", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 2, str.tostring(c2, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 2, fl2, text_color=color.black, bgcolor=fl2 == "BIG ACCUM" ? color.fuchsia : fl2 == "ACCUM" ? color.lime : fl2 == "DISTRIB" ? color.orange : fl2 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 2, str.tostring(str2, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str2), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 2, st2, text_color=color.black, bgcolor=f_get_color(st2), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 0, 3, "GEVO", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 3, str.tostring(c3, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 3, fl3, text_color=color.black, bgcolor=fl3 == "BIG ACCUM" ? color.fuchsia : fl3 == "ACCUM" ? color.lime : fl3 == "DISTRIB" ? color.orange : fl3 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 3, str.tostring(str3, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str3), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 3, st3, text_color=color.black, bgcolor=f_get_color(st3), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 0, 4, "BLNK", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 4, str.tostring(c4, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 4, fl4, text_color=color.black, bgcolor=fl4 == "BIG ACCUM" ? color.fuchsia : fl4 == "ACCUM" ? color.lime : fl4 == "DISTRIB" ? color.orange : fl4 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 4, str.tostring(str4, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str4), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 4, st4, text_color=color.black, bgcolor=f_get_color(st4), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 0, 5, "WKHS", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 5, str.tostring(c5, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 5, fl5, text_color=color.black, bgcolor=fl5 == "BIG ACCUM" ? color.fuchsia : fl5 == "ACCUM" ? color.lime : fl5 == "DISTRIB" ? color.orange : fl5 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 5, str.tostring(str5, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str5), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 5, st5, text_color=color.black, bgcolor=f_get_color(st5), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 0, 6, "CHPT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 6, str.tostring(c6, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 6, fl6, text_color=color.black, bgcolor=fl6 == "BIG ACCUM" ? color.fuchsia : fl6 == "ACCUM" ? color.lime : fl6 == "DISTRIB" ? color.orange : fl6 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 6, str.tostring(str6, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str6), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 6, st6, text_color=color.black, bgcolor=f_get_color(st6), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 0, 7, "BYND", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 7, str.tostring(c7, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 7, fl7, text_color=color.black, bgcolor=fl7 == "BIG ACCUM" ? color.fuchsia : fl7 == "ACCUM" ? color.lime : fl7 == "DISTRIB" ? color.orange : fl7 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 7, str.tostring(str7, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str7), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 7, st7, text_color=color.black, bgcolor=f_get_color(st7), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 0, 8, "RIG", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 8, str.tostring(c8, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 8, fl8, text_color=color.black, bgcolor=fl8 == "BIG ACCUM" ? color.fuchsia : fl8 == "ACCUM" ? color.lime : fl8 == "DISTRIB" ? color.orange : fl8 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 8, str.tostring(str8, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str8), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 8, st8, text_color=color.black, bgcolor=f_get_color(st8), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 0, 9, "VALE", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 9, str.tostring(c9, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 9, fl9, text_color=color.black, bgcolor=fl9 == "BIG ACCUM" ? color.fuchsia : fl9 == "ACCUM" ? color.lime : fl9 == "DISTRIB" ? color.orange : fl9 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 9, str.tostring(str9, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str9), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 9, st9, text_color=color.black, bgcolor=f_get_color(st9), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 0, 10, "NOK", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 10, str.tostring(c10, "#.##"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 10, fl10, text_color=color.black, bgcolor=fl10 == "BIG ACCUM" ? color.fuchsia : fl10 == "ACCUM" ? color.lime : fl10 == "DISTRIB" ? color.orange : fl10 == "BIG DISTRIB" ? color.red : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 10, str.tostring(str10, "#.#") + "%", text_color=color.black, bgcolor=f_str_gradient(str10), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 10, st10, text_color=color.black, bgcolor=f_get_color(st10), text_size=size.small, text_halign=text.align_center)
+
+// ============================================================================
+// ALERTS — Human-readable text
+// ============================================================================
+if barstate.islast and barstate.isconfirmed
+    if st1 != "WAIT"
+        msg_1 = "🔥 US BANDAR AI\nTicker: BITF\nPrice: $" + str.tostring(c1, "#.##") + "\nSignal: " + st1 + "\nFlow: " + fl1 + "\nStrength: " + str.tostring(str1, "#.#") + "%"
+        alert(msg_1, alert.freq_once_per_bar_close)
+    if st2 != "WAIT"
+        msg_2 = "🔥 US BANDAR AI\nTicker: CLSK\nPrice: $" + str.tostring(c2, "#.##") + "\nSignal: " + st2 + "\nFlow: " + fl2 + "\nStrength: " + str.tostring(str2, "#.#") + "%"
+        alert(msg_2, alert.freq_once_per_bar_close)
+    if st3 != "WAIT"
+        msg_3 = "🔥 US BANDAR AI\nTicker: GEVO\nPrice: $" + str.tostring(c3, "#.##") + "\nSignal: " + st3 + "\nFlow: " + fl3 + "\nStrength: " + str.tostring(str3, "#.#") + "%"
+        alert(msg_3, alert.freq_once_per_bar_close)
+    if st4 != "WAIT"
+        msg_4 = "🔥 US BANDAR AI\nTicker: BLNK\nPrice: $" + str.tostring(c4, "#.##") + "\nSignal: " + st4 + "\nFlow: " + fl4 + "\nStrength: " + str.tostring(str4, "#.#") + "%"
+        alert(msg_4, alert.freq_once_per_bar_close)
+    if st5 != "WAIT"
+        msg_5 = "🔥 US BANDAR AI\nTicker: WKHS\nPrice: $" + str.tostring(c5, "#.##") + "\nSignal: " + st5 + "\nFlow: " + fl5 + "\nStrength: " + str.tostring(str5, "#.#") + "%"
+        alert(msg_5, alert.freq_once_per_bar_close)
+    if st6 != "WAIT"
+        msg_6 = "🔥 US BANDAR AI\nTicker: CHPT\nPrice: $" + str.tostring(c6, "#.##") + "\nSignal: " + st6 + "\nFlow: " + fl6 + "\nStrength: " + str.tostring(str6, "#.#") + "%"
+        alert(msg_6, alert.freq_once_per_bar_close)
+    if st7 != "WAIT"
+        msg_7 = "🔥 US BANDAR AI\nTicker: BYND\nPrice: $" + str.tostring(c7, "#.##") + "\nSignal: " + st7 + "\nFlow: " + fl7 + "\nStrength: " + str.tostring(str7, "#.#") + "%"
+        alert(msg_7, alert.freq_once_per_bar_close)
+    if st8 != "WAIT"
+        msg_8 = "🔥 US BANDAR AI\nTicker: RIG\nPrice: $" + str.tostring(c8, "#.##") + "\nSignal: " + st8 + "\nFlow: " + fl8 + "\nStrength: " + str.tostring(str8, "#.#") + "%"
+        alert(msg_8, alert.freq_once_per_bar_close)
+    if st9 != "WAIT"
+        msg_9 = "🔥 US BANDAR AI\nTicker: VALE\nPrice: $" + str.tostring(c9, "#.##") + "\nSignal: " + st9 + "\nFlow: " + fl9 + "\nStrength: " + str.tostring(str9, "#.#") + "%"
+        alert(msg_9, alert.freq_once_per_bar_close)
+    if st10 != "WAIT"
+        msg_10 = "🔥 US BANDAR AI\nTicker: NOK\nPrice: $" + str.tostring(c10, "#.##") + "\nSignal: " + st10 + "\nFlow: " + fl10 + "\nStrength: " + str.tostring(str10, "#.#") + "%"
+        alert(msg_10, alert.freq_once_per_bar_close)
+
+plot(close, display=display.none)

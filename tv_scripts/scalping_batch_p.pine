@@ -1,6 +1,12 @@
 // This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
 // https://mozilla.org/MPL/2.0/
-// Generated on 2026-05-12 from real IDX prices
+// Generated on 2026-05-12 | Strategy: SCALPING (Intraday)
+//
+// @description Scalping screener untuk saham IDX murah (Rp50-500).
+//   Default Timeframe: 1 menit. Holding period: menit-jam (intraday).
+//   Strategi: Pivot Entry + RSI Oversold (<35) + Volume Spike (RVOL>1.5).
+//   Sinyal HAKA = Entry segera saat semua kondisi terpenuhi + ada akumulasi bandar.
+//   TP: +3% dari entry | SL: 0.5x ATR di bawah entry.
 
 //@version=6
 indicator("SCALPING SCREENER IDX - BATCH P (10 Emiten)", overlay=true, max_bars_back=500)
@@ -8,7 +14,7 @@ indicator("SCALPING SCREENER IDX - BATCH P (10 Emiten)", overlay=true, max_bars_
 // ============================================================================
 // INPUT
 // ============================================================================
-tf = input.timeframe("5", "Timeframe Screener")
+tf = input.timeframe("1", "Timeframe Screener")
 pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
 
 // ============================================================================
