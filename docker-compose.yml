@@ -1,17 +1,9 @@
-version: '3.8'
-
-networks:
-  app-network:
-    driver: bridge
-
 services:
   webhook:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: pinescript-webhook
-    networks:
-      - app-network
     ports:
       - "8000:8000"
     env_file:
@@ -19,6 +11,12 @@ services:
     environment:
       - PORT=8000
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -28,14 +26,10 @@ services:
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: pinescript-tunnel
-    networks:
-      - app-network
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     command: tunnel run
     depends_on:
-      - webhook
-
+      webhook:
+        condition: service_healthy
