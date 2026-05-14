@@ -18,3 +18,16 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: pinescript-tunnel
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel run
+    depends_on:
+      - webhook
+
