@@ -1,11 +1,17 @@
 version: '3.8'
 
+networks:
+  app-network:
+    driver: bridge
+
 services:
   webhook:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: pinescript-webhook
+    networks:
+      - app-network
     ports:
       - "8000:8000"
     env_file:
@@ -22,6 +28,8 @@ services:
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: pinescript-tunnel
+    networks:
+      - app-network
     restart: unless-stopped
     env_file:
       - .env
