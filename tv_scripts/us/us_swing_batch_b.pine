@@ -19,6 +19,7 @@ tf         = input.timeframe("15", "Timeframe Screener")
 emaLen     = input.int(200, "EMA Trend Length")
 volMult    = input.float(1.5, "Vol Spike Multiplier")
 pos        = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+heartbeat  = input.bool(true, "🔔 Enable Heartbeat Test (disable after testing)")
 
 // ============================================================================
 // TICKER DEFINITIONS (prices as of 2026-05-15)
@@ -161,6 +162,13 @@ if barstate.islast
     table.cell(tbl, 2, 10, dvol10 > 1e6 ? "$" + str.tostring(dvol10/1e6, "#.#") + "M" : "$" + str.tostring(dvol10/1e3, "#.#") + "K", text_color=dvol10 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
     table.cell(tbl, 3, 10, "R:" + str.tostring(rsi10, "#.#") + " V:" + str.tostring(rvol10, "#.#") + "x", text_color=rsi10 < 30 ? color.lime : rsi10 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
     table.cell(tbl, 4, 10, sig10, text_color=color.black, bgcolor=f_sig_bg(sig10, c10 > ema20_10 and ema20_10 > ema50_10, c10 < ema20_10 and ema20_10 < ema50_10), text_size=size.small, text_halign=text.align_center)
+
+// ============================================================================
+// HEARTBEAT TEST — Fires every bar close to verify webhook pipeline
+// ============================================================================
+if heartbeat and barstate.islast and barstate.isconfirmed
+    hb_msg = "🔔 HEARTBEAT TEST\nSource: US SWING HUNTER BATCH B\nStatus: Pipeline OK\nTime: " + str.tostring(year) + "-" + str.tostring(month) + "-" + str.tostring(dayofmonth) + " " + str.tostring(hour) + ":" + str.tostring(minute)
+    alert(hb_msg, alert.freq_once_per_bar_close)
 
 // ============================================================================
 // ALERTS — Human-readable text

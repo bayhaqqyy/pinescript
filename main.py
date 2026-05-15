@@ -276,8 +276,13 @@ def format_idx_scalp_alert(data: dict) -> str:
 @app.post("/webhook")
 async def handle_webhook(request: Request):
     content_type = request.headers.get("content-type", "")
+    user_agent = request.headers.get("user-agent", "unknown")
     raw_body = await request.body()
     body_str = raw_body.decode("utf-8", errors="replace").strip()
+
+    # ── REQUEST LOGGING — see every incoming hit ─────────────────────
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    print(f"[{ts}] 📨 WEBHOOK HIT | Content-Type: {content_type} | UA: {user_agent} | Body ({len(body_str)} chars): {body_str[:200]}")
 
     message_text = ""
 
@@ -307,7 +312,10 @@ async def handle_webhook(request: Request):
 
     # ── Parse plain text alerts from US v2 scripts ──────────────────
     if not message_text and body_str:
-        if "US SWING HUNTER" in body_str:
+        if "HEARTBEAT TEST" in body_str:
+            # Heartbeat — forward as confirmation
+            message_text = f"💚 <b>HEARTBEAT OK</b>\n<pre>{body_str}</pre>\n\n✅ Pipeline: TradingView → Cloudflare → Webhook → Telegram"
+        elif "US SWING HUNTER" in body_str:
             message_text = format_us_swing_alert(body_str)
         elif "US BANDAR AI" in body_str:
             message_text = format_us_bandar_alert(body_str)
@@ -317,6 +325,9 @@ async def handle_webhook(request: Request):
 
     if message_text:
         await send_to_telegram(message_text)
+        print(f"[{ts}] ✅ Message forwarded to Telegram")
+    else:
+        print(f"[{ts}] ⚠️ No message generated from body")
 
     return {"status": "success", "received": True}
 
