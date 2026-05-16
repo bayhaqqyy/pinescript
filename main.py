@@ -193,6 +193,124 @@ def format_us_bandar_alert(raw: str) -> str:
 
 
 # ============================================================================
+# XAU QUANTUM SIGNAL — Text Alert Parser (Gold / XAUUSD)
+# ============================================================================
+# Format from Pine Script:
+#   👑 XAU QUANTUM SIGNAL
+#   Ticker: XAUUSD
+#   Action: BUY
+#   Entry: 2345.67
+#   TP1: 2360.12
+#   TP2: 2374.57
+#   SL: 2324.00
+#   Context: BUY — EMA9 crossed above EMA21, MACD histogram positive
+# ============================================================================
+def format_custom_gold_alert(raw: str) -> str:
+    lines = raw.strip().split("\n")
+    data = {}
+    for line in lines:
+        line = line.strip()
+        if line.startswith("Ticker:"):
+            # Cap Ticker at 20 chars per spec
+            data["ticker"] = line.split(":", 1)[1].strip()[:20]
+        elif line.startswith("Action:"):
+            data["action"] = line.split(":", 1)[1].strip()
+        elif line.startswith("Entry:"):
+            data["entry"] = line.split(":", 1)[1].strip()
+        elif line.startswith("TP1:"):
+            data["tp1"] = line.split(":", 1)[1].strip()
+        elif line.startswith("TP2:"):
+            data["tp2"] = line.split(":", 1)[1].strip()
+        elif line.startswith("SL:"):
+            data["sl"] = line.split(":", 1)[1].strip()
+        elif line.startswith("Context:"):
+            # Cap Context at 200 chars per spec
+            data["context"] = line.split(":", 1)[1].strip()[:200]
+
+    # ── Default / fallback handling (task 2.2) ──────────────────────
+    # Requirement 5.8: missing or empty text fields → "???"
+    ticker = data.get("ticker") or "???"
+    context = data.get("context") or "???"
+
+    # Requirement 5.10: Action must be exactly "BUY" or "SELL"; else "???"
+    action_raw = data.get("action", "")
+    action = action_raw if action_raw in ("BUY", "SELL") else "???"
+
+    # Requirement 5.8 / 5.9: price fields default to "0.00" when missing
+    # or when float() conversion fails. We expose the parsed float (or
+    # None when invalid/missing) so task 2.3 can perform R:R math
+    # without re-parsing the strings.
+    def _parse_price(raw_value):
+        """Return (float_or_None, formatted_string).
+
+        Success → (float, "X.XX") two-decimal string.
+        Missing/invalid → (None, "0.00") sentinel so downstream code
+        can detect "no usable number" while still rendering a safe
+        placeholder in the message body.
+        """
+        try:
+            value = float(raw_value)
+            return value, f"{value:.2f}"
+        except (TypeError, ValueError):
+            return None, "0.00"
+
+    entry_val, entry_str = _parse_price(data.get("entry"))
+    tp1_val, tp1_str = _parse_price(data.get("tp1"))
+    tp2_val, tp2_str = _parse_price(data.get("tp2"))
+    sl_val, sl_str = _parse_price(data.get("sl"))
+
+    # ── Risk:Reward calculation (task 2.3) ──────────────────────────
+    # Requirement 6.5:
+    #   BUY  → R:R = (TP1 - Entry) / (Entry - SL)
+    #   SELL → R:R = (Entry - TP1) / (SL - Entry)
+    # Requirement 6.6: when the denominator is zero (or any required
+    # value is missing/non-numeric), display "N/A". Otherwise format
+    # to exactly one decimal place.
+    rr_str = "N/A"
+    if entry_val is not None and tp1_val is not None and sl_val is not None:
+        if action == "BUY":
+            denominator = entry_val - sl_val
+            if denominator != 0:
+                rr_str = f"{(tp1_val - entry_val) / denominator:.1f}"
+        elif action == "SELL":
+            denominator = sl_val - entry_val
+            if denominator != 0:
+                rr_str = f"{(entry_val - tp1_val) / denominator:.1f}"
+        # action == "???" → leave R:R as "N/A" (no directional formula)
+
+    # ── Header emoji selection (Requirements 6.1, 6.2) ──────────────
+    # BUY → 🟢, SELL → 🔴, invalid Action → neutral marker so the
+    # message remains valid HTML without implying a direction.
+    if action == "BUY":
+        header_emoji = "🟢"
+    elif action == "SELL":
+        header_emoji = "🔴"
+    else:
+        header_emoji = "⚪"
+
+    # ── Build HTML Telegram message (Requirements 6.3–6.10) ─────────
+    # Section order: header, separator, price levels, separator,
+    # context + R:R, separator, hashtags.
+    separator = "━━━━━━━━━━━━━━━━━━"
+
+    msg = f"{header_emoji} <b>XAU QUANTUM SIGNAL</b> {header_emoji}\n"
+    msg += f"{separator}\n"
+    msg += f"🏷 <b>Ticker</b>: <code>{ticker}</code>\n"
+    msg += f"⚡ <b>Action</b>: <b>{action}</b>\n"
+    msg += f"🎯 <b>Entry</b>: {entry_str}\n"
+    msg += f"✅ <b>TP1</b>: {tp1_str}\n"
+    msg += f"✅ <b>TP2</b>: {tp2_str}\n"
+    msg += f"🛑 <b>SL</b>: {sl_str}\n"
+    msg += f"{separator}\n"
+    msg += f"📊 <b>Context</b>: {context}\n"
+    msg += f"⚖️ <b>Risk:Reward</b>: {rr_str}\n"
+    msg += f"{separator}\n"
+    msg += f"#XAU_QUANTUM #XAUUSD"
+
+    return msg
+
+
+# ============================================================================
 # IDX BANDAR AI (Legacy) — JSON Alert Parser
 # ============================================================================
 def format_idx_bandar_alert(data: dict) -> str:
@@ -312,7 +430,11 @@ async def handle_webhook(request: Request):
 
     # ── Parse plain text alerts from US v2 scripts ──────────────────
     if not message_text and body_str:
-        if "HEARTBEAT TEST" in body_str:
+        # XAU QUANTUM SIGNAL routed first so it cannot be shadowed by
+        # other handlers. Case-sensitive `in` match per Requirement 4.4.
+        if "XAU QUANTUM SIGNAL" in body_str:
+            message_text = format_custom_gold_alert(body_str)
+        elif "HEARTBEAT TEST" in body_str:
             # Heartbeat — forward as confirmation
             message_text = f"💚 <b>HEARTBEAT OK</b>\n<pre>{body_str}</pre>\n\n✅ Pipeline: TradingView → Cloudflare → Webhook → Telegram"
         elif "US SWING HUNTER" in body_str:
@@ -338,6 +460,7 @@ async def health_check():
         "status": "Webhook is running!",
         "telegram_configured": bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID),
         "supported_alerts": [
+            "XAU Quantum Signal (plain text)",
             "US Swing Hunter v2 (plain text)",
             "US Bandar AI v2 (plain text)",
             "IDX Bandar AI (JSON legacy)",
