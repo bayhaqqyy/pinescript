@@ -1,0 +1,107 @@
+// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// Strategy: BTC QUANTUM SIGNAL
+// Optimized strictly for Bitcoin (BTCUSD/BTCUSDT) 24/7 market.
+
+//@version=6
+indicator("BTC QUANTUM SIGNAL", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// FAILSAFE: LOCK ONLY FOR BITCOIN
+// ============================================================================
+isBTC = str.contains(syminfo.tickerid, "BTC")
+if not isBTC
+    runtime.error("Sistem di-lock KHUSUS untuk Bitcoin. Silakan pindah ke chart BTCUSD/BTCUSDT.")
+
+// ============================================================================
+// INPUT - EMA CROSSOVER & MACRO TREND
+// ============================================================================
+emaFastLen  = input.int(9,  "EMA Fast", minval=2, group="EMA Crossover")
+emaSlowLen  = input.int(21, "EMA Slow", minval=2, group="EMA Crossover")
+emaTrendLen = input.int(200, "EMA Trend (Macro)", minval=50, group="EMA Crossover", tooltip="Sangat krusial untuk filter pergerakan sideways akhir pekan BTC.")
+
+// ============================================================================
+// INPUT - MACD CONFIRMATION
+// ============================================================================
+macdFast   = input.int(12, "MACD Fast",   minval=1, group="MACD")
+macdSlow   = input.int(26, "MACD Slow",   minval=1, group="MACD")
+macdSignal = input.int(9,  "MACD Signal", minval=1, group="MACD")
+
+// ============================================================================
+// INPUT - RSI EXHAUSTION FILTER (BASED ON BTC RESEARCH)
+// ============================================================================
+rsiLen = input.int(14, "RSI Length", group="RSI Filter")
+rsiMaxBuy  = input.int(80, "Max RSI BUY", group="RSI Filter", tooltip="Di BTC, RSI 70-80 seringkali fase momentum terkuat. Dibatasi di 80.")
+rsiMinSell = input.int(20, "Min RSI SELL", group="RSI Filter", tooltip="Dibatasi di 20 untuk antisipasi capitulation.")
+
+// ============================================================================
+// INPUT - ATR DYNAMIC LEVELS (LIQUIDATION SWEEP PROTECTION)
+// ============================================================================
+atrPeriod  = input.int(14,    "ATR Period", minval=1, group="ATR Levels")
+atrMultTP1 = input.float(1.5, "ATR Mult TP1", minval=0.1, step=0.1, group="ATR Levels")
+atrMultTP2 = input.float(3.0, "ATR Mult TP2", minval=0.1, step=0.1, group="ATR Levels", tooltip="Target dinaikkan karena tren BTC bisa sangat panjang.")
+atrMultSL  = input.float(2.5, "ATR Mult SL (Sweep Protect)",  minval=0.1, step=0.1, group="ATR Levels")
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+emaFast  = ta.ema(close, emaFastLen)
+emaSlow  = ta.ema(close, emaSlowLen)
+emaTrend = ta.ema(close, emaTrendLen)
+
+emaCrossUp   = ta.crossover(emaFast, emaSlow)
+emaCrossDown = ta.crossunder(emaFast, emaSlow)
+
+[_, _, macdHist] = ta.macd(close, macdFast, macdSlow, macdSignal)
+rsiValue = ta.rsi(close, rsiLen)
+atrValue = ta.atr(atrPeriod)
+signalReady = bar_index >= (atrPeriod > emaTrendLen ? atrPeriod : emaTrendLen)
+
+// ============================================================================
+// SIGNAL DETECTION
+// ============================================================================
+buySignal  = barstate.isconfirmed and signalReady and emaCrossUp and macdHist > 0 and close > emaTrend and rsiValue < rsiMaxBuy
+sellSignal = barstate.isconfirmed and signalReady and emaCrossDown and macdHist < 0 and close < emaTrend and rsiValue > rsiMinSell
+
+// ============================================================================
+// LEVEL PROJECTIONS
+// ============================================================================
+entryPrice = close
+
+buyTP1 = entryPrice + atrMultTP1 * atrValue
+buyTP2 = entryPrice + atrMultTP2 * atrValue
+buySL  = entryPrice - atrMultSL  * atrValue
+
+sellTP1 = entryPrice - atrMultTP1 * atrValue
+sellTP2 = entryPrice - atrMultTP2 * atrValue
+sellSL  = entryPrice + atrMultSL  * atrValue
+
+tp1Level = buySignal ? buyTP1 : sellTP1
+tp2Level = buySignal ? buyTP2 : sellTP2
+slLevel  = buySignal ? buySL  : sellSL
+
+// ============================================================================
+// VISUAL FEEDBACK
+// ============================================================================
+plotshape(buySignal,  title="BUY",  style=shape.triangleup,   location=location.belowbar, color=color.new(color.lime, 0), size=size.small, text="BUY")
+plotshape(sellSignal, title="SELL", style=shape.triangledown, location=location.abovebar, color=color.new(color.red,  0), size=size.small, text="SELL")
+plot(emaFast, color=color.new(color.aqua, 0))
+plot(emaSlow, color=color.new(color.orange, 0))
+plot(emaTrend, color=color.rgb(247, 147, 26, 30), linewidth=2, title="EMA 200 (BTC Orange)")
+
+// ============================================================================
+// ALERT PAYLOAD (FORMATTED FOR WEBHOOK)
+// ============================================================================
+if buySignal or sellSignal
+    actionStr  = buySignal ? "BUY" : "SELL"
+    contextRaw = actionStr + " — EMA " + str.tostring(emaFastLen) + (buySignal ? " cross UP, Trend UP, RSI:" : " cross DOWN, Trend DOWN, RSI:") + str.tostring(math.round(rsiValue))
+    
+    alertMsg = "₿ BTC QUANTUM SIGNAL\n" +
+               "Ticker: "  + syminfo.ticker + "\n" +
+               "Action: "  + actionStr + "\n" +
+               "Entry: "   + str.tostring(entryPrice, format.mintick) + "\n" +
+               "TP1: "     + str.tostring(tp1Level,   format.mintick) + "\n" +
+               "TP2: "     + str.tostring(tp2Level,   format.mintick) + "\n" +
+               "SL: "      + str.tostring(slLevel,    format.mintick) + "\n" +
+               "Context: " + contextRaw
+
+    alert(alertMsg, alert.freq_once_per_bar_close)

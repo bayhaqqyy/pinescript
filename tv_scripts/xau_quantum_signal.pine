@@ -1,81 +1,47 @@
 // This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// https://mozilla.org/MPL/2.0/
 // Strategy: XAU QUANTUM SIGNAL
-//
-// @description Gold (XAUUSD) trading signal indicator using EMA Crossover + MACD confirmation,
-//   with ATR-based dynamic Entry/TP1/TP2/SL levels. Fires structured key-value alerts that
-//   are consumed by the FastAPI webhook and forwarded to Telegram.
-//   Sinyal: BUY (EMA fast crosses above slow + MACD histogram > 0),
-//           SELL (EMA fast crosses below slow + MACD histogram < 0).
+// Optimized strictly for Gold (XAUUSD) volatility.
 
 //@version=6
 indicator("XAU QUANTUM SIGNAL", overlay=true, max_bars_back=500)
 
-// ============================================================================
-// INPUT - EMA CROSSOVER
-// ============================================================================
-emaFastLen = input.int(9,  "EMA Fast Length", minval=2, maxval=200, group="EMA Crossover")
-emaSlowLen = input.int(21, "EMA Slow Length", minval=2, maxval=200, group="EMA Crossover")
+// --- INPUTS ---
+emaFastLen  = input.int(9,  "EMA Fast", minval=2, group="EMA Crossover")
+emaSlowLen  = input.int(21, "EMA Slow", minval=2, group="EMA Crossover")
+emaTrendLen = input.int(200, "EMA Trend (Macro)", minval=50, group="EMA Crossover")
 
-// Constraint: Fast EMA length must be strictly less than Slow EMA length
-if emaFastLen >= emaSlowLen
-    runtime.error("EMA Fast Length must be less than EMA Slow Length")
+macdFast   = input.int(12, "MACD Fast",   minval=1, group="MACD")
+macdSlow   = input.int(26, "MACD Slow",   minval=1, group="MACD")
+macdSignal = input.int(9,  "MACD Signal", minval=1, group="MACD")
 
-// ============================================================================
-// INPUT - MACD CONFIRMATION
-// ============================================================================
-macdFast   = input.int(12, "MACD Fast Length",   minval=1, group="MACD")
-macdSlow   = input.int(26, "MACD Slow Length",   minval=1, group="MACD")
-macdSignal = input.int(9,  "MACD Signal Length", minval=1, group="MACD")
+rsiLen     = input.int(14, "RSI Length", group="RSI Filter")
+rsiMaxBuy  = input.int(65, "Max RSI BUY", group="RSI Filter", tooltip="Gold gampang koreksi, dibatasi di 65")
+rsiMinSell = input.int(35, "Min RSI SELL", group="RSI Filter", tooltip="Dibatasi di 35")
 
-// ============================================================================
-// INPUT - ATR DYNAMIC LEVELS
-// ============================================================================
-atrPeriod  = input.int(14,    "ATR Period",         minval=1,   maxval=200,  group="ATR Levels")
-atrMultTP1 = input.float(1.0, "ATR Multiplier TP1", minval=0.1, maxval=10.0, step=0.1, group="ATR Levels")
-atrMultTP2 = input.float(2.0, "ATR Multiplier TP2", minval=0.1, maxval=10.0, step=0.1, group="ATR Levels")
-atrMultSL  = input.float(1.5, "ATR Multiplier SL",  minval=0.1, maxval=10.0, step=0.1, group="ATR Levels")
+atrPeriod  = input.int(14,    "ATR Period", minval=1, group="ATR Levels")
+atrMultTP1 = input.float(1.0, "ATR Mult TP1", minval=0.1, step=0.1, group="ATR Levels", tooltip="Ambil TP1 lebih cepat di Gold")
+atrMultTP2 = input.float(2.0, "ATR Mult TP2", minval=0.1, step=0.1, group="ATR Levels")
+atrMultSL  = input.float(2.0, "ATR Mult SL",  minval=0.1, step=0.1, group="ATR Levels")
 
-// ============================================================================
-// CALCULATIONS - EMA & MACD
-// ============================================================================
-emaFast = ta.ema(close, emaFastLen)
-emaSlow = ta.ema(close, emaSlowLen)
+// --- CALCULATIONS ---
+emaFast  = ta.ema(close, emaFastLen)
+emaSlow  = ta.ema(close, emaSlowLen)
+emaTrend = ta.ema(close, emaTrendLen)
 
 emaCrossUp   = ta.crossover(emaFast, emaSlow)
 emaCrossDown = ta.crossunder(emaFast, emaSlow)
 
-[macdLine, signalLine, macdHist] = ta.macd(close, macdFast, macdSlow, macdSignal)
+[_, _, macdHist] = ta.macd(close, macdFast, macdSlow, macdSignal)
+rsiValue = ta.rsi(close, rsiLen)
+atrValue = ta.atr(atrPeriod)
+signalReady = bar_index >= (atrPeriod > emaTrendLen ? atrPeriod : emaTrendLen)
 
-// ============================================================================
-// CALCULATIONS - ATR
-// ============================================================================
-// ATR is used for dynamic price-level computation (Entry / TP1 / TP2 / SL).
-// We require at least `atrPeriod` bars of history before any signal is allowed
-// so the ATR value is meaningful (Requirement 2.9).
-atrValue    = ta.atr(atrPeriod)
-signalReady = bar_index >= atrPeriod
+// --- SIGNALS ---
+buySignal  = barstate.isconfirmed and signalReady and emaCrossUp and macdHist > 0 and close > emaTrend and rsiValue < rsiMaxBuy
+sellSignal = barstate.isconfirmed and signalReady and emaCrossDown and macdHist < 0 and close < emaTrend and rsiValue > rsiMinSell
 
-// ============================================================================
-// SIGNAL DETECTION
-// ============================================================================
-// BUY  = fast EMA crosses above slow EMA AND MACD histogram strictly > 0
-// SELL = fast EMA crosses below slow EMA AND MACD histogram strictly < 0
-// MACD histogram == 0 suppresses the signal (Requirement 1.6).
-// Signals only evaluate on confirmed bar close (Requirement 1.5).
-// Signals are suppressed until ATR has enough history (Requirement 2.9).
-buySignal  = barstate.isconfirmed and signalReady and emaCrossUp   and macdHist > 0
-sellSignal = barstate.isconfirmed and signalReady and emaCrossDown and macdHist < 0
-
-// ============================================================================
-// CALCULATIONS - DYNAMIC PRICE LEVELS (ATR-based)
-// ============================================================================
-// Entry is always the current close price on the signal bar (Requirements 2.1, 2.4).
-// TP1 / TP2 / SL are projected from Entry using ATR multipliers.
-// BUY targets are above Entry; BUY stop is below Entry (Requirements 2.2, 2.3).
-// SELL targets are below Entry; SELL stop is above Entry (Requirements 2.5, 2.6).
+// --- LEVELS ---
 entryPrice = close
-
 buyTP1 = entryPrice + atrMultTP1 * atrValue
 buyTP2 = entryPrice + atrMultTP2 * atrValue
 buySL  = entryPrice - atrMultSL  * atrValue
@@ -84,57 +50,30 @@ sellTP1 = entryPrice - atrMultTP1 * atrValue
 sellTP2 = entryPrice - atrMultTP2 * atrValue
 sellSL  = entryPrice + atrMultSL  * atrValue
 
-// Direction-resolved levels - selected by which signal is active on this bar.
-// Task 1.4 will read these to build the alert payload.
 tp1Level = buySignal ? buyTP1 : sellTP1
 tp2Level = buySignal ? buyTP2 : sellTP2
 slLevel  = buySignal ? buySL  : sellSL
 
-// ============================================================================
-// VISUAL FEEDBACK - plotshape markers (chart only)
-// ============================================================================
+// --- VISUALS ---
 plotshape(buySignal,  title="BUY",  style=shape.triangleup,   location=location.belowbar, color=color.new(color.lime, 0), size=size.small, text="BUY")
 plotshape(sellSignal, title="SELL", style=shape.triangledown, location=location.abovebar, color=color.new(color.red,  0), size=size.small, text="SELL")
+plot(emaFast, color=color.new(color.aqua, 0))
+plot(emaSlow, color=color.new(color.orange, 0))
+plot(emaTrend, color=color.new(color.yellow, 30), linewidth=2) // Warna emas/kuning untuk XAU
 
-plot(emaFast, title="EMA Fast", color=color.new(color.aqua,   0), linewidth=1)
-plot(emaSlow, title="EMA Slow", color=color.new(color.orange, 0), linewidth=1)
-
-// ============================================================================
-// ALERT PAYLOAD — Structured key-value text (Requirement 3)
-// ============================================================================
-// Layout (one field per line, in fixed order):
-//   Line 1: "👑 XAU QUANTUM SIGNAL"
-//   Line 2: "Ticker: XAUUSD"
-//   Line 3: "Action: BUY" or "Action: SELL"
-//   Line 4: "Entry: <price 2dp>"
-//   Line 5: "TP1: <price 2dp>"
-//   Line 6: "TP2: <price 2dp>"
-//   Line 7: "SL: <price 2dp>"
-//   Line 8: "Context: <human-readable summary, max 120 chars>"
-//
-// Fired with `alert.freq_once_per_bar_close` so duplicate signals within the
-// same bar are suppressed (Requirement 3.9).
+// --- ALERT PAYLOAD (GOLD) ---
 if buySignal or sellSignal
     actionStr  = buySignal ? "BUY" : "SELL"
-
-    // Context summarises the trigger: signal direction + EMA crossover description
-    // + MACD histogram state (Requirement 3.8).
-    contextRaw = buySignal
-                     ? "BUY — EMA"  + str.tostring(emaFastLen) + " crossed above EMA" + str.tostring(emaSlowLen) + ", MACD histogram positive"
-                     : "SELL — EMA" + str.tostring(emaFastLen) + " crossed below EMA" + str.tostring(emaSlowLen) + ", MACD histogram negative"
-
-    // Hard cap at 120 characters. With default EMA lengths the raw string is
-    // well under 120 chars, so the cap is a no-op; it only triggers if a user
-    // configures unusually long inputs.
-    contextStr = str.length(contextRaw) > 120 ? str.substring(contextRaw, 0, 120) : contextRaw
-
-    alertMsg = "👑 XAU QUANTUM SIGNAL\n" +
-               "Ticker: XAUUSD\n" +
+    contextRaw = actionStr + " — EMA " + str.tostring(emaFastLen) + (buySignal ? " cross UP, Trend UP, RSI:" : " cross DOWN, Trend DOWN, RSI:") + str.tostring(math.round(rsiValue))
+    
+    // Header menggunakan icon medali dan label XAU
+    alertMsg = "🥇 XAU QUANTUM SIGNAL\n" +
+               "Ticker: "  + syminfo.ticker + "\n" +
                "Action: "  + actionStr + "\n" +
-               "Entry: "   + str.tostring(entryPrice, "#.##") + "\n" +
-               "TP1: "     + str.tostring(tp1Level,   "#.##") + "\n" +
-               "TP2: "     + str.tostring(tp2Level,   "#.##") + "\n" +
-               "SL: "      + str.tostring(slLevel,    "#.##") + "\n" +
-               "Context: " + contextStr
+               "Entry: "   + str.tostring(entryPrice, format.mintick) + "\n" +
+               "TP1: "     + str.tostring(tp1Level,   format.mintick) + "\n" +
+               "TP2: "     + str.tostring(tp2Level,   format.mintick) + "\n" +
+               "SL: "      + str.tostring(slLevel,    format.mintick) + "\n" +
+               "Context: " + contextRaw
 
     alert(alertMsg, alert.freq_once_per_bar_close)

@@ -39,13 +39,6 @@ async def send_to_telegram(text: str):
 # ============================================================================
 # US SWING HUNTER v2 — Text Alert Parser
 # ============================================================================
-# Format from Pine Script:
-#   🚨 US SWING HUNTER
-#   Ticker: TSLA
-#   Price: $347.50 (+2.5%)
-#   Signal: BREAKOUT BUY
-#   RSI: 65.3 | R.Vol: 2.1x
-# ============================================================================
 def format_us_swing_alert(raw: str) -> str:
     lines = raw.strip().split("\n")
     data = {}
@@ -65,11 +58,9 @@ def format_us_swing_alert(raw: str) -> str:
     signal = data.get("signal", "UNKNOWN")
     momentum = data.get("momentum", "-")
 
-    # Parse RSI value for sentiment context
     rsi_match = re.search(r"([\d.]+)", momentum)
     rsi_val = float(rsi_match.group(1)) if rsi_match else 50.0
 
-    # Signal-based icon & sentiment
     if "BREAKOUT" in signal:
         icon = "🚀"
         sentiment = "Momentum breakout detected"
@@ -86,7 +77,6 @@ def format_us_swing_alert(raw: str) -> str:
         icon = "📊"
         sentiment = "Monitoring"
 
-    # RSI context
     if rsi_val < 30:
         rsi_tag = "🟢 Oversold"
     elif rsi_val > 70:
@@ -112,14 +102,6 @@ def format_us_swing_alert(raw: str) -> str:
 # ============================================================================
 # US BANDAR AI v2 — Text Alert Parser
 # ============================================================================
-# Format from Pine Script:
-#   🔥 US BANDAR AI
-#   Ticker: TSLA
-#   Price: $347.50
-#   Signal: SNIPER BUY
-#   Flow: BIG ACCUM
-#   Strength: 85.0%
-# ============================================================================
 def format_us_bandar_alert(raw: str) -> str:
     lines = raw.strip().split("\n")
     data = {}
@@ -142,11 +124,9 @@ def format_us_bandar_alert(raw: str) -> str:
     flow = data.get("flow", "NORMAL")
     strength = data.get("strength", "0%")
 
-    # Parse strength value
     str_match = re.search(r"([\d.]+)", strength)
     str_val = float(str_match.group(1)) if str_match else 0.0
 
-    # Signal-based icon & sentiment
     if "SNIPER BUY" in signal:
         icon = "🎯"
         sentiment = "Institutional buying detected — HIGH CONVICTION entry"
@@ -163,7 +143,6 @@ def format_us_bandar_alert(raw: str) -> str:
         icon = "📊"
         sentiment = "Monitoring institutional flow"
 
-    # Flow icon
     flow_icons = {
         "BIG ACCUM": "🐋 Big Accumulation",
         "ACCUM": "🟢 Accumulation",
@@ -173,7 +152,6 @@ def format_us_bandar_alert(raw: str) -> str:
     }
     flow_display = flow_icons.get(flow, f"⚪ {flow}")
 
-    # Strength bar visual (5 blocks)
     filled = int(str_val / 20)
     bar = "█" * filled + "░" * (5 - filled)
 
@@ -193,25 +171,14 @@ def format_us_bandar_alert(raw: str) -> str:
 
 
 # ============================================================================
-# XAU QUANTUM SIGNAL — Text Alert Parser (Gold / XAUUSD)
+# QUANTUM SIGNAL — Universal Parser (Gold & Bitcoin)
 # ============================================================================
-# Format from Pine Script:
-#   👑 XAU QUANTUM SIGNAL
-#   Ticker: XAUUSD
-#   Action: BUY
-#   Entry: 2345.67
-#   TP1: 2360.12
-#   TP2: 2374.57
-#   SL: 2324.00
-#   Context: BUY — EMA9 crossed above EMA21, MACD histogram positive
-# ============================================================================
-def format_custom_gold_alert(raw: str) -> str:
+def format_quantum_alert(raw: str, market_type: str) -> str:
     lines = raw.strip().split("\n")
     data = {}
     for line in lines:
         line = line.strip()
         if line.startswith("Ticker:"):
-            # Cap Ticker at 20 chars per spec
             data["ticker"] = line.split(":", 1)[1].strip()[:20]
         elif line.startswith("Action:"):
             data["action"] = line.split(":", 1)[1].strip()
@@ -224,34 +191,27 @@ def format_custom_gold_alert(raw: str) -> str:
         elif line.startswith("SL:"):
             data["sl"] = line.split(":", 1)[1].strip()
         elif line.startswith("Context:"):
-            # Cap Context at 200 chars per spec
             data["context"] = line.split(":", 1)[1].strip()[:200]
 
-    # ── Default / fallback handling (task 2.2) ──────────────────────
-    # Requirement 5.8: missing or empty text fields → "???"
     ticker = data.get("ticker") or "???"
     context = data.get("context") or "???"
 
-    # Requirement 5.10: Action must be exactly "BUY" or "SELL"; else "???"
     action_raw = data.get("action", "")
     action = action_raw if action_raw in ("BUY", "SELL") else "???"
 
-    # Requirement 5.8 / 5.9: price fields default to "0.00" when missing
-    # or when float() conversion fails. We expose the parsed float (or
-    # None when invalid/missing) so task 2.3 can perform R:R math
-    # without re-parsing the strings.
+    # Helper function untuk membersihkan format harga
     def _parse_price(raw_value):
-        """Return (float_or_None, formatted_string).
-
-        Success → (float, "X.XX") two-decimal string.
-        Missing/invalid → (None, "0.00") sentinel so downstream code
-        can detect "no usable number" while still rendering a safe
-        placeholder in the message body.
-        """
         try:
-            value = float(raw_value)
-            return value, f"{value:.2f}"
-        except (TypeError, ValueError):
+            # Menghapus spasi atau karakter tak terduga sebelum diubah ke float
+            clean_value = raw_value.replace(",", "")
+            value = float(clean_value)
+            
+            # Dinamis: Jika desimalnya 0, format utuh. Jika ada desimal, tampilkan persis.
+            if value.is_integer():
+                return value, f"{int(value)}"
+            else:
+                return value, f"{value}"
+        except (TypeError, ValueError, AttributeError):
             return None, "0.00"
 
     entry_val, entry_str = _parse_price(data.get("entry"))
@@ -259,13 +219,7 @@ def format_custom_gold_alert(raw: str) -> str:
     tp2_val, tp2_str = _parse_price(data.get("tp2"))
     sl_val, sl_str = _parse_price(data.get("sl"))
 
-    # ── Risk:Reward calculation (task 2.3) ──────────────────────────
-    # Requirement 6.5:
-    #   BUY  → R:R = (TP1 - Entry) / (Entry - SL)
-    #   SELL → R:R = (Entry - TP1) / (SL - Entry)
-    # Requirement 6.6: when the denominator is zero (or any required
-    # value is missing/non-numeric), display "N/A". Otherwise format
-    # to exactly one decimal place.
+    # R:R Calculation (Risk to Reward untuk TP1)
     rr_str = "N/A"
     if entry_val is not None and tp1_val is not None and sl_val is not None:
         if action == "BUY":
@@ -276,11 +230,22 @@ def format_custom_gold_alert(raw: str) -> str:
             denominator = sl_val - entry_val
             if denominator != 0:
                 rr_str = f"{(entry_val - tp1_val) / denominator:.1f}"
-        # action == "???" → leave R:R as "N/A" (no directional formula)
 
-    # ── Header emoji selection (Requirements 6.1, 6.2) ──────────────
-    # BUY → 🟢, SELL → 🔴, invalid Action → neutral marker so the
-    # message remains valid HTML without implying a direction.
+    # Visual Adjustments based on Market Type (XAU vs BTC)
+    if market_type == "GOLD":
+        title_str = "XAU QUANTUM SIGNAL"
+        asset_icon = "🥇"
+        hashtags = f"#GOLD #{ticker.replace('/', '')}"
+    elif market_type == "BTC":
+        title_str = "BTC QUANTUM SIGNAL"
+        asset_icon = "₿"
+        hashtags = f"#BITCOIN #{ticker.replace('/', '')}"
+    else:
+        title_str = "QUANTUM SIGNAL"
+        asset_icon = "📈"
+        hashtags = f"#{ticker.replace('/', '')}"
+
+    # Header warna berdasarkan jenis posisi
     if action == "BUY":
         header_emoji = "🟢"
     elif action == "SELL":
@@ -288,24 +253,21 @@ def format_custom_gold_alert(raw: str) -> str:
     else:
         header_emoji = "⚪"
 
-    # ── Build HTML Telegram message (Requirements 6.3–6.10) ─────────
-    # Section order: header, separator, price levels, separator,
-    # context + R:R, separator, hashtags.
     separator = "━━━━━━━━━━━━━━━━━━"
 
-    msg = f"{header_emoji} <b>XAU QUANTUM SIGNAL</b> {header_emoji}\n"
+    msg = f"{header_emoji} <b>{title_str}</b> {header_emoji}\n"
     msg += f"{separator}\n"
-    msg += f"🏷 <b>Ticker</b>: <code>{ticker}</code>\n"
+    msg += f"{asset_icon} <b>Pair</b>: <code>{ticker}</code>\n"
     msg += f"⚡ <b>Action</b>: <b>{action}</b>\n"
     msg += f"🎯 <b>Entry</b>: {entry_str}\n"
     msg += f"✅ <b>TP1</b>: {tp1_str}\n"
-    msg += f"✅ <b>TP2</b>: {tp2_str}\n"
+    msg += f"🚀 <b>TP2</b>: {tp2_str}\n"
     msg += f"🛑 <b>SL</b>: {sl_str}\n"
     msg += f"{separator}\n"
-    msg += f"📊 <b>Context</b>: {context}\n"
-    msg += f"⚖️ <b>Risk:Reward</b>: {rr_str}\n"
+    msg += f"📊 <b>Context</b>: <i>{context}</i>\n"
+    msg += f"⚖️ <b>Risk:Reward (TP1)</b>: {rr_str}\n"
     msg += f"{separator}\n"
-    msg += f"#XAU_QUANTUM #XAUUSD"
+    msg += f"{hashtags}"
 
     return msg
 
@@ -364,7 +326,6 @@ def format_idx_scalp_alert(data: dict) -> str:
         icon = "⚡"
         sentiment = "Sinyal Scalping aktif."
 
-    # Visual indicators
     bandar_upper = bandar.upper()
     bandar_display = f"🐋 {bandar}" if "AKUM" in bandar_upper else f"🚨 {bandar}" if "DIST" in bandar_upper else f"⚪ {bandar}"
     
@@ -389,7 +350,7 @@ def format_idx_scalp_alert(data: dict) -> str:
 
 
 # ============================================================================
-# WEBHOOK HANDLER — Supports both JSON (legacy IDX) and plain text (US v2)
+# WEBHOOK HANDLER
 # ============================================================================
 @app.post("/webhook")
 async def handle_webhook(request: Request):
@@ -398,53 +359,42 @@ async def handle_webhook(request: Request):
     raw_body = await request.body()
     body_str = raw_body.decode("utf-8", errors="replace").strip()
 
-    # ── REQUEST LOGGING — see every incoming hit ─────────────────────
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     print(f"[{ts}] 📨 WEBHOOK HIT | Content-Type: {content_type} | UA: {user_agent} | Body ({len(body_str)} chars): {body_str[:200]}")
 
     message_text = ""
 
-    # ── Try JSON first (legacy IDX alerts) ──────────────────────────
+    # 1. Cek JSON (Legacy Saham IDX)
     try:
         data = await request.json()
-
         if isinstance(data, dict):
-            # IDX Bandar AI (JSON)
             if data.get("type") == "BANDAR_AI":
                 message_text = format_idx_bandar_alert(data)
-
-            # IDX Scalping (JSON)
             elif data.get("type") == "SCALP":
                 message_text = format_idx_scalp_alert(data)
-
-            # Legacy: just a "message" key
             elif "message" in data and "type" not in data:
                 message_text = data["message"]
-
             else:
                 message_text = f"🔔 <b>TradingView Alert</b>\n<pre>{data}</pre>"
-
     except Exception:
-        # ── Not JSON → plain text alert (US v2) ─────────────────────
         pass
 
-    # ── Parse plain text alerts from US v2 scripts ──────────────────
+    # 2. Cek Plain Text (Algoritma Quantum, US v2, dll)
     if not message_text and body_str:
-        # XAU QUANTUM SIGNAL routed first so it cannot be shadowed by
-        # other handlers. Case-sensitive `in` match per Requirement 4.4.
         if "XAU QUANTUM SIGNAL" in body_str:
-            message_text = format_custom_gold_alert(body_str)
+            message_text = format_quantum_alert(body_str, "GOLD")
+        elif "BTC QUANTUM SIGNAL" in body_str:
+            message_text = format_quantum_alert(body_str, "BTC")
         elif "HEARTBEAT TEST" in body_str:
-            # Heartbeat — forward as confirmation
             message_text = f"💚 <b>HEARTBEAT OK</b>\n<pre>{body_str}</pre>\n\n✅ Pipeline: TradingView → Cloudflare → Webhook → Telegram"
         elif "US SWING HUNTER" in body_str:
             message_text = format_us_swing_alert(body_str)
         elif "US BANDAR AI" in body_str:
             message_text = format_us_bandar_alert(body_str)
         else:
-            # Unknown plain text — forward as-is
             message_text = f"🔔 <b>Alert</b>\n<pre>{body_str[:500]}</pre>"
 
+    # 3. Kirim ke Telegram
     if message_text:
         await send_to_telegram(message_text)
         print(f"[{ts}] ✅ Message forwarded to Telegram")
@@ -457,10 +407,11 @@ async def handle_webhook(request: Request):
 @app.get("/health")
 async def health_check():
     return {
-        "status": "Webhook is running!",
+        "status": "Webhook is running smoothly!",
         "telegram_configured": bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID),
         "supported_alerts": [
             "XAU Quantum Signal (plain text)",
+            "BTC Quantum Signal (plain text)",
             "US Swing Hunter v2 (plain text)",
             "US Bandar AI v2 (plain text)",
             "IDX Bandar AI (JSON legacy)",
