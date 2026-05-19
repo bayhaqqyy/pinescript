@@ -1,11 +1,13 @@
 """
 Fetch all IDX stock prices from Yahoo Finance and filter those below 1000 IDR.
-Output: sorted list of tickers with their latest prices.
+Fetch all IDX stock prices from Yahoo Finance and filter those below 1000 IDR.
+Output: idx_prices_v2.json with tier_eligible and avg_transaction_value_20
 """
 import yfinance as yf
 import json
 import time
 import os
+from datetime import date
 
 # Comprehensive list of IDX tickers (all known active tickers on BEI)
 # Format for Yahoo Finance: TICKER.JK
@@ -71,6 +73,10 @@ idx_tickers = [
     "BNBA", "APIC", "UFOE", "TRJA", "CMNT", "MARI", "BUDI", "SOHO",
     "BSWD", "ITIC", "RMKE", "MCAS", "DRMA", "TOOL", "CITA", "DKFT",
     "PEHA", "AMAN", "PSGO", "TUGU", "PNLF", "TRIM", "LPPS", "AMOR",
+    
+    # === NEW POPULAR (MAY 2026) ===
+    "DYAN", "KOPI", "KJEN", "NEST", "DFAM", "BLUE", "BPTR", "CCSI", "ESTI",
+    "ZATA", "GRIA", "IRSX", "BELL", "BIPI", "MEDS", "HUMI", "KOTA", "WBSA", "MSIE"
 ]
 
 # Remove duplicates
@@ -87,82 +93,105 @@ errors = []
 batch_size = 50
 for i in range(0, len(idx_tickers), batch_size):
     batch = idx_tickers[i:i+batch_size]
-    # Convert to Yahoo Finance format
     yf_tickers = [f"{t}.JK" for t in batch]
     ticker_str = " ".join(yf_tickers)
     
     print(f"\nFetching batch {i//batch_size + 1}/{(len(idx_tickers)-1)//batch_size + 1} ({len(batch)} tickers)...")
     
-    try:
-        data = yf.download(ticker_str, period="1d", progress=False, threads=True)
-        
-        if data.empty:
-            print(f"  No data returned for this batch")
-            continue
-            
-        for ticker in batch:
-            yf_ticker = f"{ticker}.JK"
-            try:
-                if len(batch) == 1:
-                    # Single ticker - different structure
-                    close_price = data['Close'].iloc[-1]
+    max_retries = 3
+    data = None
+    for attempt in range(max_retries):
+        try:
+            # Use period="1mo" to ensure we get at least 20 trading days
+            data = yf.download(ticker_str, period="1mo", progress=False, threads=True)
+            if not data.empty:
+                break
+        except Exception as e:
+            err_msg = str(e)[:100]
+            print(f"  Attempt {attempt+1} error: {err_msg}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # 1s, 2s, 4s...
+            else:
+                errors.append(f"Batch {i//batch_size + 1} error: {err_msg}")
+    
+    if data is None or data.empty:
+        print("  No data returned for this batch after retries.")
+        for t in batch:
+            errors.append(f"{t}: timeout after 3 retries")
+        continue
+
+    for ticker in batch:
+        yf_ticker = f"{ticker}.JK"
+        try:
+            if len(batch) == 1:
+                # Single ticker - different structure
+                close_series = data['Close']
+                volume_series = data['Volume']
+            else:
+                if yf_ticker in data['Close'].columns:
+                    close_series = data['Close'][yf_ticker]
+                    volume_series = data['Volume'][yf_ticker]
                 else:
-                    if yf_ticker in data['Close'].columns:
-                        close_price = data['Close'][yf_ticker].iloc[-1]
-                    else:
-                        continue
+                    continue
+            
+            # Drop NaNs
+            close_series = close_series.dropna()
+            volume_series = volume_series.dropna()
+            
+            if len(close_series) == 0:
+                continue
                 
-                if close_price is not None and not (close_price != close_price):  # not NaN
-                    close_price = float(close_price)
-                    if close_price < 1000 and close_price > 0:
-                        results.append({
-                            "ticker": ticker,
-                            "price": close_price
-                        })
-                        print(f"  [OK] {ticker}: Rp{close_price:.0f}")
-            except Exception as e:
-                pass
+            close_price = float(close_series.iloc[-1])
+            
+            if close_price > 0 and close_price < 1000:
+                # Calculate avg_transaction_value_20
+                last_20_closes = close_series.tail(20)
+                last_20_volumes = volume_series.tail(20)
                 
-    except Exception as e:
-        print(f"  Error: {str(e)[:100]}")
-        errors.append(str(e)[:100])
+                if len(last_20_closes) > 0:
+                    transaction_values = last_20_closes * last_20_volumes
+                    avg_transaction_value_20 = float(transaction_values.mean())
+                else:
+                    avg_transaction_value_20 = 0.0
+                    
+                # Determine tier_eligible
+                tier_eligible = []
+                if 50 <= close_price < 1000:
+                    tier_eligible = ["SCALP_GORENGAN", "BANDAR_SWING"]
+                    
+                results.append({
+                    "ticker": ticker,
+                    "price": close_price,
+                    "avg_transaction_value_20": avg_transaction_value_20,
+                    "tier_eligible": tier_eligible
+                })
+                print(f"  [OK] {ticker}: Rp{close_price:.0f} | Val: Rp{avg_transaction_value_20:,.0f}")
+                
+        except Exception as e:
+            err = f"{ticker}: {str(e)[:100]}"
+            print(f"  Error processing {ticker}: {err}")
+            errors.append(err)
     
     # Small delay to avoid rate limiting
     time.sleep(0.5)
 
-# Sort by price descending (most liquid penny stocks tend to have higher volume)
+# Sort by price descending
 results.sort(key=lambda x: x['price'], reverse=True)
 
 print("\n" + "=" * 60)
 print(f"\n[RESULT] TOTAL EMITEN HARGA < 1000 IDR: {len(results)}")
 print("=" * 60)
 
-# Group into batches of 10
-batches = []
-for i in range(0, len(results), 10):
-    batch = results[i:i+10]
-    batches.append(batch)
-
-for idx, batch in enumerate(batches):
-    print(f"\n--- BATCH {chr(65+idx)} ({len(batch)} emiten) ---")
-    for item in batch:
-        print(f"  {item['ticker']:8s} Rp{item['price']:>7.0f}")
-
 # Save results to JSON
 output = {
-    "date": "2026-05-12",
+    "date": date.today().isoformat(),
     "total": len(results),
-    "batches": len(batches),
     "stocks": results,
-    "batch_groups": {
-        f"batch_{chr(65+i)}": [s['ticker'] for s in batch]
-        for i, batch in enumerate(batches)
-    }
+    "errors": errors
 }
 
-output_file = os.path.join(os.path.dirname(__file__), "idx_below_1000.json")
+output_file = os.path.join(os.path.dirname(__file__), "idx_prices_v2.json")
 with open(output_file, 'w') as f:
     json.dump(output, f, indent=2)
 
 print(f"\n[SAVED] Results saved to {output_file}")
-print(f"[TOTAL] {len(results)} emiten in {len(batches)} batches of 10")

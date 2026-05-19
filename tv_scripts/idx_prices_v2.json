@@ -1,9 +1,6 @@
 {
   "date": "2026-05-19",
-  "strategy": "SCALPING_V2",
-  "description": "Saham IDX < Rp1000 untuk scalping intraday (Gorengan Tier). TF: 5 menit.",
-  "total": 210,
-  "batches": 21,
+  "total": 242,
   "stocks": [
     {
       "ticker": "PNBN",
@@ -12,8 +9,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "WBSA",
@@ -22,8 +18,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SOTS",
@@ -32,8 +27,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MAIN",
@@ -42,8 +36,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MARK",
@@ -52,8 +45,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KLBF",
@@ -62,8 +54,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PBSA",
@@ -72,8 +63,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BSIM",
@@ -82,8 +72,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "HRUM",
@@ -92,8 +81,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BFIN",
@@ -102,8 +90,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "DSSA",
@@ -112,8 +99,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "JECC",
@@ -122,8 +108,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BJBR",
@@ -132,8 +117,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CMNT",
@@ -142,8 +126,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SMCB",
@@ -152,8 +135,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ESSA",
@@ -162,8 +144,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "HMSP",
@@ -172,8 +153,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BNBA",
@@ -182,8 +162,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BRMS",
@@ -192,8 +171,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BSDE",
@@ -202,8 +180,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "EMTK",
@@ -212,8 +189,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ASSA",
@@ -222,8 +198,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PRAY",
@@ -232,8 +207,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "DKFT",
@@ -242,8 +216,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ELSA",
@@ -252,8 +225,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TBLA",
@@ -262,8 +234,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "LPGI",
@@ -272,8 +243,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "RIGS",
@@ -282,8 +252,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CTRA",
@@ -292,8 +261,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MSIN",
@@ -302,8 +270,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KAEF",
@@ -312,8 +279,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SIMP",
@@ -322,8 +288,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ROTI",
@@ -332,8 +297,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "STAR",
@@ -342,8 +306,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "LPCK",
@@ -352,8 +315,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KEJU",
@@ -362,8 +324,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "NEST",
@@ -372,8 +333,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "IKBI",
@@ -382,8 +342,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BJTM",
@@ -392,8 +351,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TOBA",
@@ -402,8 +360,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MBMA",
@@ -412,8 +369,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "NRCA",
@@ -422,8 +378,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MTLA",
@@ -432,8 +387,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TRIM",
@@ -442,8 +396,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MTSM",
@@ -452,8 +405,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PDES",
@@ -462,8 +414,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BMAS",
@@ -472,8 +423,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "NOBU",
@@ -482,8 +432,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ARNA",
@@ -492,8 +441,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "IRSX",
@@ -502,8 +450,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BPII",
@@ -512,8 +459,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PSAB",
@@ -522,8 +468,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KDSI",
@@ -532,8 +477,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TOWR",
@@ -542,8 +486,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "DEWA",
@@ -552,8 +495,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BSML",
@@ -562,8 +504,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BULL",
@@ -572,8 +513,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TRIO",
@@ -582,8 +522,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SIDO",
@@ -592,8 +531,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BANK",
@@ -602,8 +540,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "LPIN",
@@ -612,8 +549,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CLEO",
@@ -622,8 +558,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ERAA",
@@ -632,8 +567,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ACES",
@@ -642,8 +576,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "INDS",
@@ -652,8 +585,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "AMOR",
@@ -662,8 +594,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SGER",
@@ -672,8 +603,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SAFE",
@@ -682,8 +612,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CFIN",
@@ -692,8 +621,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MINA",
@@ -702,8 +630,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MMLP",
@@ -712,8 +639,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "GOOD",
@@ -722,8 +648,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SAME",
@@ -732,8 +657,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KBLM",
@@ -742,8 +666,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KBLI",
@@ -752,8 +675,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SMDR",
@@ -762,8 +684,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KARW",
@@ -772,8 +693,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TIFA",
@@ -782,8 +702,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SMRA",
@@ -792,8 +711,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PWON",
@@ -802,8 +720,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PEHA",
@@ -812,8 +729,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PYFA",
@@ -822,8 +738,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KKGI",
@@ -832,8 +747,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "FUJI",
@@ -842,8 +756,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MCAS",
@@ -852,8 +765,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "WOMF",
@@ -862,8 +774,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BBYB",
@@ -872,8 +783,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "UNSP",
@@ -882,8 +792,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ARII",
@@ -892,8 +801,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "NELY",
@@ -902,8 +810,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CCSI",
@@ -912,8 +819,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "AMAN",
@@ -922,8 +828,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "INET",
@@ -932,8 +837,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PNLF",
@@ -942,8 +846,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MLIA",
@@ -952,8 +855,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TOTO",
@@ -962,8 +864,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KOPI",
@@ -972,8 +873,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ITIC",
@@ -982,8 +882,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SCMA",
@@ -992,8 +891,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MTRA",
@@ -1002,8 +900,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SDRA",
@@ -1012,8 +909,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PSKT",
@@ -1022,8 +918,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "AGAR",
@@ -1032,8 +927,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PTPP",
@@ -1042,8 +936,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BIPI",
@@ -1052,8 +945,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MITI",
@@ -1062,8 +954,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "VOKS",
@@ -1072,8 +963,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MNCN",
@@ -1082,8 +972,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PPGL",
@@ -1092,8 +981,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "GTBO",
@@ -1102,8 +990,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BUDI",
@@ -1112,8 +999,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BUMI",
@@ -1122,8 +1008,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "URBN",
@@ -1132,8 +1017,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "RAAM",
@@ -1142,8 +1026,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SPMA",
@@ -1152,8 +1035,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "WIKA",
@@ -1162,8 +1044,16 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
+    },
+    {
+      "ticker": "WSKT",
+      "price": 202.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ]
     },
     {
       "ticker": "PSGO",
@@ -1172,8 +1062,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BNII",
@@ -1182,8 +1071,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CINT",
@@ -1192,8 +1080,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CAMP",
@@ -1202,8 +1089,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "AMAR",
@@ -1212,8 +1098,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ADHI",
@@ -1222,8 +1107,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "HELI",
@@ -1232,8 +1116,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SMBR",
@@ -1242,8 +1125,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "FOOD",
@@ -1252,8 +1134,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "NIRO",
@@ -1262,8 +1143,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "HUMI",
@@ -1272,8 +1152,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BMHS",
@@ -1282,8 +1161,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "GZCO",
@@ -1292,8 +1170,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "AGRO",
@@ -1302,8 +1179,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "DEFI",
@@ -1312,8 +1188,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "APLN",
@@ -1322,8 +1197,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PPRI",
@@ -1332,8 +1206,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SMKL",
@@ -1342,8 +1215,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BNBR",
@@ -1352,8 +1224,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KIJA",
@@ -1362,8 +1233,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BOLA",
@@ -1372,8 +1242,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "APEX",
@@ -1382,8 +1251,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KJEN",
@@ -1392,8 +1260,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PADA",
@@ -1402,8 +1269,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "OCAP",
@@ -1412,8 +1278,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CAKK",
@@ -1422,8 +1287,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ESTI",
@@ -1432,8 +1296,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MSIE",
@@ -1442,8 +1305,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SRIL",
@@ -1452,8 +1314,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KOTA",
@@ -1462,8 +1323,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "UFOE",
@@ -1472,8 +1332,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "GWSA",
@@ -1482,8 +1341,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "FIRE",
@@ -1492,8 +1350,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MDIA",
@@ -1502,8 +1359,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BUKA",
@@ -1512,8 +1368,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BACA",
@@ -1522,8 +1377,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BELL",
@@ -1532,8 +1386,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "LCKM",
@@ -1542,8 +1395,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "DNAR",
@@ -1552,8 +1404,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TRJA",
@@ -1562,8 +1413,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "DGIK",
@@ -1572,8 +1422,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "WEHA",
@@ -1582,8 +1431,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "DFAM",
@@ -1592,8 +1440,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "DILD",
@@ -1602,8 +1449,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BCIC",
@@ -1612,8 +1458,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TMAS",
@@ -1622,8 +1467,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "WICO",
@@ -1632,8 +1476,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ASRI",
@@ -1642,8 +1485,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "AISA",
@@ -1652,8 +1494,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BGTG",
@@ -1662,8 +1503,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "GRIA",
@@ -1672,8 +1512,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "LUCK",
@@ -1682,8 +1521,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BWPT",
@@ -1692,8 +1530,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "POLL",
@@ -1702,8 +1539,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MEDS",
@@ -1712,8 +1548,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "GPRA",
@@ -1722,8 +1557,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "HDFA",
@@ -1732,8 +1566,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "RICY",
@@ -1742,8 +1575,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "KIOS",
@@ -1752,8 +1584,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CENT",
@@ -1762,8 +1593,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "YELO",
@@ -1772,8 +1602,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "DYAN",
@@ -1782,8 +1611,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BKSL",
@@ -1792,8 +1620,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "CARS",
@@ -1802,8 +1629,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "IKAN",
@@ -1812,8 +1638,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ACST",
@@ -1822,8 +1647,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BPTR",
@@ -1832,8 +1656,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "GEMA",
@@ -1842,8 +1665,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "WTON",
@@ -1852,8 +1674,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ZATA",
@@ -1862,8 +1683,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "VRNA",
@@ -1872,8 +1692,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "LPPS",
@@ -1882,8 +1701,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "LPKR",
@@ -1892,8 +1710,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TOOL",
@@ -1902,8 +1719,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "JKON",
@@ -1912,8 +1728,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "EMDE",
@@ -1922,8 +1737,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BCIP",
@@ -1932,8 +1746,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MCOR",
@@ -1942,8 +1755,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "AGRS",
@@ -1952,8 +1764,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "HOKI",
@@ -1962,8 +1773,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "GIAA",
@@ -1972,8 +1782,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "COAL",
@@ -1982,8 +1791,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MDLN",
@@ -1992,8 +1800,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "REAL",
@@ -2002,8 +1809,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BABP",
@@ -2012,8 +1818,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PURE",
@@ -2022,8 +1827,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "ARMY",
@@ -2032,8 +1836,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "BOSS",
@@ -2042,8 +1845,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "GOTO",
@@ -2052,8 +1854,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "MAGP",
@@ -2062,8 +1863,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "PLAS",
@@ -2072,8 +1872,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "POOL",
@@ -2082,8 +1881,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "SMRU",
@@ -2092,8 +1890,7 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
     },
     {
       "ticker": "TRAM",
@@ -2102,269 +1899,194 @@
       "tier_eligible": [
         "SCALP_GORENGAN",
         "BANDAR_SWING"
-      ],
-      "tier": "SCALP_GORENGAN"
+      ]
+    },
+    {
+      "ticker": "CNKO",
+      "price": 48.0,
+      "avg_dollar_volume_20": 933823890.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "VIVA",
+      "price": 42.0,
+      "avg_dollar_volume_20": 2838675730.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "IPTV",
+      "price": 41.0,
+      "avg_dollar_volume_20": 246483850.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "ELTY",
+      "price": 40.0,
+      "avg_dollar_volume_20": 6283520495.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "PURA",
+      "price": 40.0,
+      "avg_dollar_volume_20": 342508490.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "DIGI",
+      "price": 39.0,
+      "avg_dollar_volume_20": 136897895.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "PCAR",
+      "price": 39.0,
+      "avg_dollar_volume_20": 160589035.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "WMPP",
+      "price": 38.0,
+      "avg_dollar_volume_20": 1613416560.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "PBRX",
+      "price": 34.0,
+      "avg_dollar_volume_20": 467049305.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "ZINC",
+      "price": 30.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "MARI",
+      "price": 27.0,
+      "avg_dollar_volume_20": 86015600.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "TGRA",
+      "price": 27.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "BEKS",
+      "price": 25.0,
+      "avg_dollar_volume_20": 474548150.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "BAPI",
+      "price": 22.0,
+      "avg_dollar_volume_20": 182238540.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "IKAI",
+      "price": 22.0,
+      "avg_dollar_volume_20": 923249260.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "ALTO",
+      "price": 18.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "PPRO",
+      "price": 18.0,
+      "avg_dollar_volume_20": 919483075.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "WSBP",
+      "price": 17.0,
+      "avg_dollar_volume_20": 324067005.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "HADE",
+      "price": 16.0,
+      "avg_dollar_volume_20": 78751105.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "KREN",
+      "price": 16.0,
+      "avg_dollar_volume_20": 423508110.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "TAXI",
+      "price": 16.0,
+      "avg_dollar_volume_20": 487089585.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "IPPE",
+      "price": 14.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "BTEK",
+      "price": 11.0,
+      "avg_dollar_volume_20": 1257035795.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "TELE",
+      "price": 9.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "TOYS",
+      "price": 8.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "DEAL",
+      "price": 6.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "BEBS",
+      "price": 5.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "ARTI",
+      "price": 2.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "MKNT",
+      "price": 1.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "SBAT",
+      "price": 1.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
+    },
+    {
+      "ticker": "TOPS",
+      "price": 1.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": []
     }
   ],
-  "batch_groups": {
-    "batch_a": [
-      "PNBN",
-      "WBSA",
-      "SOTS",
-      "MAIN",
-      "MARK",
-      "KLBF",
-      "PBSA",
-      "BSIM",
-      "HRUM",
-      "BFIN"
-    ],
-    "batch_b": [
-      "DSSA",
-      "JECC",
-      "BJBR",
-      "CMNT",
-      "SMCB",
-      "ESSA",
-      "HMSP",
-      "BNBA",
-      "BRMS",
-      "BSDE"
-    ],
-    "batch_c": [
-      "EMTK",
-      "ASSA",
-      "PRAY",
-      "DKFT",
-      "ELSA",
-      "TBLA",
-      "LPGI",
-      "RIGS",
-      "CTRA",
-      "MSIN"
-    ],
-    "batch_d": [
-      "KAEF",
-      "SIMP",
-      "ROTI",
-      "STAR",
-      "LPCK",
-      "KEJU",
-      "NEST",
-      "IKBI",
-      "BJTM",
-      "TOBA"
-    ],
-    "batch_e": [
-      "MBMA",
-      "NRCA",
-      "MTLA",
-      "TRIM",
-      "MTSM",
-      "PDES",
-      "BMAS",
-      "NOBU",
-      "ARNA",
-      "IRSX"
-    ],
-    "batch_f": [
-      "BPII",
-      "PSAB",
-      "KDSI",
-      "TOWR",
-      "DEWA",
-      "BSML",
-      "BULL",
-      "TRIO",
-      "SIDO",
-      "BANK"
-    ],
-    "batch_g": [
-      "LPIN",
-      "CLEO",
-      "ERAA",
-      "ACES",
-      "INDS",
-      "AMOR",
-      "SGER",
-      "SAFE",
-      "CFIN",
-      "MINA"
-    ],
-    "batch_h": [
-      "MMLP",
-      "GOOD",
-      "SAME",
-      "KBLM",
-      "KBLI",
-      "SMDR",
-      "KARW",
-      "TIFA",
-      "SMRA",
-      "PWON"
-    ],
-    "batch_i": [
-      "PEHA",
-      "PYFA",
-      "KKGI",
-      "FUJI",
-      "MCAS",
-      "WOMF",
-      "BBYB",
-      "UNSP",
-      "ARII",
-      "NELY"
-    ],
-    "batch_j": [
-      "CCSI",
-      "AMAN",
-      "INET",
-      "PNLF",
-      "MLIA",
-      "TOTO",
-      "KOPI",
-      "ITIC",
-      "SCMA",
-      "MTRA"
-    ],
-    "batch_k": [
-      "SDRA",
-      "PSKT",
-      "AGAR",
-      "PTPP",
-      "BIPI",
-      "MITI",
-      "VOKS",
-      "MNCN",
-      "PPGL",
-      "GTBO"
-    ],
-    "batch_l": [
-      "BUDI",
-      "BUMI",
-      "URBN",
-      "RAAM",
-      "SPMA",
-      "WIKA",
-      "PSGO",
-      "BNII",
-      "CINT",
-      "CAMP"
-    ],
-    "batch_m": [
-      "AMAR",
-      "ADHI",
-      "HELI",
-      "SMBR",
-      "FOOD",
-      "NIRO",
-      "HUMI",
-      "BMHS",
-      "GZCO",
-      "AGRO"
-    ],
-    "batch_n": [
-      "DEFI",
-      "APLN",
-      "PPRI",
-      "SMKL",
-      "BNBR",
-      "KIJA",
-      "BOLA",
-      "APEX",
-      "KJEN",
-      "PADA"
-    ],
-    "batch_o": [
-      "OCAP",
-      "CAKK",
-      "ESTI",
-      "MSIE",
-      "SRIL",
-      "KOTA",
-      "UFOE",
-      "GWSA",
-      "FIRE",
-      "MDIA"
-    ],
-    "batch_p": [
-      "BUKA",
-      "BACA",
-      "BELL",
-      "LCKM",
-      "DNAR",
-      "TRJA",
-      "DGIK",
-      "WEHA",
-      "DFAM",
-      "DILD"
-    ],
-    "batch_q": [
-      "BCIC",
-      "TMAS",
-      "WICO",
-      "ASRI",
-      "AISA",
-      "BGTG",
-      "GRIA",
-      "LUCK",
-      "BWPT",
-      "POLL"
-    ],
-    "batch_r": [
-      "MEDS",
-      "GPRA",
-      "HDFA",
-      "RICY",
-      "KIOS",
-      "CENT",
-      "YELO",
-      "DYAN",
-      "BKSL",
-      "CARS"
-    ],
-    "batch_s": [
-      "IKAN",
-      "ACST",
-      "BPTR",
-      "GEMA",
-      "WTON",
-      "ZATA",
-      "VRNA",
-      "LPPS",
-      "LPKR",
-      "TOOL"
-    ],
-    "batch_t": [
-      "JKON",
-      "EMDE",
-      "BCIP",
-      "MCOR",
-      "AGRS",
-      "HOKI",
-      "GIAA",
-      "COAL",
-      "MDLN",
-      "REAL"
-    ],
-    "batch_u": [
-      "BABP",
-      "PURE",
-      "ARMY",
-      "BOSS",
-      "GOTO",
-      "MAGP",
-      "PLAS",
-      "POOL",
-      "SMRU",
-      "TRAM"
-    ]
-  },
-  "whitelist_missing": [
-    "FILM",
-    "DPUM",
-    "SHIP",
-    "BLUE",
-    "PACK"
-  ]
+  "errors": []
 }

@@ -1,0 +1,271 @@
+// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// Generated on 2026-05-19 | Strategy: BANDAR_AI_V2 (Swing Detection)
+//
+// @description Bandar AI screener v2. Default Timeframe: 60 menit.
+
+//@version=6
+indicator("BANDAR AI V2 - BATCH B (10 Emiten)", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// INPUT
+// ============================================================================
+tf             = input.timeframe("60", "Timeframe Screener")
+min_tv         = input.float(500000000, "Min Transaction Value per Bar (Rp)")
+tp1_mult       = input.float(1.5, "TP1 ATR Multiplier")
+tp2_mult       = input.float(3.0, "TP2 ATR Multiplier")
+sl_mult        = input.float(1.5, "SL ATR Multiplier")
+emaSlowLen     = input.int(200, "EMA Trend")
+volMultiplier  = input.float(1.5, "Vol Spike Multiplier")
+pos            = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+// ============================================================================
+// TICKER DEFINITIONS (harga per 2026-05-19)
+// ============================================================================
+tk1 = "IDX:DSSA"  // BANDAR_SWING
+tk2 = "IDX:JECC"  // BANDAR_SWING
+tk3 = "IDX:BJBR"  // BANDAR_SWING
+tk4 = "IDX:CMNT"  // BANDAR_SWING
+tk5 = "IDX:SMCB"  // BANDAR_SWING
+tk6 = "IDX:ESSA"  // BANDAR_SWING
+tk7 = "IDX:HMSP"  // BANDAR_SWING
+tk8 = "IDX:BNBA"  // BANDAR_SWING
+tk9 = "IDX:BRMS"  // BANDAR_SWING
+tk10 = "IDX:BSDE"  // BANDAR_SWING
+
+// ============================================================================
+// CORE ENGINE FUNCTION
+// ============================================================================
+f_engine(ema_len, vol_mult) =>
+    emaSlow = ta.ema(close, ema_len)
+    bullTrend = close > emaSlow
+    
+    volMA = ta.sma(volume, 20)
+    volSpike = volume > volMA * vol_mult
+    
+    body = math.abs(close - open)
+    candleRange = high - low
+    lowerWick = math.min(open, close) - low
+    
+    bullAbsorb = lowerWick > body * 1.1 and volume > volMA * 1.3 and close > low + (candleRange * 0.4)
+    sniperBuy = bullTrend and volSpike and (close > open)
+    
+    status = sniperBuy ? "SNIPER BUY" : bullAbsorb ? "BULL ABSORB" : "WAIT"
+    entry_val = close
+    atr_val = ta.atr(14)
+    tv_val = volume * close
+    [close, status, entry_val, atr_val, tv_val]
+
+// ============================================================================
+// DATA FETCH (request.security)
+// ============================================================================
+[c1, st_base_1, entry_1, atr_1, tv_1] = request.security(tk1, tf, f_engine(emaSlowLen, volMultiplier))
+[c2, st_base_2, entry_2, atr_2, tv_2] = request.security(tk2, tf, f_engine(emaSlowLen, volMultiplier))
+[c3, st_base_3, entry_3, atr_3, tv_3] = request.security(tk3, tf, f_engine(emaSlowLen, volMultiplier))
+[c4, st_base_4, entry_4, atr_4, tv_4] = request.security(tk4, tf, f_engine(emaSlowLen, volMultiplier))
+[c5, st_base_5, entry_5, atr_5, tv_5] = request.security(tk5, tf, f_engine(emaSlowLen, volMultiplier))
+[c6, st_base_6, entry_6, atr_6, tv_6] = request.security(tk6, tf, f_engine(emaSlowLen, volMultiplier))
+[c7, st_base_7, entry_7, atr_7, tv_7] = request.security(tk7, tf, f_engine(emaSlowLen, volMultiplier))
+[c8, st_base_8, entry_8, atr_8, tv_8] = request.security(tk8, tf, f_engine(emaSlowLen, volMultiplier))
+[c9, st_base_9, entry_9, atr_9, tv_9] = request.security(tk9, tf, f_engine(emaSlowLen, volMultiplier))
+[c10, st_base_10, entry_10, atr_10, tv_10] = request.security(tk10, tf, f_engine(emaSlowLen, volMultiplier))
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+// --- DSSA ---
+tp1_1 = math.round(entry_1 + (atr_1 * tp1_mult))
+tp2_1 = math.round(entry_1 + (atr_1 * tp2_mult))
+sl_1  = math.round(entry_1 - (atr_1 * sl_mult))
+
+is_atr_valid_1 = not na(atr_1) and atr_1 > 0
+is_liq_valid_1 = tv_1 >= min_tv
+is_mono_valid_1 = (st_base_1 == "SNIPER BUY" or st_base_1 == "BULL ABSORB") ? (tp2_1 > tp1_1 and tp1_1 > entry_1 and entry_1 > sl_1) : true
+
+st_1 = not is_atr_valid_1 ? "WAIT_ATR" : not is_liq_valid_1 ? "WAIT_LIQ" : not is_mono_valid_1 ? "WAIT_TICK" : st_base_1
+
+// --- JECC ---
+tp1_2 = math.round(entry_2 + (atr_2 * tp1_mult))
+tp2_2 = math.round(entry_2 + (atr_2 * tp2_mult))
+sl_2  = math.round(entry_2 - (atr_2 * sl_mult))
+
+is_atr_valid_2 = not na(atr_2) and atr_2 > 0
+is_liq_valid_2 = tv_2 >= min_tv
+is_mono_valid_2 = (st_base_2 == "SNIPER BUY" or st_base_2 == "BULL ABSORB") ? (tp2_2 > tp1_2 and tp1_2 > entry_2 and entry_2 > sl_2) : true
+
+st_2 = not is_atr_valid_2 ? "WAIT_ATR" : not is_liq_valid_2 ? "WAIT_LIQ" : not is_mono_valid_2 ? "WAIT_TICK" : st_base_2
+
+// --- BJBR ---
+tp1_3 = math.round(entry_3 + (atr_3 * tp1_mult))
+tp2_3 = math.round(entry_3 + (atr_3 * tp2_mult))
+sl_3  = math.round(entry_3 - (atr_3 * sl_mult))
+
+is_atr_valid_3 = not na(atr_3) and atr_3 > 0
+is_liq_valid_3 = tv_3 >= min_tv
+is_mono_valid_3 = (st_base_3 == "SNIPER BUY" or st_base_3 == "BULL ABSORB") ? (tp2_3 > tp1_3 and tp1_3 > entry_3 and entry_3 > sl_3) : true
+
+st_3 = not is_atr_valid_3 ? "WAIT_ATR" : not is_liq_valid_3 ? "WAIT_LIQ" : not is_mono_valid_3 ? "WAIT_TICK" : st_base_3
+
+// --- CMNT ---
+tp1_4 = math.round(entry_4 + (atr_4 * tp1_mult))
+tp2_4 = math.round(entry_4 + (atr_4 * tp2_mult))
+sl_4  = math.round(entry_4 - (atr_4 * sl_mult))
+
+is_atr_valid_4 = not na(atr_4) and atr_4 > 0
+is_liq_valid_4 = tv_4 >= min_tv
+is_mono_valid_4 = (st_base_4 == "SNIPER BUY" or st_base_4 == "BULL ABSORB") ? (tp2_4 > tp1_4 and tp1_4 > entry_4 and entry_4 > sl_4) : true
+
+st_4 = not is_atr_valid_4 ? "WAIT_ATR" : not is_liq_valid_4 ? "WAIT_LIQ" : not is_mono_valid_4 ? "WAIT_TICK" : st_base_4
+
+// --- SMCB ---
+tp1_5 = math.round(entry_5 + (atr_5 * tp1_mult))
+tp2_5 = math.round(entry_5 + (atr_5 * tp2_mult))
+sl_5  = math.round(entry_5 - (atr_5 * sl_mult))
+
+is_atr_valid_5 = not na(atr_5) and atr_5 > 0
+is_liq_valid_5 = tv_5 >= min_tv
+is_mono_valid_5 = (st_base_5 == "SNIPER BUY" or st_base_5 == "BULL ABSORB") ? (tp2_5 > tp1_5 and tp1_5 > entry_5 and entry_5 > sl_5) : true
+
+st_5 = not is_atr_valid_5 ? "WAIT_ATR" : not is_liq_valid_5 ? "WAIT_LIQ" : not is_mono_valid_5 ? "WAIT_TICK" : st_base_5
+
+// --- ESSA ---
+tp1_6 = math.round(entry_6 + (atr_6 * tp1_mult))
+tp2_6 = math.round(entry_6 + (atr_6 * tp2_mult))
+sl_6  = math.round(entry_6 - (atr_6 * sl_mult))
+
+is_atr_valid_6 = not na(atr_6) and atr_6 > 0
+is_liq_valid_6 = tv_6 >= min_tv
+is_mono_valid_6 = (st_base_6 == "SNIPER BUY" or st_base_6 == "BULL ABSORB") ? (tp2_6 > tp1_6 and tp1_6 > entry_6 and entry_6 > sl_6) : true
+
+st_6 = not is_atr_valid_6 ? "WAIT_ATR" : not is_liq_valid_6 ? "WAIT_LIQ" : not is_mono_valid_6 ? "WAIT_TICK" : st_base_6
+
+// --- HMSP ---
+tp1_7 = math.round(entry_7 + (atr_7 * tp1_mult))
+tp2_7 = math.round(entry_7 + (atr_7 * tp2_mult))
+sl_7  = math.round(entry_7 - (atr_7 * sl_mult))
+
+is_atr_valid_7 = not na(atr_7) and atr_7 > 0
+is_liq_valid_7 = tv_7 >= min_tv
+is_mono_valid_7 = (st_base_7 == "SNIPER BUY" or st_base_7 == "BULL ABSORB") ? (tp2_7 > tp1_7 and tp1_7 > entry_7 and entry_7 > sl_7) : true
+
+st_7 = not is_atr_valid_7 ? "WAIT_ATR" : not is_liq_valid_7 ? "WAIT_LIQ" : not is_mono_valid_7 ? "WAIT_TICK" : st_base_7
+
+// --- BNBA ---
+tp1_8 = math.round(entry_8 + (atr_8 * tp1_mult))
+tp2_8 = math.round(entry_8 + (atr_8 * tp2_mult))
+sl_8  = math.round(entry_8 - (atr_8 * sl_mult))
+
+is_atr_valid_8 = not na(atr_8) and atr_8 > 0
+is_liq_valid_8 = tv_8 >= min_tv
+is_mono_valid_8 = (st_base_8 == "SNIPER BUY" or st_base_8 == "BULL ABSORB") ? (tp2_8 > tp1_8 and tp1_8 > entry_8 and entry_8 > sl_8) : true
+
+st_8 = not is_atr_valid_8 ? "WAIT_ATR" : not is_liq_valid_8 ? "WAIT_LIQ" : not is_mono_valid_8 ? "WAIT_TICK" : st_base_8
+
+// --- BRMS ---
+tp1_9 = math.round(entry_9 + (atr_9 * tp1_mult))
+tp2_9 = math.round(entry_9 + (atr_9 * tp2_mult))
+sl_9  = math.round(entry_9 - (atr_9 * sl_mult))
+
+is_atr_valid_9 = not na(atr_9) and atr_9 > 0
+is_liq_valid_9 = tv_9 >= min_tv
+is_mono_valid_9 = (st_base_9 == "SNIPER BUY" or st_base_9 == "BULL ABSORB") ? (tp2_9 > tp1_9 and tp1_9 > entry_9 and entry_9 > sl_9) : true
+
+st_9 = not is_atr_valid_9 ? "WAIT_ATR" : not is_liq_valid_9 ? "WAIT_LIQ" : not is_mono_valid_9 ? "WAIT_TICK" : st_base_9
+
+// --- BSDE ---
+tp1_10 = math.round(entry_10 + (atr_10 * tp1_mult))
+tp2_10 = math.round(entry_10 + (atr_10 * tp2_mult))
+sl_10  = math.round(entry_10 - (atr_10 * sl_mult))
+
+is_atr_valid_10 = not na(atr_10) and atr_10 > 0
+is_liq_valid_10 = tv_10 >= min_tv
+is_mono_valid_10 = (st_base_10 == "SNIPER BUY" or st_base_10 == "BULL ABSORB") ? (tp2_10 > tp1_10 and tp1_10 > entry_10 and entry_10 > sl_10) : true
+
+st_10 = not is_atr_valid_10 ? "WAIT_ATR" : not is_liq_valid_10 ? "WAIT_LIQ" : not is_mono_valid_10 ? "WAIT_TICK" : st_base_10
+
+
+// ============================================================================
+// TABLE DISPLAY
+// ============================================================================
+tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+var tbl = table.new(tbl_pos, 4, 11, border_width=1, border_color=#333333)
+
+f_get_color(st) =>
+    st == "SNIPER BUY" ? color.lime : st == "BULL ABSORB" ? color.aqua : color.gray
+
+if barstate.islast
+    // Header
+    hdr_bg = #6a0dad
+    hdr_clr = color.white
+    table.cell(tbl, 0, 0, "EMITEN", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 1, 0, "PRICE", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 2, 0, "DOLVOL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 3, 0, "SIGNAL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    
+    table.cell(tbl, 0, 1, "DSSA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 1, str.tostring(c1, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 1, str.tostring(tv_1/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 1, st_1, text_color=color.black, bgcolor=f_get_color(st_1), text_size=size.small)
+    table.cell(tbl, 0, 2, "JECC", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 2, str.tostring(c2, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 2, str.tostring(tv_2/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 2, st_2, text_color=color.black, bgcolor=f_get_color(st_2), text_size=size.small)
+    table.cell(tbl, 0, 3, "BJBR", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 3, str.tostring(c3, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 3, str.tostring(tv_3/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 3, st_3, text_color=color.black, bgcolor=f_get_color(st_3), text_size=size.small)
+    table.cell(tbl, 0, 4, "CMNT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 4, str.tostring(c4, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 4, str.tostring(tv_4/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 4, st_4, text_color=color.black, bgcolor=f_get_color(st_4), text_size=size.small)
+    table.cell(tbl, 0, 5, "SMCB", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 5, str.tostring(c5, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 5, str.tostring(tv_5/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 5, st_5, text_color=color.black, bgcolor=f_get_color(st_5), text_size=size.small)
+    table.cell(tbl, 0, 6, "ESSA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 6, str.tostring(c6, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 6, str.tostring(tv_6/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 6, st_6, text_color=color.black, bgcolor=f_get_color(st_6), text_size=size.small)
+    table.cell(tbl, 0, 7, "HMSP", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 7, str.tostring(c7, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 7, str.tostring(tv_7/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 7, st_7, text_color=color.black, bgcolor=f_get_color(st_7), text_size=size.small)
+    table.cell(tbl, 0, 8, "BNBA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 8, str.tostring(c8, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 8, str.tostring(tv_8/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 8, st_8, text_color=color.black, bgcolor=f_get_color(st_8), text_size=size.small)
+    table.cell(tbl, 0, 9, "BRMS", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 9, str.tostring(c9, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 9, str.tostring(tv_9/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 9, st_9, text_color=color.black, bgcolor=f_get_color(st_9), text_size=size.small)
+    table.cell(tbl, 0, 10, "BSDE", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 10, str.tostring(c10, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, 10, str.tostring(tv_10/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 10, st_10, text_color=color.black, bgcolor=f_get_color(st_10), text_size=size.small)
+
+// ============================================================================
+// ALERTS UNTUK TELEGRAM (JSON PAYLOAD)
+// ============================================================================
+if barstate.islast and barstate.isconfirmed
+    if st_1 == "SNIPER BUY" or st_1 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"DSSA","tf":"' + tf + '","signal":"' + st_1 + '","entry":' + str.tostring(entry_1) + ',"tp1":' + str.tostring(tp1_1) + ',"tp2":' + str.tostring(tp2_1) + ',"sl":' + str.tostring(sl_1) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_1) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+    if st_2 == "SNIPER BUY" or st_2 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"JECC","tf":"' + tf + '","signal":"' + st_2 + '","entry":' + str.tostring(entry_2) + ',"tp1":' + str.tostring(tp1_2) + ',"tp2":' + str.tostring(tp2_2) + ',"sl":' + str.tostring(sl_2) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_2) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+    if st_3 == "SNIPER BUY" or st_3 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"BJBR","tf":"' + tf + '","signal":"' + st_3 + '","entry":' + str.tostring(entry_3) + ',"tp1":' + str.tostring(tp1_3) + ',"tp2":' + str.tostring(tp2_3) + ',"sl":' + str.tostring(sl_3) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_3) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+    if st_4 == "SNIPER BUY" or st_4 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"CMNT","tf":"' + tf + '","signal":"' + st_4 + '","entry":' + str.tostring(entry_4) + ',"tp1":' + str.tostring(tp1_4) + ',"tp2":' + str.tostring(tp2_4) + ',"sl":' + str.tostring(sl_4) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_4) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+    if st_5 == "SNIPER BUY" or st_5 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"SMCB","tf":"' + tf + '","signal":"' + st_5 + '","entry":' + str.tostring(entry_5) + ',"tp1":' + str.tostring(tp1_5) + ',"tp2":' + str.tostring(tp2_5) + ',"sl":' + str.tostring(sl_5) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_5) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+    if st_6 == "SNIPER BUY" or st_6 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"ESSA","tf":"' + tf + '","signal":"' + st_6 + '","entry":' + str.tostring(entry_6) + ',"tp1":' + str.tostring(tp1_6) + ',"tp2":' + str.tostring(tp2_6) + ',"sl":' + str.tostring(sl_6) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_6) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+    if st_7 == "SNIPER BUY" or st_7 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"HMSP","tf":"' + tf + '","signal":"' + st_7 + '","entry":' + str.tostring(entry_7) + ',"tp1":' + str.tostring(tp1_7) + ',"tp2":' + str.tostring(tp2_7) + ',"sl":' + str.tostring(sl_7) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_7) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+    if st_8 == "SNIPER BUY" or st_8 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"BNBA","tf":"' + tf + '","signal":"' + st_8 + '","entry":' + str.tostring(entry_8) + ',"tp1":' + str.tostring(tp1_8) + ',"tp2":' + str.tostring(tp2_8) + ',"sl":' + str.tostring(sl_8) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_8) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+    if st_9 == "SNIPER BUY" or st_9 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"BRMS","tf":"' + tf + '","signal":"' + st_9 + '","entry":' + str.tostring(entry_9) + ',"tp1":' + str.tostring(tp1_9) + ',"tp2":' + str.tostring(tp2_9) + ',"sl":' + str.tostring(sl_9) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_9) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+    if st_10 == "SNIPER BUY" or st_10 == "BULL ABSORB"
+        alert('{"type":"BANDAR_AI","tier":"BANDAR_SWING","ticker":"BSDE","tf":"' + tf + '","signal":"' + st_10 + '","entry":' + str.tostring(entry_10) + ',"tp1":' + str.tostring(tp1_10) + ',"tp2":' + str.tostring(tp2_10) + ',"sl":' + str.tostring(sl_10) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_10) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+
+plot(close, display=display.none)

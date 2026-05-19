@@ -1,321 +1,1065 @@
 {
-  "date": "2026-05-12",
-  "strategy": "BANDAR_AI",
-  "description": "Saham IDX mid-cap untuk swing trading. TF: 10 menit. Deteksi akumulasi bandar/institusi.",
-  "total": 50,
-  "batches": 5,
+  "date": "2026-05-19",
+  "strategy": "BANDAR_AI_V2",
+  "description": "Saham IDX < Rp1000 mid-cap untuk swing trading. TF: 60 menit.",
+  "total": 86,
+  "batches": 9,
   "stocks": [
     {
-      "ticker": "SMRA",
-      "price": 322,
-      "sector": "Property"
+      "ticker": "PNBN",
+      "price": 995.0,
+      "avg_dollar_volume_20": 5693179050.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "PWON",
-      "price": 310,
-      "sector": "Property"
+      "ticker": "WBSA",
+      "price": 930.0,
+      "avg_dollar_volume_20": 40597766950.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "CTRA",
-      "price": 680,
-      "sector": "Property"
+      "ticker": "SOTS",
+      "price": 860.0,
+      "avg_dollar_volume_20": 1018949325.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "BSDE",
-      "price": 755,
-      "sector": "Property"
+      "ticker": "MAIN",
+      "price": 845.0,
+      "avg_dollar_volume_20": 4210729150.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "APLN",
-      "price": 180,
-      "sector": "Property"
-    },
-    {
-      "ticker": "KIJA",
-      "price": 175,
-      "sector": "Property"
-    },
-    {
-      "ticker": "LPKR",
-      "price": 80,
-      "sector": "Property"
-    },
-    {
-      "ticker": "ASRI",
-      "price": 128,
-      "sector": "Property"
-    },
-    {
-      "ticker": "BKSL",
-      "price": 102,
-      "sector": "Property"
-    },
-    {
-      "ticker": "DILD",
-      "price": 125,
-      "sector": "Property"
-    },
-    {
-      "ticker": "BUMI",
-      "price": 214,
-      "sector": "Mining"
-    },
-    {
-      "ticker": "BRMS",
-      "price": 755,
-      "sector": "Mining"
-    },
-    {
-      "ticker": "DEWA",
-      "price": 466,
-      "sector": "Mining"
-    },
-    {
-      "ticker": "ANTM",
-      "price": 1400,
-      "sector": "Mining"
-    },
-    {
-      "ticker": "HRUM",
-      "price": 910,
-      "sector": "Mining"
-    },
-    {
-      "ticker": "MBMA",
-      "price": 605,
-      "sector": "Mining"
-    },
-    {
-      "ticker": "TOBA",
-      "price": 570,
-      "sector": "Mining"
-    },
-    {
-      "ticker": "ESSA",
-      "price": 805,
-      "sector": "Energy"
-    },
-    {
-      "ticker": "ELSA",
-      "price": 710,
-      "sector": "Energy"
-    },
-    {
-      "ticker": "MEDC",
-      "price": 1200,
-      "sector": "Energy"
-    },
-    {
-      "ticker": "PTPP",
-      "price": 244,
-      "sector": "Construction"
-    },
-    {
-      "ticker": "ADHI",
-      "price": 200,
-      "sector": "Construction"
-    },
-    {
-      "ticker": "WIKA",
-      "price": 300,
-      "sector": "Construction"
-    },
-    {
-      "ticker": "WSKT",
-      "price": 200,
-      "sector": "Construction"
-    },
-    {
-      "ticker": "WTON",
-      "price": 88,
-      "sector": "Construction"
-    },
-    {
-      "ticker": "ERAA",
-      "price": 402,
-      "sector": "Retail"
-    },
-    {
-      "ticker": "ACES",
-      "price": 380,
-      "sector": "Retail"
-    },
-    {
-      "ticker": "ROTI",
-      "price": 610,
-      "sector": "Consumer"
-    },
-    {
-      "ticker": "CLEO",
-      "price": 402,
-      "sector": "Consumer"
-    },
-    {
-      "ticker": "SIDO",
-      "price": 472,
-      "sector": "Healthcare"
-    },
-    {
-      "ticker": "BJBR",
-      "price": 795,
-      "sector": "Banking"
-    },
-    {
-      "ticker": "BJTM",
-      "price": 595,
-      "sector": "Banking"
-    },
-    {
-      "ticker": "BBTN",
-      "price": 1200,
-      "sector": "Banking"
-    },
-    {
-      "ticker": "BFIN",
-      "price": 765,
-      "sector": "Finance"
-    },
-    {
-      "ticker": "ASSA",
-      "price": 770,
-      "sector": "Transport"
-    },
-    {
-      "ticker": "EMTK",
-      "price": 730,
-      "sector": "Media"
-    },
-    {
-      "ticker": "SCMA",
-      "price": 246,
-      "sector": "Media"
-    },
-    {
-      "ticker": "MNCN",
-      "price": 222,
-      "sector": "Media"
-    },
-    {
-      "ticker": "KAEF",
-      "price": 630,
-      "sector": "Healthcare"
+      "ticker": "MARK",
+      "price": 840.0,
+      "avg_dollar_volume_20": 9428929175.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
       "ticker": "KLBF",
-      "price": 870,
-      "sector": "Healthcare"
+      "price": 835.0,
+      "avg_dollar_volume_20": 53218362375.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "PBSA",
+      "price": 830.0,
+      "avg_dollar_volume_20": 3239871450.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BSIM",
+      "price": 825.0,
+      "avg_dollar_volume_20": 29933550.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "HRUM",
+      "price": 810.0,
+      "avg_dollar_volume_20": 11291228850.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BFIN",
+      "price": 805.0,
+      "avg_dollar_volume_20": 28732186675.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "DSSA",
+      "price": 805.0,
+      "avg_dollar_volume_20": 120431526275.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "JECC",
+      "price": 800.0,
+      "avg_dollar_volume_20": 39831700.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BJBR",
+      "price": 790.0,
+      "avg_dollar_volume_20": 7706219218.66394,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "CMNT",
+      "price": 785.0,
+      "avg_dollar_volume_20": 8165238600.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "SMCB",
+      "price": 775.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "ESSA",
+      "price": 750.0,
+      "avg_dollar_volume_20": 145449250350.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
       "ticker": "HMSP",
-      "price": 740,
-      "sector": "Tobacco"
+      "price": 740.0,
+      "avg_dollar_volume_20": 13587198900.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BNBA",
+      "price": 735.0,
+      "avg_dollar_volume_20": 772923150.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BRMS",
+      "price": 730.0,
+      "avg_dollar_volume_20": 145423022475.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BSDE",
+      "price": 730.0,
+      "avg_dollar_volume_20": 7357098550.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "EMTK",
+      "price": 730.0,
+      "avg_dollar_volume_20": 19929349300.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "ASSA",
+      "price": 725.0,
+      "avg_dollar_volume_20": 6197344675.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "PRAY",
+      "price": 725.0,
+      "avg_dollar_volume_20": 47799950.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "DKFT",
+      "price": 715.0,
+      "avg_dollar_volume_20": 11635741125.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "ELSA",
+      "price": 700.0,
+      "avg_dollar_volume_20": 43421941500.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
       "ticker": "TBLA",
-      "price": 690,
-      "sector": "Plantation"
+      "price": 690.0,
+      "avg_dollar_volume_20": 2377882425.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "DRMA",
-      "price": 980,
-      "sector": "Industry"
+      "ticker": "LPGI",
+      "price": 685.0,
+      "avg_dollar_volume_20": 68915274.64569092,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "RIGS",
+      "price": 680.0,
+      "avg_dollar_volume_20": 40092000.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "CTRA",
+      "price": 675.0,
+      "avg_dollar_volume_20": 6240664550.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "MSIN",
+      "price": 660.0,
+      "avg_dollar_volume_20": 15415688350.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "KAEF",
+      "price": 610.0,
+      "avg_dollar_volume_20": 7112050795.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "SIMP",
+      "price": 610.0,
+      "avg_dollar_volume_20": 26951192500.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "ROTI",
+      "price": 595.0,
+      "avg_dollar_volume_20": 1364892725.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "STAR",
+      "price": 590.0,
+      "avg_dollar_volume_20": 186912475.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "LPCK",
+      "price": 585.0,
+      "avg_dollar_volume_20": 250682400.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "KEJU",
+      "price": 555.0,
+      "avg_dollar_volume_20": 145608720.44158936,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "NEST",
+      "price": 550.0,
+      "avg_dollar_volume_20": 2813873740.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "IKBI",
+      "price": 545.0,
+      "avg_dollar_volume_20": 21818800.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BJTM",
+      "price": 525.0,
+      "avg_dollar_volume_20": 8468210487.110291,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "TOBA",
+      "price": 525.0,
+      "avg_dollar_volume_20": 6427207550.929871,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "MBMA",
+      "price": 520.0,
+      "avg_dollar_volume_20": 92397774750.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "NRCA",
+      "price": 515.0,
+      "avg_dollar_volume_20": 7797706175.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "MTLA",
+      "price": 510.0,
+      "avg_dollar_volume_20": 23051200.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "TRIM",
+      "price": 510.0,
+      "avg_dollar_volume_20": 197997725.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "MTSM",
+      "price": 500.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "PDES",
+      "price": 500.0,
+      "avg_dollar_volume_20": 41565050.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BMAS",
+      "price": 496.0,
+      "avg_dollar_volume_20": 12402380.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "NOBU",
+      "price": 494.0,
+      "avg_dollar_volume_20": 1320352380.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
       "ticker": "ARNA",
-      "price": 488,
-      "sector": "Industry"
+      "price": 466.0,
+      "avg_dollar_volume_20": 2178801870.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "IRSX",
+      "price": 464.0,
+      "avg_dollar_volume_20": 24899313220.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BPII",
+      "price": 460.0,
+      "avg_dollar_volume_20": 47267420.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "PSAB",
+      "price": 452.0,
+      "avg_dollar_volume_20": 32068141490.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "KDSI",
+      "price": 448.0,
+      "avg_dollar_volume_20": 20261770.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
       "ticker": "TOWR",
-      "price": 470,
-      "sector": "Telco"
+      "price": 444.0,
+      "avg_dollar_volume_20": 6388607920.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "MAPI",
-      "price": 1300,
-      "sector": "Retail"
+      "ticker": "DEWA",
+      "price": 442.0,
+      "avg_dollar_volume_20": 199250232210.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "SMGR",
-      "price": 3800,
-      "sector": "Industry"
+      "ticker": "BSML",
+      "price": 432.0,
+      "avg_dollar_volume_20": 6444972670.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "INDF",
-      "price": 6800,
-      "sector": "Consumer"
+      "ticker": "BULL",
+      "price": 432.0,
+      "avg_dollar_volume_20": 182110416210.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "CPIN",
-      "price": 4800,
-      "sector": "Consumer"
+      "ticker": "TRIO",
+      "price": 426.0,
+      "avg_dollar_volume_20": 0.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
     },
     {
-      "ticker": "PGAS",
-      "price": 1500,
-      "sector": "Energy"
+      "ticker": "SIDO",
+      "price": 420.0,
+      "avg_dollar_volume_20": 9587345070.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BANK",
+      "price": 412.0,
+      "avg_dollar_volume_20": 662031940.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "LPIN",
+      "price": 412.0,
+      "avg_dollar_volume_20": 432654180.18447876,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "CLEO",
+      "price": 398.0,
+      "avg_dollar_volume_20": 1736921490.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "ERAA",
+      "price": 384.0,
+      "avg_dollar_volume_20": 16054370040.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "ACES",
+      "price": 356.0,
+      "avg_dollar_volume_20": 13288224880.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "INDS",
+      "price": 356.0,
+      "avg_dollar_volume_20": 13811234595.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "AMOR",
+      "price": 350.0,
+      "avg_dollar_volume_20": 111839910.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "SGER",
+      "price": 350.0,
+      "avg_dollar_volume_20": 1182182720.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "SAFE",
+      "price": 348.0,
+      "avg_dollar_volume_20": 193613160.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "CFIN",
+      "price": 346.0,
+      "avg_dollar_volume_20": 636527550.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "MINA",
+      "price": 338.0,
+      "avg_dollar_volume_20": 137931033640.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "MMLP",
+      "price": 338.0,
+      "avg_dollar_volume_20": 324197400.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "GOOD",
+      "price": 336.0,
+      "avg_dollar_volume_20": 68708373.9277649,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "SAME",
+      "price": 334.0,
+      "avg_dollar_volume_20": 352403790.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "KBLM",
+      "price": 330.0,
+      "avg_dollar_volume_20": 37185340.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "KBLI",
+      "price": 322.0,
+      "avg_dollar_volume_20": 286060240.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "SMDR",
+      "price": 320.0,
+      "avg_dollar_volume_20": 4299031020.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "KARW",
+      "price": 318.0,
+      "avg_dollar_volume_20": 19729880.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "TIFA",
+      "price": 318.0,
+      "avg_dollar_volume_20": 31215100.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "SMRA",
+      "price": 312.0,
+      "avg_dollar_volume_20": 9724343670.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "PWON",
+      "price": 308.0,
+      "avg_dollar_volume_20": 12415835520.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "PEHA",
+      "price": 306.0,
+      "avg_dollar_volume_20": 1080026060.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "PYFA",
+      "price": 306.0,
+      "avg_dollar_volume_20": 27887003920.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "KKGI",
+      "price": 304.0,
+      "avg_dollar_volume_20": 711899900.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "UPPER"
+    },
+    {
+      "ticker": "BIPI",
+      "price": 224.0,
+      "avg_dollar_volume_20": 197543450010.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "LOWER"
+    },
+    {
+      "ticker": "BUMI",
+      "price": 208.0,
+      "avg_dollar_volume_20": 510283925670.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "LOWER"
+    },
+    {
+      "ticker": "HUMI",
+      "price": 184.0,
+      "avg_dollar_volume_20": 16573846680.0,
+      "tier_eligible": [
+        "SCALP_GORENGAN",
+        "BANDAR_SWING"
+      ],
+      "tier": "BANDAR_SWING",
+      "price_tier": "LOWER"
     }
   ],
   "batch_groups": {
     "batch_a": [
-      "SMRA",
-      "PWON",
-      "CTRA",
-      "BSDE",
-      "APLN",
-      "KIJA",
-      "LPKR",
-      "ASRI",
-      "BKSL",
-      "DILD"
+      "PNBN",
+      "WBSA",
+      "SOTS",
+      "MAIN",
+      "MARK",
+      "KLBF",
+      "PBSA",
+      "BSIM",
+      "HRUM",
+      "BFIN"
     ],
     "batch_b": [
-      "BUMI",
-      "BRMS",
-      "DEWA",
-      "ANTM",
-      "HRUM",
-      "MBMA",
-      "TOBA",
+      "DSSA",
+      "JECC",
+      "BJBR",
+      "CMNT",
+      "SMCB",
       "ESSA",
-      "ELSA",
-      "MEDC"
+      "HMSP",
+      "BNBA",
+      "BRMS",
+      "BSDE"
     ],
     "batch_c": [
-      "PTPP",
-      "ADHI",
-      "WIKA",
-      "WSKT",
-      "WTON",
-      "ERAA",
-      "ACES",
-      "ROTI",
-      "CLEO",
-      "SIDO"
+      "EMTK",
+      "ASSA",
+      "PRAY",
+      "DKFT",
+      "ELSA",
+      "TBLA",
+      "LPGI",
+      "RIGS",
+      "CTRA",
+      "MSIN"
     ],
     "batch_d": [
-      "BJBR",
-      "BJTM",
-      "BBTN",
-      "BFIN",
-      "ASSA",
-      "EMTK",
-      "SCMA",
-      "MNCN",
       "KAEF",
-      "KLBF"
+      "SIMP",
+      "ROTI",
+      "STAR",
+      "LPCK",
+      "KEJU",
+      "NEST",
+      "IKBI",
+      "BJTM",
+      "TOBA"
     ],
     "batch_e": [
-      "HMSP",
-      "TBLA",
-      "DRMA",
+      "MBMA",
+      "NRCA",
+      "MTLA",
+      "TRIM",
+      "MTSM",
+      "PDES",
+      "BMAS",
+      "NOBU",
       "ARNA",
+      "IRSX"
+    ],
+    "batch_f": [
+      "BPII",
+      "PSAB",
+      "KDSI",
       "TOWR",
-      "MAPI",
-      "SMGR",
-      "INDF",
-      "CPIN",
-      "PGAS"
+      "DEWA",
+      "BSML",
+      "BULL",
+      "TRIO",
+      "SIDO",
+      "BANK"
+    ],
+    "batch_g": [
+      "LPIN",
+      "CLEO",
+      "ERAA",
+      "ACES",
+      "INDS",
+      "AMOR",
+      "SGER",
+      "SAFE",
+      "CFIN",
+      "MINA"
+    ],
+    "batch_h": [
+      "MMLP",
+      "GOOD",
+      "SAME",
+      "KBLM",
+      "KBLI",
+      "SMDR",
+      "KARW",
+      "TIFA",
+      "SMRA",
+      "PWON"
+    ],
+    "batch_i": [
+      "PEHA",
+      "PYFA",
+      "KKGI",
+      "BIPI",
+      "BUMI",
+      "HUMI"
     ]
-  }
+  },
+  "whitelist_missing": [
+    "BLUE",
+    "PACK"
+  ]
 }

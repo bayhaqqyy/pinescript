@@ -1,0 +1,496 @@
+// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// Generated on 2026-05-19 | Strategy: SCALPING_V2 (Intraday)
+//
+// @description Scalping screener v2 untuk penny stocks.
+//   Default Timeframe: 5 menit. Holding period: intraday.
+
+//@version=6
+indicator("SCALPING V2 - BATCH H (10 Emiten)", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// INPUT
+// ============================================================================
+tf = input.timeframe("5", "Timeframe Screener")
+min_tv = input.float(500000000, "Min Transaction Value per Bar (Rp)")
+tp1_mult = input.float(1.0, "TP1 ATR Multiplier")
+tp2_mult = input.float(2.0, "TP2 ATR Multiplier")
+sl_mult  = input.float(1.0, "SL ATR Multiplier")
+pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+// ============================================================================
+// TICKER DEFINITIONS (harga per 2026-05-19)
+// ============================================================================
+tk1 = "IDX:MMLP"  // SCALP_GORENGAN
+tk2 = "IDX:GOOD"  // SCALP_GORENGAN
+tk3 = "IDX:SAME"  // SCALP_GORENGAN
+tk4 = "IDX:KBLM"  // SCALP_GORENGAN
+tk5 = "IDX:KBLI"  // SCALP_GORENGAN
+tk6 = "IDX:SMDR"  // SCALP_GORENGAN
+tk7 = "IDX:KARW"  // SCALP_GORENGAN
+tk8 = "IDX:TIFA"  // SCALP_GORENGAN
+tk9 = "IDX:SMRA"  // SCALP_GORENGAN
+tk10 = "IDX:PWON"  // SCALP_GORENGAN
+
+// ============================================================================
+// DATA FETCH - request.security
+// ============================================================================
+[c1, h1, l1, v1, o1, atr_1] = request.security(tk1, tf, [close, high, low, volume, open, ta.atr(14)])
+[c2, h2, l2, v2, o2, atr_2] = request.security(tk2, tf, [close, high, low, volume, open, ta.atr(14)])
+[c3, h3, l3, v3, o3, atr_3] = request.security(tk3, tf, [close, high, low, volume, open, ta.atr(14)])
+[c4, h4, l4, v4, o4, atr_4] = request.security(tk4, tf, [close, high, low, volume, open, ta.atr(14)])
+[c5, h5, l5, v5, o5, atr_5] = request.security(tk5, tf, [close, high, low, volume, open, ta.atr(14)])
+[c6, h6, l6, v6, o6, atr_6] = request.security(tk6, tf, [close, high, low, volume, open, ta.atr(14)])
+[c7, h7, l7, v7, o7, atr_7] = request.security(tk7, tf, [close, high, low, volume, open, ta.atr(14)])
+[c8, h8, l8, v8, o8, atr_8] = request.security(tk8, tf, [close, high, low, volume, open, ta.atr(14)])
+[c9, h9, l9, v9, o9, atr_9] = request.security(tk9, tf, [close, high, low, volume, open, ta.atr(14)])
+[c10, h10, l10, v10, o10, atr_10] = request.security(tk10, tf, [close, high, low, volume, open, ta.atr(14)])
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+// --- MMLP ---
+pv1 = (h1[1] + l1[1] + c1[1]) / 3
+entry1 = math.round(2 * pv1 - h1[1])
+tv_1 = v1 * c1
+
+tp1_1 = math.round(entry1 + (atr_1 * tp1_mult))
+tp2_1 = math.round(entry1 + (atr_1 * tp2_mult))
+sl_1  = math.round(entry1 - (atr_1 * sl_mult))
+
+rsi1   = ta.rsi(c1, 14)
+avgv1  = ta.sma(v1, 20)
+rvol1  = avgv1 > 0 ? v1 / avgv1 : 0
+
+// Base signal
+sig_base1 = (c1 <= entry1 and rsi1 < 35 and rvol1 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid1 = not na(atr_1) and atr_1 > 0
+is_liq_valid1 = tv_1 >= min_tv
+is_mono_valid1 = (tp2_1 > tp1_1) and (tp1_1 > entry1) and (entry1 > sl_1)
+
+st1 = not is_atr_valid1 ? "WAIT_ATR" : not is_liq_valid1 ? "WAIT_LIQ" : not is_mono_valid1 ? "WAIT_TICK" : sig_base1
+
+st_c1  = st1 == "FRESH BUY" ? color.lime : st1 == "WAIT_ATR" or st1 == "WAIT_LIQ" or st1 == "WAIT_TICK" ? color.gray : color.gray
+rs_c1  = rsi1 < 30 ? color.lime : rsi1 > 70 ? color.red : color.white
+rv_c1  = rvol1 > 2 ? color.lime : rvol1 > 1 ? color.yellow : color.gray
+// --- GOOD ---
+pv2 = (h2[1] + l2[1] + c2[1]) / 3
+entry2 = math.round(2 * pv2 - h2[1])
+tv_2 = v2 * c2
+
+tp1_2 = math.round(entry2 + (atr_2 * tp1_mult))
+tp2_2 = math.round(entry2 + (atr_2 * tp2_mult))
+sl_2  = math.round(entry2 - (atr_2 * sl_mult))
+
+rsi2   = ta.rsi(c2, 14)
+avgv2  = ta.sma(v2, 20)
+rvol2  = avgv2 > 0 ? v2 / avgv2 : 0
+
+// Base signal
+sig_base2 = (c2 <= entry2 and rsi2 < 35 and rvol2 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid2 = not na(atr_2) and atr_2 > 0
+is_liq_valid2 = tv_2 >= min_tv
+is_mono_valid2 = (tp2_2 > tp1_2) and (tp1_2 > entry2) and (entry2 > sl_2)
+
+st2 = not is_atr_valid2 ? "WAIT_ATR" : not is_liq_valid2 ? "WAIT_LIQ" : not is_mono_valid2 ? "WAIT_TICK" : sig_base2
+
+st_c2  = st2 == "FRESH BUY" ? color.lime : st2 == "WAIT_ATR" or st2 == "WAIT_LIQ" or st2 == "WAIT_TICK" ? color.gray : color.gray
+rs_c2  = rsi2 < 30 ? color.lime : rsi2 > 70 ? color.red : color.white
+rv_c2  = rvol2 > 2 ? color.lime : rvol2 > 1 ? color.yellow : color.gray
+// --- SAME ---
+pv3 = (h3[1] + l3[1] + c3[1]) / 3
+entry3 = math.round(2 * pv3 - h3[1])
+tv_3 = v3 * c3
+
+tp1_3 = math.round(entry3 + (atr_3 * tp1_mult))
+tp2_3 = math.round(entry3 + (atr_3 * tp2_mult))
+sl_3  = math.round(entry3 - (atr_3 * sl_mult))
+
+rsi3   = ta.rsi(c3, 14)
+avgv3  = ta.sma(v3, 20)
+rvol3  = avgv3 > 0 ? v3 / avgv3 : 0
+
+// Base signal
+sig_base3 = (c3 <= entry3 and rsi3 < 35 and rvol3 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid3 = not na(atr_3) and atr_3 > 0
+is_liq_valid3 = tv_3 >= min_tv
+is_mono_valid3 = (tp2_3 > tp1_3) and (tp1_3 > entry3) and (entry3 > sl_3)
+
+st3 = not is_atr_valid3 ? "WAIT_ATR" : not is_liq_valid3 ? "WAIT_LIQ" : not is_mono_valid3 ? "WAIT_TICK" : sig_base3
+
+st_c3  = st3 == "FRESH BUY" ? color.lime : st3 == "WAIT_ATR" or st3 == "WAIT_LIQ" or st3 == "WAIT_TICK" ? color.gray : color.gray
+rs_c3  = rsi3 < 30 ? color.lime : rsi3 > 70 ? color.red : color.white
+rv_c3  = rvol3 > 2 ? color.lime : rvol3 > 1 ? color.yellow : color.gray
+// --- KBLM ---
+pv4 = (h4[1] + l4[1] + c4[1]) / 3
+entry4 = math.round(2 * pv4 - h4[1])
+tv_4 = v4 * c4
+
+tp1_4 = math.round(entry4 + (atr_4 * tp1_mult))
+tp2_4 = math.round(entry4 + (atr_4 * tp2_mult))
+sl_4  = math.round(entry4 - (atr_4 * sl_mult))
+
+rsi4   = ta.rsi(c4, 14)
+avgv4  = ta.sma(v4, 20)
+rvol4  = avgv4 > 0 ? v4 / avgv4 : 0
+
+// Base signal
+sig_base4 = (c4 <= entry4 and rsi4 < 35 and rvol4 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid4 = not na(atr_4) and atr_4 > 0
+is_liq_valid4 = tv_4 >= min_tv
+is_mono_valid4 = (tp2_4 > tp1_4) and (tp1_4 > entry4) and (entry4 > sl_4)
+
+st4 = not is_atr_valid4 ? "WAIT_ATR" : not is_liq_valid4 ? "WAIT_LIQ" : not is_mono_valid4 ? "WAIT_TICK" : sig_base4
+
+st_c4  = st4 == "FRESH BUY" ? color.lime : st4 == "WAIT_ATR" or st4 == "WAIT_LIQ" or st4 == "WAIT_TICK" ? color.gray : color.gray
+rs_c4  = rsi4 < 30 ? color.lime : rsi4 > 70 ? color.red : color.white
+rv_c4  = rvol4 > 2 ? color.lime : rvol4 > 1 ? color.yellow : color.gray
+// --- KBLI ---
+pv5 = (h5[1] + l5[1] + c5[1]) / 3
+entry5 = math.round(2 * pv5 - h5[1])
+tv_5 = v5 * c5
+
+tp1_5 = math.round(entry5 + (atr_5 * tp1_mult))
+tp2_5 = math.round(entry5 + (atr_5 * tp2_mult))
+sl_5  = math.round(entry5 - (atr_5 * sl_mult))
+
+rsi5   = ta.rsi(c5, 14)
+avgv5  = ta.sma(v5, 20)
+rvol5  = avgv5 > 0 ? v5 / avgv5 : 0
+
+// Base signal
+sig_base5 = (c5 <= entry5 and rsi5 < 35 and rvol5 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid5 = not na(atr_5) and atr_5 > 0
+is_liq_valid5 = tv_5 >= min_tv
+is_mono_valid5 = (tp2_5 > tp1_5) and (tp1_5 > entry5) and (entry5 > sl_5)
+
+st5 = not is_atr_valid5 ? "WAIT_ATR" : not is_liq_valid5 ? "WAIT_LIQ" : not is_mono_valid5 ? "WAIT_TICK" : sig_base5
+
+st_c5  = st5 == "FRESH BUY" ? color.lime : st5 == "WAIT_ATR" or st5 == "WAIT_LIQ" or st5 == "WAIT_TICK" ? color.gray : color.gray
+rs_c5  = rsi5 < 30 ? color.lime : rsi5 > 70 ? color.red : color.white
+rv_c5  = rvol5 > 2 ? color.lime : rvol5 > 1 ? color.yellow : color.gray
+// --- SMDR ---
+pv6 = (h6[1] + l6[1] + c6[1]) / 3
+entry6 = math.round(2 * pv6 - h6[1])
+tv_6 = v6 * c6
+
+tp1_6 = math.round(entry6 + (atr_6 * tp1_mult))
+tp2_6 = math.round(entry6 + (atr_6 * tp2_mult))
+sl_6  = math.round(entry6 - (atr_6 * sl_mult))
+
+rsi6   = ta.rsi(c6, 14)
+avgv6  = ta.sma(v6, 20)
+rvol6  = avgv6 > 0 ? v6 / avgv6 : 0
+
+// Base signal
+sig_base6 = (c6 <= entry6 and rsi6 < 35 and rvol6 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid6 = not na(atr_6) and atr_6 > 0
+is_liq_valid6 = tv_6 >= min_tv
+is_mono_valid6 = (tp2_6 > tp1_6) and (tp1_6 > entry6) and (entry6 > sl_6)
+
+st6 = not is_atr_valid6 ? "WAIT_ATR" : not is_liq_valid6 ? "WAIT_LIQ" : not is_mono_valid6 ? "WAIT_TICK" : sig_base6
+
+st_c6  = st6 == "FRESH BUY" ? color.lime : st6 == "WAIT_ATR" or st6 == "WAIT_LIQ" or st6 == "WAIT_TICK" ? color.gray : color.gray
+rs_c6  = rsi6 < 30 ? color.lime : rsi6 > 70 ? color.red : color.white
+rv_c6  = rvol6 > 2 ? color.lime : rvol6 > 1 ? color.yellow : color.gray
+// --- KARW ---
+pv7 = (h7[1] + l7[1] + c7[1]) / 3
+entry7 = math.round(2 * pv7 - h7[1])
+tv_7 = v7 * c7
+
+tp1_7 = math.round(entry7 + (atr_7 * tp1_mult))
+tp2_7 = math.round(entry7 + (atr_7 * tp2_mult))
+sl_7  = math.round(entry7 - (atr_7 * sl_mult))
+
+rsi7   = ta.rsi(c7, 14)
+avgv7  = ta.sma(v7, 20)
+rvol7  = avgv7 > 0 ? v7 / avgv7 : 0
+
+// Base signal
+sig_base7 = (c7 <= entry7 and rsi7 < 35 and rvol7 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid7 = not na(atr_7) and atr_7 > 0
+is_liq_valid7 = tv_7 >= min_tv
+is_mono_valid7 = (tp2_7 > tp1_7) and (tp1_7 > entry7) and (entry7 > sl_7)
+
+st7 = not is_atr_valid7 ? "WAIT_ATR" : not is_liq_valid7 ? "WAIT_LIQ" : not is_mono_valid7 ? "WAIT_TICK" : sig_base7
+
+st_c7  = st7 == "FRESH BUY" ? color.lime : st7 == "WAIT_ATR" or st7 == "WAIT_LIQ" or st7 == "WAIT_TICK" ? color.gray : color.gray
+rs_c7  = rsi7 < 30 ? color.lime : rsi7 > 70 ? color.red : color.white
+rv_c7  = rvol7 > 2 ? color.lime : rvol7 > 1 ? color.yellow : color.gray
+// --- TIFA ---
+pv8 = (h8[1] + l8[1] + c8[1]) / 3
+entry8 = math.round(2 * pv8 - h8[1])
+tv_8 = v8 * c8
+
+tp1_8 = math.round(entry8 + (atr_8 * tp1_mult))
+tp2_8 = math.round(entry8 + (atr_8 * tp2_mult))
+sl_8  = math.round(entry8 - (atr_8 * sl_mult))
+
+rsi8   = ta.rsi(c8, 14)
+avgv8  = ta.sma(v8, 20)
+rvol8  = avgv8 > 0 ? v8 / avgv8 : 0
+
+// Base signal
+sig_base8 = (c8 <= entry8 and rsi8 < 35 and rvol8 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid8 = not na(atr_8) and atr_8 > 0
+is_liq_valid8 = tv_8 >= min_tv
+is_mono_valid8 = (tp2_8 > tp1_8) and (tp1_8 > entry8) and (entry8 > sl_8)
+
+st8 = not is_atr_valid8 ? "WAIT_ATR" : not is_liq_valid8 ? "WAIT_LIQ" : not is_mono_valid8 ? "WAIT_TICK" : sig_base8
+
+st_c8  = st8 == "FRESH BUY" ? color.lime : st8 == "WAIT_ATR" or st8 == "WAIT_LIQ" or st8 == "WAIT_TICK" ? color.gray : color.gray
+rs_c8  = rsi8 < 30 ? color.lime : rsi8 > 70 ? color.red : color.white
+rv_c8  = rvol8 > 2 ? color.lime : rvol8 > 1 ? color.yellow : color.gray
+// --- SMRA ---
+pv9 = (h9[1] + l9[1] + c9[1]) / 3
+entry9 = math.round(2 * pv9 - h9[1])
+tv_9 = v9 * c9
+
+tp1_9 = math.round(entry9 + (atr_9 * tp1_mult))
+tp2_9 = math.round(entry9 + (atr_9 * tp2_mult))
+sl_9  = math.round(entry9 - (atr_9 * sl_mult))
+
+rsi9   = ta.rsi(c9, 14)
+avgv9  = ta.sma(v9, 20)
+rvol9  = avgv9 > 0 ? v9 / avgv9 : 0
+
+// Base signal
+sig_base9 = (c9 <= entry9 and rsi9 < 35 and rvol9 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid9 = not na(atr_9) and atr_9 > 0
+is_liq_valid9 = tv_9 >= min_tv
+is_mono_valid9 = (tp2_9 > tp1_9) and (tp1_9 > entry9) and (entry9 > sl_9)
+
+st9 = not is_atr_valid9 ? "WAIT_ATR" : not is_liq_valid9 ? "WAIT_LIQ" : not is_mono_valid9 ? "WAIT_TICK" : sig_base9
+
+st_c9  = st9 == "FRESH BUY" ? color.lime : st9 == "WAIT_ATR" or st9 == "WAIT_LIQ" or st9 == "WAIT_TICK" ? color.gray : color.gray
+rs_c9  = rsi9 < 30 ? color.lime : rsi9 > 70 ? color.red : color.white
+rv_c9  = rvol9 > 2 ? color.lime : rvol9 > 1 ? color.yellow : color.gray
+// --- PWON ---
+pv10 = (h10[1] + l10[1] + c10[1]) / 3
+entry10 = math.round(2 * pv10 - h10[1])
+tv_10 = v10 * c10
+
+tp1_10 = math.round(entry10 + (atr_10 * tp1_mult))
+tp2_10 = math.round(entry10 + (atr_10 * tp2_mult))
+sl_10  = math.round(entry10 - (atr_10 * sl_mult))
+
+rsi10   = ta.rsi(c10, 14)
+avgv10  = ta.sma(v10, 20)
+rvol10  = avgv10 > 0 ? v10 / avgv10 : 0
+
+// Base signal
+sig_base10 = (c10 <= entry10 and rsi10 < 35 and rvol10 > 1.5) ? "FRESH BUY" : "WAIT"
+
+// Validation Checks
+is_atr_valid10 = not na(atr_10) and atr_10 > 0
+is_liq_valid10 = tv_10 >= min_tv
+is_mono_valid10 = (tp2_10 > tp1_10) and (tp1_10 > entry10) and (entry10 > sl_10)
+
+st10 = not is_atr_valid10 ? "WAIT_ATR" : not is_liq_valid10 ? "WAIT_LIQ" : not is_mono_valid10 ? "WAIT_TICK" : sig_base10
+
+st_c10  = st10 == "FRESH BUY" ? color.lime : st10 == "WAIT_ATR" or st10 == "WAIT_LIQ" or st10 == "WAIT_TICK" ? color.gray : color.gray
+rs_c10  = rsi10 < 30 ? color.lime : rsi10 > 70 ? color.red : color.white
+rv_c10  = rvol10 > 2 ? color.lime : rvol10 > 1 ? color.yellow : color.gray
+
+// ============================================================================
+// TABLE DISPLAY
+// ============================================================================
+tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+
+var tbl = table.new(tbl_pos, 11, 11, border_width=1, border_color=#333333)
+
+if barstate.islast
+    // Header row
+    hdr_bg = #ff8c00
+    hdr_clr = color.black
+    table.cell(tbl, 0, 0, "EMITEN", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 1, 0, "TF", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 2, 0, "ENTRY", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 3, 0, "NOW", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 4, 0, "TP1", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 5, 0, "TP2", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 6, 0, "SL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 7, 0, "STATUS", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 8, 0, "RSI", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 9, 0, "RVOL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 10, 0, "VALUE", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+
+if barstate.islast
+    // Row 1: MMLP
+    row1 = 1
+    table.cell(tbl, 0, row1, "MMLP", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row1, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row1, str.tostring(entry1, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row1, str.tostring(c1, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row1, str.tostring(tp1_1, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row1, str.tostring(tp2_1, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row1, str.tostring(sl_1, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row1, st1, text_color=color.black, bgcolor=st_c1, text_size=size.small)
+    table.cell(tbl, 8, row1, str.tostring(rsi1, "#.#"), text_color=rs_c1, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row1, str.tostring(rvol1, "#.##"), text_color=rv_c1, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row1, tv_1 > 1e9 ? str.tostring(tv_1/1e9, "#.#") + "B" : str.tostring(tv_1/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 2: GOOD
+    row2 = 2
+    table.cell(tbl, 0, row2, "GOOD", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row2, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row2, str.tostring(entry2, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row2, str.tostring(c2, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row2, str.tostring(tp1_2, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row2, str.tostring(tp2_2, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row2, str.tostring(sl_2, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row2, st2, text_color=color.black, bgcolor=st_c2, text_size=size.small)
+    table.cell(tbl, 8, row2, str.tostring(rsi2, "#.#"), text_color=rs_c2, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row2, str.tostring(rvol2, "#.##"), text_color=rv_c2, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row2, tv_2 > 1e9 ? str.tostring(tv_2/1e9, "#.#") + "B" : str.tostring(tv_2/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 3: SAME
+    row3 = 3
+    table.cell(tbl, 0, row3, "SAME", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row3, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row3, str.tostring(entry3, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row3, str.tostring(c3, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row3, str.tostring(tp1_3, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row3, str.tostring(tp2_3, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row3, str.tostring(sl_3, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row3, st3, text_color=color.black, bgcolor=st_c3, text_size=size.small)
+    table.cell(tbl, 8, row3, str.tostring(rsi3, "#.#"), text_color=rs_c3, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row3, str.tostring(rvol3, "#.##"), text_color=rv_c3, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row3, tv_3 > 1e9 ? str.tostring(tv_3/1e9, "#.#") + "B" : str.tostring(tv_3/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 4: KBLM
+    row4 = 4
+    table.cell(tbl, 0, row4, "KBLM", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row4, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row4, str.tostring(entry4, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row4, str.tostring(c4, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row4, str.tostring(tp1_4, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row4, str.tostring(tp2_4, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row4, str.tostring(sl_4, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row4, st4, text_color=color.black, bgcolor=st_c4, text_size=size.small)
+    table.cell(tbl, 8, row4, str.tostring(rsi4, "#.#"), text_color=rs_c4, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row4, str.tostring(rvol4, "#.##"), text_color=rv_c4, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row4, tv_4 > 1e9 ? str.tostring(tv_4/1e9, "#.#") + "B" : str.tostring(tv_4/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 5: KBLI
+    row5 = 5
+    table.cell(tbl, 0, row5, "KBLI", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row5, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row5, str.tostring(entry5, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row5, str.tostring(c5, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row5, str.tostring(tp1_5, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row5, str.tostring(tp2_5, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row5, str.tostring(sl_5, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row5, st5, text_color=color.black, bgcolor=st_c5, text_size=size.small)
+    table.cell(tbl, 8, row5, str.tostring(rsi5, "#.#"), text_color=rs_c5, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row5, str.tostring(rvol5, "#.##"), text_color=rv_c5, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row5, tv_5 > 1e9 ? str.tostring(tv_5/1e9, "#.#") + "B" : str.tostring(tv_5/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 6: SMDR
+    row6 = 6
+    table.cell(tbl, 0, row6, "SMDR", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row6, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row6, str.tostring(entry6, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row6, str.tostring(c6, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row6, str.tostring(tp1_6, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row6, str.tostring(tp2_6, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row6, str.tostring(sl_6, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row6, st6, text_color=color.black, bgcolor=st_c6, text_size=size.small)
+    table.cell(tbl, 8, row6, str.tostring(rsi6, "#.#"), text_color=rs_c6, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row6, str.tostring(rvol6, "#.##"), text_color=rv_c6, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row6, tv_6 > 1e9 ? str.tostring(tv_6/1e9, "#.#") + "B" : str.tostring(tv_6/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 7: KARW
+    row7 = 7
+    table.cell(tbl, 0, row7, "KARW", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row7, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row7, str.tostring(entry7, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row7, str.tostring(c7, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row7, str.tostring(tp1_7, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row7, str.tostring(tp2_7, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row7, str.tostring(sl_7, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row7, st7, text_color=color.black, bgcolor=st_c7, text_size=size.small)
+    table.cell(tbl, 8, row7, str.tostring(rsi7, "#.#"), text_color=rs_c7, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row7, str.tostring(rvol7, "#.##"), text_color=rv_c7, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row7, tv_7 > 1e9 ? str.tostring(tv_7/1e9, "#.#") + "B" : str.tostring(tv_7/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 8: TIFA
+    row8 = 8
+    table.cell(tbl, 0, row8, "TIFA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row8, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row8, str.tostring(entry8, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row8, str.tostring(c8, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row8, str.tostring(tp1_8, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row8, str.tostring(tp2_8, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row8, str.tostring(sl_8, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row8, st8, text_color=color.black, bgcolor=st_c8, text_size=size.small)
+    table.cell(tbl, 8, row8, str.tostring(rsi8, "#.#"), text_color=rs_c8, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row8, str.tostring(rvol8, "#.##"), text_color=rv_c8, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row8, tv_8 > 1e9 ? str.tostring(tv_8/1e9, "#.#") + "B" : str.tostring(tv_8/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 9: SMRA
+    row9 = 9
+    table.cell(tbl, 0, row9, "SMRA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row9, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row9, str.tostring(entry9, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row9, str.tostring(c9, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row9, str.tostring(tp1_9, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row9, str.tostring(tp2_9, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row9, str.tostring(sl_9, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row9, st9, text_color=color.black, bgcolor=st_c9, text_size=size.small)
+    table.cell(tbl, 8, row9, str.tostring(rsi9, "#.#"), text_color=rs_c9, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row9, str.tostring(rvol9, "#.##"), text_color=rv_c9, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row9, tv_9 > 1e9 ? str.tostring(tv_9/1e9, "#.#") + "B" : str.tostring(tv_9/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 10: PWON
+    row10 = 10
+    table.cell(tbl, 0, row10, "PWON", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, row10, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, row10, str.tostring(entry10, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, row10, str.tostring(c10, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, row10, str.tostring(tp1_10, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, row10, str.tostring(tp2_10, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, row10, str.tostring(sl_10, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, row10, st10, text_color=color.black, bgcolor=st_c10, text_size=size.small)
+    table.cell(tbl, 8, row10, str.tostring(rsi10, "#.#"), text_color=rs_c10, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 9, row10, str.tostring(rvol10, "#.##"), text_color=rv_c10, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 10, row10, tv_10 > 1e9 ? str.tostring(tv_10/1e9, "#.#") + "B" : str.tostring(tv_10/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+
+// ============================================================================
+// ALERTS - Webhook JSON payload v2
+// ============================================================================
+if barstate.islast
+    if st1 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"MMLP","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry1) + ',"tp1":' + str.tostring(tp1_1) + ',"tp2":' + str.tostring(tp2_1) + ',"sl":' + str.tostring(sl_1) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_1) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st2 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"GOOD","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry2) + ',"tp1":' + str.tostring(tp1_2) + ',"tp2":' + str.tostring(tp2_2) + ',"sl":' + str.tostring(sl_2) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_2) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st3 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"SAME","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry3) + ',"tp1":' + str.tostring(tp1_3) + ',"tp2":' + str.tostring(tp2_3) + ',"sl":' + str.tostring(sl_3) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_3) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st4 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"KBLM","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry4) + ',"tp1":' + str.tostring(tp1_4) + ',"tp2":' + str.tostring(tp2_4) + ',"sl":' + str.tostring(sl_4) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_4) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st5 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"KBLI","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry5) + ',"tp1":' + str.tostring(tp1_5) + ',"tp2":' + str.tostring(tp2_5) + ',"sl":' + str.tostring(sl_5) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_5) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st6 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"SMDR","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry6) + ',"tp1":' + str.tostring(tp1_6) + ',"tp2":' + str.tostring(tp2_6) + ',"sl":' + str.tostring(sl_6) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_6) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st7 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"KARW","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry7) + ',"tp1":' + str.tostring(tp1_7) + ',"tp2":' + str.tostring(tp2_7) + ',"sl":' + str.tostring(sl_7) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_7) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st8 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"TIFA","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry8) + ',"tp1":' + str.tostring(tp1_8) + ',"tp2":' + str.tostring(tp2_8) + ',"sl":' + str.tostring(sl_8) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_8) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st9 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"SMRA","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry9) + ',"tp1":' + str.tostring(tp1_9) + ',"tp2":' + str.tostring(tp2_9) + ',"sl":' + str.tostring(sl_9) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_9) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if st10 == "FRESH BUY"
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"PWON","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry10) + ',"tp1":' + str.tostring(tp1_10) + ',"tp2":' + str.tostring(tp2_10) + ',"sl":' + str.tostring(sl_10) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_10) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+
+// ============================================================================
+// PLOT (hidden)
+// ============================================================================
+plot(close, display=display.none)

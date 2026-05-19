@@ -350,6 +350,118 @@ def format_idx_scalp_alert(data: dict) -> str:
 
 
 # ============================================================================
+# HELPER: Format Transaction Value (Nilai Transaksi)
+# ============================================================================
+def _format_tv(tv: float) -> str:
+    try:
+        tv = float(tv)
+        if tv >= 1e9:
+            return f"Rp{tv/1e9:.1f}B"
+        return f"Rp{tv/1e6:.1f}M"
+    except:
+        return "N/A"
+
+# ============================================================================
+# IDX BANDAR AI V2 — JSON Alert Parser
+# ============================================================================
+def format_idx_bandar_v2_alert(data: dict) -> str:
+    tier = data.get("tier")
+    if not tier:
+        raise ValueError("Missing 'tier' in payload")
+        
+    ticker = str(data.get("ticker", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    signal = str(data.get("signal", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    entry = data.get("entry", 0)
+    tp1 = data.get("tp1", 0)
+    tp2 = data.get("tp2", 0)
+    sl = data.get("sl", 0)
+    tv = data.get("transaction_value", 0)
+    hint = data.get("holding_hint", "swing 3-7 hari")
+
+    try:
+        sl_warn = " ⚠️(SL > Entry)" if float(sl) >= float(entry) else ""
+    except:
+        sl_warn = ""
+
+    signal_upper = signal.upper()
+    if any(k in signal_upper for k in ["BUY", "BULL", "AKUM", "HAKA"]):
+        icon = "🟢"
+        sentiment = "Deteksi akumulasi Bandar — Peluang Entry"
+    elif any(k in signal_upper for k in ["SELL", "BEAR", "DIST", "HAKI"]):
+        icon = "🔴"
+        sentiment = "Deteksi distribusi Bandar — Waspada Guyuran"
+    else:
+        icon = "⚡"
+        sentiment = "Pergerakan Smart Money terdeteksi"
+
+    msg = f"{icon} <b>IDX BANDAR AI V2</b> {icon}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🏢 <b>Emiten</b>: <code>{ticker}</code> (BANDAR · SWING 1W)\n"
+    msg += f"📊 <b>Signal</b>: <b>{signal}</b>\n"
+    msg += f"💵 <b>Val/Bar</b>: {_format_tv(tv)}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🎯 <b>Entry</b>: Rp{entry}\n"
+    msg += f"✅ <b>TP1</b>: Rp{tp1}\n"
+    msg += f"🚀 <b>TP2</b>: Rp{tp2}\n"
+    msg += f"🛑 <b>SL</b>: Rp{sl}{sl_warn}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"💡 <i>{sentiment}</i>\n"
+    msg += f"⏳ {hint}\n"
+    msg += f"#IDX_BANDAR_V2 #{ticker}"
+    return msg
+
+
+# ============================================================================
+# IDX SCALPING V2 — JSON Alert Parser
+# ============================================================================
+def format_idx_scalp_v2_alert(data: dict) -> str:
+    tier = data.get("tier")
+    if not tier:
+        raise ValueError("Missing 'tier' in payload")
+        
+    ticker = str(data.get("ticker", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    signal = str(data.get("signal", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    entry = data.get("entry", 0)
+    tp1 = data.get("tp1", 0)
+    tp2 = data.get("tp2", 0)
+    sl = data.get("sl", 0)
+    tv = data.get("transaction_value", 0)
+    hint = data.get("holding_hint", "intraday (menit-jam)")
+    
+    try:
+        sl_warn = " ⚠️(SL > Entry)" if float(sl) >= float(entry) else ""
+    except:
+        sl_warn = ""
+
+    signal_upper = signal.upper()
+    if any(k in signal_upper for k in ["BUY", "HAKA"]):
+        icon = "🔥"
+        sentiment = "Momentum HAKA super cepat terdeteksi! Siap pantau bid-offer."
+    elif any(k in signal_upper for k in ["SELL", "HAKI"]):
+        icon = "⚠️"
+        sentiment = "Tekanan jual HAKI tinggi, amankan profit / ketat SL."
+    else:
+        icon = "⚡"
+        sentiment = "Sinyal Scalping aktif."
+
+    msg = f"{icon} <b>IDX SCALPING V2</b> {icon}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🏢 <b>Emiten</b>: <code>{ticker}</code> (SCALP · GORENGAN)\n"
+    msg += f"⚡ <b>Signal</b>: <b>{signal}</b>\n"
+    msg += f"💵 <b>Val/Bar</b>: {_format_tv(tv)}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🎯 <b>Entry</b>: Rp{entry}\n"
+    msg += f"✅ <b>TP1</b>: Rp{tp1}\n"
+    msg += f"🚀 <b>TP2</b>: Rp{tp2}\n"
+    msg += f"🛑 <b>SL</b>: Rp{sl}{sl_warn}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"💡 <i>{sentiment}</i>\n"
+    msg += f"⏳ {hint}\n"
+    msg += f"#IDX_SCALP_V2 #{ticker}"
+    return msg
+
+
+# ============================================================================
 # WEBHOOK HANDLER
 # ============================================================================
 @app.post("/webhook")
@@ -364,20 +476,28 @@ async def handle_webhook(request: Request):
 
     message_text = ""
 
-    # 1. Cek JSON (Legacy Saham IDX)
+    # 1. Cek JSON
     try:
         data = await request.json()
         if isinstance(data, dict):
             if data.get("type") == "BANDAR_AI":
-                message_text = format_idx_bandar_alert(data)
+                if "tier" in data:
+                    message_text = format_idx_bandar_v2_alert(data)
+                else:
+                    message_text = format_idx_bandar_alert(data) # Legacy not found, maybe handle or fallback
             elif data.get("type") == "SCALP":
-                message_text = format_idx_scalp_alert(data)
+                if "tier" in data:
+                    message_text = format_idx_scalp_v2_alert(data)
+                else:
+                    message_text = format_idx_scalp_alert(data) # Legacy not found
             elif "message" in data and "type" not in data:
                 message_text = data["message"]
             else:
                 message_text = f"🔔 <b>TradingView Alert</b>\n<pre>{data}</pre>"
-    except Exception:
-        pass
+    except Exception as e:
+        if isinstance(e, ValueError) and "Missing 'tier'" in str(e):
+            print(f"[{ts}] ❌ Validation Error: {e}")
+            return {"status": "error", "message": str(e)}
 
     # 2. Cek Plain Text (Algoritma Quantum, US v2, dll)
     if not message_text and body_str:
@@ -414,8 +534,8 @@ async def health_check():
             "BTC Quantum Signal (plain text)",
             "US Swing Hunter v2 (plain text)",
             "US Bandar AI v2 (plain text)",
-            "IDX Bandar AI (JSON legacy)",
-            "IDX Scalping (JSON legacy)"
+            "IDX Bandar AI V2 (JSON)",
+            "IDX Scalping V2 (JSON)"
         ]
     }
 

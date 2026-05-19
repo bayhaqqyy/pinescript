@@ -1,7 +1,7 @@
 """
-Filter stock lists for Scalping and Bandar AI strategies.
-- Scalping: ALL volatile stocks, only remove CONFIRMED FCA
-- Bandar AI: Mid-cap swing trading candidates
+Filter stock lists for Scalping and Bandar AI strategies v2.
+- Scalping: HANYA penny stock < Rp1000 (Gorengan tier).
+- Bandar AI: Penny stock < Rp1000 untuk swing (Bandar Swing tier).
 """
 import json
 import os
@@ -10,169 +10,180 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ============================================================================
 # FCA BLACKLIST — HANYA saham yang BENAR-BENAR MASIH di Papan Pemantauan Khusus
-# Per Mei 2026. Yang sudah keluar FCA (seperti BNBR) TIDAK dimasukkan.
 # ============================================================================
 CONFIRMED_FCA = {
-    # Confirmed masih FCA / harga < Rp51 (kriteria otomatis PPK)
-    "TAXI",   # Rp16 — Confirmed FCA
-    "BTEK",   # Rp13 — Confirmed FCA
-    "KREN",   # Rp16
-    "HADE",   # Rp18
-    "WSBP",   # Rp18
-    "PPRO",   # Rp20
-    "BAPI",   # Rp23
-    "IKAI",   # Rp24
-    "BEKS",   # Rp26
-    "MARI",   # Rp30
-    "PURA",   # Rp31
-    "PBRX",   # Rp35
-    "PCAR",   # Rp36
-    "DIGI",   # Rp38
+    "TAXI", "BTEK", "KREN", "HADE", "WSBP", "PPRO", "BAPI",
+    "IKAI", "BEKS", "MARI", "PURA", "PBRX", "PCAR", "DIGI",
+    "WSKT"  # suspended sejak Mei 2023
+}
+
+# ============================================================================
+# WHITELIST SCALPING & BANDAR
+# ============================================================================
+WHITELIST_SCALPING = {
+    # Bakrie group
+    "BUMI", "BRMS", "DEWA", "BNBR",
+    # Top gainers
+    "DYAN", "DPUM", "KOPI", "KJEN", "NEST", "DFAM", "BLUE", "BPTR", "CCSI", "ESTI", "ZATA", "GRIA", "IRSX", "FILM", "BELL",
+    # Top frekuensi BEI
+    "BIPI", "MEDS",
+    # Trending Stockbit
+    "PACK", "MBMA", "BULL", "HUMI",
+    # Komoditas aktif
+    "TOBA", "ESSA", "ELSA",
+    # Lain aktif
+    "EMTK", "SHIP", "KOTA"
+}
+
+WHITELIST_BANDAR = {
+    # Bakrie
+    "BUMI", "BRMS", "DEWA",
+    # Komoditas
+    "MBMA", "TOBA", "ESSA", "ELSA",
+    # Trending + katalis
+    "PACK", "NEST", "BULL", "IRSX", "BLUE", "HUMI",
+    # Frekuensi tinggi
+    "BIPI", "EMTK"
 }
 
 # ============================================================================
 # LOAD DATA
 # ============================================================================
-with open(os.path.join(SCRIPT_DIR, "idx_below_1000.json"), "r") as f:
+with open(os.path.join(SCRIPT_DIR, "idx_prices_v2.json"), "r") as f:
     raw_data = json.load(f)
 
 all_stocks = raw_data["stocks"]
 date_str = raw_data["date"]
 
-# ============================================================================
-# SCALPING — Semua saham volatile, hanya buang confirmed FCA
-# Range: Rp50-1000 (semua yang ada di list)
-# ============================================================================
-scalping_picks = [
-    s for s in all_stocks
-    if s["ticker"] not in CONFIRMED_FCA
-    and s["price"] >= 50  # Minimal Rp50 (di bawah ini spread terlalu lebar)
-]
-scalping_picks.sort(key=lambda x: x["price"], reverse=True)
-
-# Create batches of 10
-scalp_batches = {}
 labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-for i in range(0, len(scalping_picks), 10):
+
+# ============================================================================
+# POOL SCALPING
+# ============================================================================
+scalping_pool = []
+scalping_missing = []
+
+# If we want to use only whitelist as the final pool, or all stocks?
+# Task says "Pool_Scalping: filter 50 <= price < 1000, not in FCA"
+# We will take ALL stocks that meet the criteria to not miss opportunities,
+# but ensure whitelist is present and track missing ones.
+for s in all_stocks:
+    ticker = s["ticker"]
+    price = s["price"]
+    
+    if ticker in CONFIRMED_FCA:
+        continue
+        
+    if 50 <= price < 1000:
+        s_copy = s.copy()
+        s_copy["tier"] = "SCALP_GORENGAN"
+        scalping_pool.append(s_copy)
+
+# Check whitelist missing
+pool_tickers = {s["ticker"] for s in scalping_pool}
+for w in WHITELIST_SCALPING:
+    if w not in pool_tickers:
+        scalping_missing.append(w)
+
+# Sort by price descending
+scalping_pool.sort(key=lambda x: x["price"], reverse=True)
+
+scalp_batches = {}
+for i in range(0, len(scalping_pool), 10):
     idx = i // 10
     if idx >= len(labels):
         break
-    scalp_batches[f"batch_{labels[idx].lower()}"] = [s["ticker"] for s in scalping_picks[i:i+10]]
+    scalp_batches[f"batch_{labels[idx].lower()}"] = [s["ticker"] for s in scalping_pool[i:i+10]]
 
 scalp_result = {
     "date": date_str,
-    "strategy": "SCALPING",
-    "description": "Saham IDX volatile untuk scalping intraday. TF: 1 menit. Termasuk saham gorengan yang liquid.",
-    "total": len(scalping_picks),
+    "strategy": "SCALPING_V2",
+    "description": "Saham IDX < Rp1000 untuk scalping intraday (Gorengan Tier). TF: 5 menit.",
+    "total": len(scalping_pool),
     "batches": len(scalp_batches),
-    "stocks": scalping_picks,
-    "batch_groups": scalp_batches
+    "stocks": scalping_pool,
+    "batch_groups": scalp_batches,
+    "whitelist_missing": scalping_missing
 }
 
 scalp_path = os.path.join(SCRIPT_DIR, "scalping_stocks.json")
 with open(scalp_path, "w", encoding="utf-8") as f:
     json.dump(scalp_result, f, indent=2, ensure_ascii=False)
 
-print(f"\n=== SCALPING ===")
-print(f"  Total: {len(scalping_picks)} emiten (removed {len(all_stocks) - len(scalping_picks)} FCA)")
+print(f"\n=== SCALPING V2 ===")
+print(f"  Total: {len(scalping_pool)} emiten")
 print(f"  Batches: {len(scalp_batches)}")
-print(f"  Range: Rp{scalping_picks[-1]['price']:.0f} - Rp{scalping_picks[0]['price']:.0f}")
+print(f"  Whitelist missing: {scalping_missing}")
 
 # ============================================================================
-# BANDAR AI — Mid-cap untuk SWING TRADING
-# Bukan LQ45 blue chip, tapi saham yang punya potensi swing
+# POOL BANDAR AI
 # ============================================================================
-bandar_stocks = [
-    # Mid-cap property — sering swing
-    {"ticker": "SMRA", "price": 322, "sector": "Property"},
-    {"ticker": "PWON", "price": 310, "sector": "Property"},
-    {"ticker": "CTRA", "price": 680, "sector": "Property"},
-    {"ticker": "BSDE", "price": 755, "sector": "Property"},
-    {"ticker": "APLN", "price": 180, "sector": "Property"},
-    {"ticker": "KIJA", "price": 175, "sector": "Property"},
-    {"ticker": "LPKR", "price": 80, "sector": "Property"},
-    {"ticker": "ASRI", "price": 128, "sector": "Property"},
-    {"ticker": "BKSL", "price": 102, "sector": "Property"},
-    {"ticker": "DILD", "price": 125, "sector": "Property"},
+bandar_candidates = []
+bandar_missing = []
 
-    # Mining / komoditas — volatile, swing bagus
-    {"ticker": "BUMI", "price": 214, "sector": "Mining"},
-    {"ticker": "BRMS", "price": 755, "sector": "Mining"},
-    {"ticker": "DEWA", "price": 466, "sector": "Mining"},
-    {"ticker": "ANTM", "price": 1400, "sector": "Mining"},
-    {"ticker": "HRUM", "price": 910, "sector": "Mining"},
-    {"ticker": "MBMA", "price": 605, "sector": "Mining"},
-    {"ticker": "TOBA", "price": 570, "sector": "Mining"},
-    {"ticker": "ESSA", "price": 805, "sector": "Energy"},
-    {"ticker": "ELSA", "price": 710, "sector": "Energy"},
-    {"ticker": "MEDC", "price": 1200, "sector": "Energy"},
+for s in all_stocks:
+    ticker = s["ticker"]
+    price = s["price"]
+    
+    if ticker in CONFIRMED_FCA:
+        continue
+        
+    if 50 <= price < 1000:
+        s_copy = s.copy()
+        s_copy["tier"] = "BANDAR_SWING"
+        s_copy["price_tier"] = "UPPER" if price >= 300 else "LOWER"
+        bandar_candidates.append(s_copy)
 
-    # Konstruksi / infra — BUMN, sering ada momentum
-    {"ticker": "PTPP", "price": 244, "sector": "Construction"},
-    {"ticker": "ADHI", "price": 200, "sector": "Construction"},
-    {"ticker": "WIKA", "price": 300, "sector": "Construction"},
-    {"ticker": "WSKT", "price": 200, "sector": "Construction"},
-    {"ticker": "WTON", "price": 88, "sector": "Construction"},
+upper_pool = [s for s in bandar_candidates if s["price_tier"] == "UPPER"]
 
-    # Consumer / retail — swing dengan volume
-    {"ticker": "ERAA", "price": 402, "sector": "Retail"},
-    {"ticker": "ACES", "price": 380, "sector": "Retail"},
-    {"ticker": "ROTI", "price": 610, "sector": "Consumer"},
-    {"ticker": "CLEO", "price": 402, "sector": "Consumer"},
-    {"ticker": "SIDO", "price": 472, "sector": "Healthcare"},
+if len(upper_pool) >= 30:
+    bandar_pool = upper_pool
+else:
+    lower_pool = [s for s in bandar_candidates if s["price_tier"] == "LOWER" and s.get("avg_transaction_value_20", 0) >= 500_000_000]
+    # Sort lower pool by Transaction Value to get the best ones
+    lower_pool.sort(key=lambda x: x.get("avg_transaction_value_20", 0), reverse=True)
+    
+    needed = 30 - len(upper_pool)
+    bandar_pool = upper_pool + lower_pool[:needed]
 
-    # Banking mid-cap — swing saat ada sentimen
-    {"ticker": "BJBR", "price": 795, "sector": "Banking"},
-    {"ticker": "BJTM", "price": 595, "sector": "Banking"},
-    {"ticker": "BBTN", "price": 1200, "sector": "Banking"},
-    {"ticker": "BFIN", "price": 765, "sector": "Finance"},
-    {"ticker": "ASSA", "price": 770, "sector": "Transport"},
+# Make sure all valid whitelist bandar are included regardless of DV
+bandar_pool_tickers = {s["ticker"] for s in bandar_pool}
+for s in bandar_candidates:
+    if s["ticker"] in WHITELIST_BANDAR and s["ticker"] not in bandar_pool_tickers:
+        bandar_pool.append(s)
 
-    # Media / tech — volatil, swing cepat
-    {"ticker": "EMTK", "price": 730, "sector": "Media"},
-    {"ticker": "SCMA", "price": 246, "sector": "Media"},
-    {"ticker": "MNCN", "price": 222, "sector": "Media"},
-    {"ticker": "KAEF", "price": 630, "sector": "Healthcare"},
-    {"ticker": "KLBF", "price": 870, "sector": "Healthcare"},
+bandar_pool_tickers_final = {s["ticker"] for s in bandar_pool}
+for w in WHITELIST_BANDAR:
+    if w not in bandar_pool_tickers_final:
+        bandar_missing.append(w)
 
-    # Saham volatile yang sering swing
-    {"ticker": "HMSP", "price": 740, "sector": "Tobacco"},
-    {"ticker": "TBLA", "price": 690, "sector": "Plantation"},
-    {"ticker": "DRMA", "price": 980, "sector": "Industry"},
-    {"ticker": "ARNA", "price": 488, "sector": "Industry"},
-    {"ticker": "TOWR", "price": 470, "sector": "Telco"},
-    {"ticker": "MAPI", "price": 1300, "sector": "Retail"},
-    {"ticker": "SMGR", "price": 3800, "sector": "Industry"},
-    {"ticker": "INDF", "price": 6800, "sector": "Consumer"},
-    {"ticker": "CPIN", "price": 4800, "sector": "Consumer"},
-    {"ticker": "PGAS", "price": 1500, "sector": "Energy"},
-]
+bandar_pool.sort(key=lambda x: x["price"], reverse=True)
 
 bandar_batches = {}
-for i in range(0, len(bandar_stocks), 10):
+for i in range(0, len(bandar_pool), 10):
     idx = i // 10
     if idx >= len(labels):
         break
-    bandar_batches[f"batch_{labels[idx].lower()}"] = [s["ticker"] for s in bandar_stocks[i:i+10]]
+    bandar_batches[f"batch_{labels[idx].lower()}"] = [s["ticker"] for s in bandar_pool[i:i+10]]
 
 bandar_result = {
     "date": date_str,
-    "strategy": "BANDAR_AI",
-    "description": "Saham IDX mid-cap untuk swing trading. TF: 10 menit. Deteksi akumulasi bandar/institusi.",
-    "total": len(bandar_stocks),
+    "strategy": "BANDAR_AI_V2",
+    "description": "Saham IDX < Rp1000 mid-cap untuk swing trading. TF: 60 menit.",
+    "total": len(bandar_pool),
     "batches": len(bandar_batches),
-    "stocks": bandar_stocks,
-    "batch_groups": bandar_batches
+    "stocks": bandar_pool,
+    "batch_groups": bandar_batches,
+    "whitelist_missing": bandar_missing
 }
 
 bandar_path = os.path.join(SCRIPT_DIR, "bandar_ai_stocks.json")
 with open(bandar_path, "w", encoding="utf-8") as f:
     json.dump(bandar_result, f, indent=2, ensure_ascii=False)
 
-print(f"\n=== BANDAR AI ===")
-print(f"  Total: {len(bandar_stocks)} emiten (swing mid-cap)")
+print(f"\n=== BANDAR AI V2 ===")
+print(f"  Total: {len(bandar_pool)} emiten (UPPER: {len([s for s in bandar_pool if s['price_tier']=='UPPER'])}, LOWER: {len([s for s in bandar_pool if s['price_tier']=='LOWER'])})")
 print(f"  Batches: {len(bandar_batches)}")
+print(f"  Whitelist missing: {bandar_missing}")
 
 print(f"\n=== DONE ===")
-print(f"  Scalping: {len(scalping_picks)} emiten (TF=1min)")
-print(f"  Bandar AI: {len(bandar_stocks)} emiten (TF=10min)")
