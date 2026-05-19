@@ -344,7 +344,7 @@ def format_idx_scalp_alert(data: dict) -> str:
     msg += f"🌡 <b>Zona Risk</b>: {zona_display}\n"
     msg += f"━━━━━━━━━━━━━━━━━━\n"
     msg += f"💡 <i>{sentiment}</i>\n"
-    msg += f"⚡ Disiplin TP/SL · Scalp < 15 Menit\n"
+    msg += f"⚡ Disiplin TP/SL · Scalp &lt; 15 Menit\n"
     msg += f"#IDX_SCALP #{ticker}"
     return msg
 
