@@ -9,6 +9,16 @@ import os
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ============================================================================
+# HELPER: Normalization
+# ============================================================================
+def get_avg_transaction_value(stock: dict) -> float:
+    return float(
+        stock.get("avg_transaction_value_20")
+        or stock.get("avg_dollar_volume_20")
+        or 0
+    )
+
+# ============================================================================
 # FCA BLACKLIST — HANYA saham yang BENAR-BENAR MASIH di Papan Pemantauan Khusus
 # ============================================================================
 CONFIRMED_FCA = {
@@ -77,6 +87,8 @@ for s in all_stocks:
     if 50 <= price < 1000:
         s_copy = s.copy()
         s_copy["tier"] = "SCALP_GORENGAN"
+        s_copy["avg_transaction_value_20"] = get_avg_transaction_value(s_copy)
+        s_copy.pop("avg_dollar_volume_20", None)
         scalping_pool.append(s_copy)
 
 # Check whitelist missing
@@ -132,6 +144,8 @@ for s in all_stocks:
         s_copy = s.copy()
         s_copy["tier"] = "BANDAR_SWING"
         s_copy["price_tier"] = "UPPER" if price >= 300 else "LOWER"
+        s_copy["avg_transaction_value_20"] = get_avg_transaction_value(s_copy)
+        s_copy.pop("avg_dollar_volume_20", None)
         bandar_candidates.append(s_copy)
 
 upper_pool = [s for s in bandar_candidates if s["price_tier"] == "UPPER"]
@@ -139,9 +153,9 @@ upper_pool = [s for s in bandar_candidates if s["price_tier"] == "UPPER"]
 if len(upper_pool) >= 30:
     bandar_pool = upper_pool
 else:
-    lower_pool = [s for s in bandar_candidates if s["price_tier"] == "LOWER" and s.get("avg_transaction_value_20", 0) >= 500_000_000]
+    lower_pool = [s for s in bandar_candidates if s["price_tier"] == "LOWER" and get_avg_transaction_value(s) >= 500_000_000]
     # Sort lower pool by Transaction Value to get the best ones
-    lower_pool.sort(key=lambda x: x.get("avg_transaction_value_20", 0), reverse=True)
+    lower_pool.sort(key=get_avg_transaction_value, reverse=True)
     
     needed = 30 - len(upper_pool)
     bandar_pool = upper_pool + lower_pool[:needed]

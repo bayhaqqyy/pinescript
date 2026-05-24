@@ -1,27 +1,195 @@
 // This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// https://mozilla.org/MPL/2.0/
-// Generated on 2026-05-15 | Strategy: US SWING HUNTER v2
-//
-// @description US Stock swing trading screener for GoTrade users.
-//   Default Timeframe: 15 menit. Holding period: 2-10 hari (swing).
-//   Strategi: EMA 20/50 Trend + 20-bar Breakout + Volume Spike + RSI.
-//   CHG% dihitung dari Daily Close secara organik (ta.change) agar sinkron dengan GoTrade.
-//   Sinyal: BREAKOUT BUY, BULL ABSORB, DISTRIBUTION, BEAR ABSORB.
-//   ⚠️ PDT Rule: Max 3 day trades per 5 hari jika account < $25K.
-
+// Generated on 2026-05-15 | Strategy: US SWING v2
 //@version=6
-indicator("US SWING HUNTER v2 - BATCH A (10 Tickers)", overlay=true, max_bars_back=500)
+indicator("US SWING v2 - BATCH A (10 Tickers)", overlay=true, max_bars_back=500)
+
 
 // ============================================================================
-// INPUT
+// INPUTS
 // ============================================================================
-tf         = input.timeframe("15", "Timeframe Screener")
-emaLen     = input.int(200, "EMA Trend Length")
-volMult    = input.float(1.5, "Vol Spike Multiplier")
-pos        = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+tf = input.timeframe("15", "Timeframe Screener")
+min_tv = input.float(1000000, "Min Volume ($)")
+
+srLen = input.int(20, "Support/Resistance Lookback", minval=5, maxval=200)
+atrLen = input.int(14, "ATR Length", minval=5, maxval=100)
+entryBufferPct = input.float(0.5, "Entry Buffer %", minval=0.0, step=0.1)
+slBufferPct = input.float(0.5, "SL Buffer %", minval=0.0, step=0.1)
+slAtrMult = input.float(1.0, "SL ATR Mult", minval=0.1, step=0.1)
+rr = input.float(2.0, "Risk Reward", minval=0.5, step=0.1)
+pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
 
 // ============================================================================
-// TICKER DEFINITIONS (prices as of 2026-05-15)
+// COLORS & HELPERS
+// ============================================================================
+cHeader = color.rgb(55, 62, 70)
+cDark = color.rgb(28, 33, 40)
+cText = color.white
+cGreen = color.rgb(0, 180, 90)
+cLime = color.rgb(70, 220, 90)
+cBlue = color.rgb(40, 130, 220)
+cYellow = color.rgb(220, 190, 40)
+cOrange = color.rgb(230, 120, 40)
+cRed = color.rgb(220, 60, 60)
+cGray = color.rgb(110, 110, 110)
+
+f_status_color(s) =>
+    s == "FLYING" ? cLime :
+      s == "RUNNING" ? cGreen :
+      s == "SETUP" ? cBlue :
+      s == "TP-HIT" ? cLime :
+      s == "SL-BROKE" ? cRed :
+      cGray
+
+f_zona_color(z) =>
+    z == "MURAH" ? cBlue :
+      z == "MID" ? cYellow :
+      cRed
+
+f_macd_color(m) =>
+    m == "UP" ? cGreen :
+      m == "DOWN" ? cRed :
+      cYellow
+
+f_signal_color(sig) =>
+    sig == "BREAKOUT BUY" ? cLime :
+      sig == "BULL ABSORB" ? cGreen :
+      sig == "SNIPER BUY" ? cLime :
+      sig == "SNIPER SELL" ? cRed :
+      sig == "AKUMULASI" ? cLime :
+      sig == "BOW-SIAP" ? cGreen :
+      sig == "SETUP-OK" ? cBlue :
+      sig == "DIST-AWAL" ? cOrange :
+      sig == "WEAK" ? cRed :
+      sig == "DISTRIBUTION" ? cRed :
+      sig == "BEAR ABSORB" ? cOrange :
+      cGray
+
+f_score_color(score) =>
+    score >= 85 ? color.lime :
+      score >= 70 ? color.green :
+      score >= 55 ? color.yellow :
+      score >= 40 ? color.orange :
+      color.red
+
+f_cell(tbl, col, row, txt, bg, txtColor) =>
+    table.cell(tbl, col, row, txt, bgcolor=bg, text_color=txtColor, text_size=size.small)
+
+f_header(tbl, col, title) =>
+    table.cell(tbl, col, 0, title, bgcolor=cHeader, text_color=color.yellow, text_size=size.small)
+
+f_value_idr(v) =>
+    v >= 1000000000 ? "$" + str.tostring(v / 1000000000, "#.##") + "B" :
+      v >= 1000000 ? "$" + str.tostring(v / 1000000, "#.##") + "M" :
+      "$" + str.tostring(v, "#.##")
+
+// ============================================================================
+// CORE ENGINE FUNCTION (DASHBOARD)
+// ============================================================================
+f_round_tick(x) => math.round(x / syminfo.mintick) * syminfo.mintick
+
+f_dashboard_engine(strategy_mode) =>
+    support = ta.lowest(low[1], srLen)
+    resistance = ta.highest(high[1], srLen)
+    entry = resistance * (1 + entryBufferPct / 100)
+    atrVal = ta.atr(atrLen)
+    slBySupport = support * (1 - slBufferPct / 100)
+    slByAtr = entry - atrVal * slAtrMult
+    slRaw = math.max(slBySupport, slByAtr)
+    sl = math.min(slRaw, entry - syminfo.mintick)
+    
+    risk = math.max(entry - sl, syminfo.mintick)
+    tp = entry + risk * rr
+    
+    entry := f_round_tick(entry)
+    tp := f_round_tick(tp)
+    sl := f_round_tick(sl)
+    
+    pctTp = close > 0 ? ((tp - close) / close) * 100 : na
+    profitPct = entry > 0 ? ((tp - entry) / entry) * 100 : na
+    
+    rsiVal = ta.rsi(close, 14)
+    rsiBase = rsiVal
+    stochRsiRaw = ta.stoch(rsiBase, rsiBase, rsiBase, 14)
+    stochK = ta.sma(stochRsiRaw, 3)
+    stochD = ta.sma(stochK, 3)
+    srsiState = stochK > stochD and stochK > stochK[1] ? "UP+" : stochK > stochD ? "UP" : stochK < stochD and stochK < stochK[1] ? "D-" : "D"
+    
+    [macdLine, macdSignal, macdHist] = ta.macd(close, 12, 26, 9)
+    macdState = macdLine > macdSignal and macdHist > macdHist[1] ? "UP" : macdLine < macdSignal and macdHist < macdHist[1] ? "DOWN" : "MID"
+    
+    volMA = ta.sma(volume, 20)
+    rvol = volMA > 0 ? volume / volMA : 0.0
+    rvolPct = rvol * 100
+    
+    valueBar = close * volume
+    
+    rangeSr = math.max(resistance - support, syminfo.mintick)
+    rangePos = (close - support) / rangeSr
+    zona = rangePos <= 0.382 ? "MURAH" : rangePos <= 0.618 ? "MID" : "MAHAL"
+    
+    ema20 = ta.ema(close, 20)
+    ema50 = ta.ema(close, 50)
+    ema200 = ta.ema(close, 200)
+    
+    trendScore = (close > ema20 ? 10 : 0) + (close > ema50 ? 10 : 0) + (close > ema200 ? 10 : 0)
+    zoneScore = zona == "MURAH" ? 20 : zona == "MID" ? 12 : 3
+    macdBull = macdLine > macdSignal and macdHist > 0
+    rsiHealthy = rsiVal >= 35 and rsiVal <= 65
+    rsiHot = rsiVal > 65 and rsiVal <= 75
+    momentumScore = (rsiHealthy ? 8 : rsiHot ? 5 : 0) + (macdBull ? 7 : 0) + (close >= entry ? 5 : 0)
+    volumeScore = rvol >= 2.0 ? 15 : rvol >= 1.3 ? 10 : rvol >= 0.8 ? 5 : 0
+    
+    body = math.abs(close - open)
+    candleRange = math.max(high - low, syminfo.mintick)
+    upperWick = high - math.max(open, close)
+    lowerWick = math.min(open, close) - low
+    
+    bigAccum = lowerWick > body * 1.2 and rvol >= 2.0 and close >= open and close > low + candleRange * 0.5
+    accum = rvol >= 1.3 and close > open and close > ema20
+    distAwal = upperWick > body * 1.2 and rvol >= 1.5 and close < open
+    sepi = rvol < 0.7
+    
+    bandarState = bigAccum ? "BIG ACCUM" : accum ? "ACCUM" : distAwal ? "DIST AWAL" : sepi ? "SEPI" : "NORMAL"
+    
+    flowScore = bigAccum ? 20 : accum ? 14 : distAwal ? 0 : sepi ? 2 : 8
+    scoreRaw = trendScore + zoneScore + momentumScore + volumeScore + flowScore
+    score = math.min(100, scoreRaw)
+    
+    breakout = close >= entry
+    nearSetup = close < entry and close >= support and score >= 60
+    aboveTrend = close > ema20
+    tpHit = close >= tp
+    slBroken = close <= sl
+    
+    status = slBroken ? "SL-BROKE" : tpHit ? "TP-HIT" : breakout ? "FLYING" : nearSetup ? "SETUP" : aboveTrend ? "RUNNING" : "WAIT"
+    
+    // US SWING LOGIC
+    bullTrend = close > ema200 and ema20 > ema50
+    bearTrend = close < ema200 and ema20 < ema50
+    volSpike = rvol > 1.5
+    highest20 = ta.highest(high, 20)
+    swingBreakout = close > highest20[1] and volSpike
+    bullAbsorb = lowerWick > body * 1.5 and volSpike and close > open
+    bearAbsorb = upperWick > body * 1.5 and volSpike and close < open
+    
+    swingSignal = swingBreakout and bullTrend ? "BREAKOUT BUY" : bullAbsorb and bullTrend ? "BULL ABSORB" : bearAbsorb and bearTrend ? "BEAR ABSORB" : bearTrend and volSpike and close < open ? "DISTRIBUTION" : "WAIT"
+    
+    // US BANDAR LOGIC
+    sniperBuy = (close > ema200) and volSpike and (close > open)
+    sniperSell = (close < ema200) and volSpike and (close < open)
+    bBullAbsorb = lowerWick > body * 1.1 and rvol > 1.3 and close > low + (candleRange * 0.4)
+    bBearAbsorb = upperWick > body * 1.1 and rvol > 1.3 and close < high - (candleRange * 0.4)
+    bandarSignal = sniperBuy ? "SNIPER BUY" : sniperSell ? "SNIPER SELL" : bBullAbsorb ? "BULL ABSORB" : bBearAbsorb ? "BEAR ABSORB" : "WAIT"
+    
+    signal = strategy_mode == "SWING" ? swingSignal : strategy_mode == "BANDAR" ? bandarSignal : distAwal ? "DIST-AWAL" : score >= 85 and bigAccum ? "AKUMULASI" : score >= 75 and close < entry and zona != "MAHAL" ? "BOW-SIAP" : score >= 65 ? "SETUP-OK" : score >= 45 ? "NETRAL" : "WEAK"
+    
+    action = distAwal ? "WASPADA" : close >= entry ? "SL>" + str.tostring(sl, format.mintick) : score >= 75 ? "BUY>" + str.tostring(entry, format.mintick) : "WAIT"
+    
+    [close, support, resistance, entry, tp, sl, pctTp, profitPct, status, zona, rsiVal, srsiState, macdState, rvolPct, valueBar, bandarState, action, score, signal]
+
+
+// ============================================================================
+// TICKER DEFINITIONS
 // ============================================================================
 tk1 = "NASDAQ:TSLA"  // ~$347.50
 tk2 = "NASDAQ:NVDA"  // ~$135.00
@@ -35,166 +203,301 @@ tk9 = "NASDAQ:MSFT"  // ~$455.00
 tk10 = "NASDAQ:NFLX"  // ~$1100.00
 
 // ============================================================================
-// CORE SWING ENGINE FUNCTION (8 return values)
+// DATA FETCH - request.security
 // ============================================================================
-f_swing_engine(ema_len, vol_mult) =>
-    // Tangkap Harga Penutupan Harian (Daily Close) secara organik
-    var float prevDailyClose = na
-    if ta.change(time("D")) != 0
-        prevDailyClose := close[1]
-
-    baseClose = na(prevDailyClose) ? close[1] : prevDailyClose
-    chgPct = baseClose > 0 ? (close - baseClose) / baseClose * 100 : 0.0
-
-    ema20  = ta.ema(close, 20)
-    ema50  = ta.ema(close, 50)
-    emaSlow = ta.ema(close, ema_len)
-
-    bullTrend = close > emaSlow and ema20 > ema50
-    bearTrend = close < emaSlow and ema20 < ema50
-
-    volMA = ta.sma(volume, 20)
-    volSpike = volume > volMA * vol_mult
-    rvol = volMA > 0 ? volume / volMA : 0.0
-    dollarVol = volume * close
-
-    rsi = ta.rsi(close, 14)
-
-    highest20 = ta.highest(high, 20)
-    breakout = close > highest20[1] and volSpike
-
-    body = math.abs(close - open)
-    lowerWick = math.min(open, close) - low
-    upperWick = high - math.max(open, close)
-
-    bullAbsorb = lowerWick > body * 1.5 and volSpike and close > open
-    bearAbsorb = upperWick > body * 1.5 and volSpike and close < open
-
-    status = breakout and bullTrend ? "BREAKOUT BUY" :
-             bullAbsorb and bullTrend ? "BULL ABSORB" :
-             bearAbsorb and bearTrend ? "BEAR ABSORB" :
-             bearTrend and volSpike and close < open ? "DISTRIBUTION" : "WAIT"
-
-    [close, status, rsi, ema20, ema50, rvol, dollarVol, chgPct]
+[now1, sup1, rst1, entry1, tp_1, sl_1, pctTp1, profit1, status1, zona1, rsi1, srsi1, macd1, rvolPct1, valueBar1, bandar1, action1, score1, signal1] = request.security(tk1, tf, f_dashboard_engine("SWING"))
+[now2, sup2, rst2, entry2, tp_2, sl_2, pctTp2, profit2, status2, zona2, rsi2, srsi2, macd2, rvolPct2, valueBar2, bandar2, action2, score2, signal2] = request.security(tk2, tf, f_dashboard_engine("SWING"))
+[now3, sup3, rst3, entry3, tp_3, sl_3, pctTp3, profit3, status3, zona3, rsi3, srsi3, macd3, rvolPct3, valueBar3, bandar3, action3, score3, signal3] = request.security(tk3, tf, f_dashboard_engine("SWING"))
+[now4, sup4, rst4, entry4, tp_4, sl_4, pctTp4, profit4, status4, zona4, rsi4, srsi4, macd4, rvolPct4, valueBar4, bandar4, action4, score4, signal4] = request.security(tk4, tf, f_dashboard_engine("SWING"))
+[now5, sup5, rst5, entry5, tp_5, sl_5, pctTp5, profit5, status5, zona5, rsi5, srsi5, macd5, rvolPct5, valueBar5, bandar5, action5, score5, signal5] = request.security(tk5, tf, f_dashboard_engine("SWING"))
+[now6, sup6, rst6, entry6, tp_6, sl_6, pctTp6, profit6, status6, zona6, rsi6, srsi6, macd6, rvolPct6, valueBar6, bandar6, action6, score6, signal6] = request.security(tk6, tf, f_dashboard_engine("SWING"))
+[now7, sup7, rst7, entry7, tp_7, sl_7, pctTp7, profit7, status7, zona7, rsi7, srsi7, macd7, rvolPct7, valueBar7, bandar7, action7, score7, signal7] = request.security(tk7, tf, f_dashboard_engine("SWING"))
+[now8, sup8, rst8, entry8, tp_8, sl_8, pctTp8, profit8, status8, zona8, rsi8, srsi8, macd8, rvolPct8, valueBar8, bandar8, action8, score8, signal8] = request.security(tk8, tf, f_dashboard_engine("SWING"))
+[now9, sup9, rst9, entry9, tp_9, sl_9, pctTp9, profit9, status9, zona9, rsi9, srsi9, macd9, rvolPct9, valueBar9, bandar9, action9, score9, signal9] = request.security(tk9, tf, f_dashboard_engine("SWING"))
+[now10, sup10, rst10, entry10, tp_10, sl_10, pctTp10, profit10, status10, zona10, rsi10, srsi10, macd10, rvolPct10, valueBar10, bandar10, action10, score10, signal10] = request.security(tk10, tf, f_dashboard_engine("SWING"))
 
 // ============================================================================
-// DATA FETCH — Engine (10 calls total, limit: 40) ✓
-// ============================================================================
-[c1, sig1, rsi1, ema20_1, ema50_1, rvol1, dvol1, chg1] = request.security(tk1, tf, f_swing_engine(emaLen, volMult))
-[c2, sig2, rsi2, ema20_2, ema50_2, rvol2, dvol2, chg2] = request.security(tk2, tf, f_swing_engine(emaLen, volMult))
-[c3, sig3, rsi3, ema20_3, ema50_3, rvol3, dvol3, chg3] = request.security(tk3, tf, f_swing_engine(emaLen, volMult))
-[c4, sig4, rsi4, ema20_4, ema50_4, rvol4, dvol4, chg4] = request.security(tk4, tf, f_swing_engine(emaLen, volMult))
-[c5, sig5, rsi5, ema20_5, ema50_5, rvol5, dvol5, chg5] = request.security(tk5, tf, f_swing_engine(emaLen, volMult))
-[c6, sig6, rsi6, ema20_6, ema50_6, rvol6, dvol6, chg6] = request.security(tk6, tf, f_swing_engine(emaLen, volMult))
-[c7, sig7, rsi7, ema20_7, ema50_7, rvol7, dvol7, chg7] = request.security(tk7, tf, f_swing_engine(emaLen, volMult))
-[c8, sig8, rsi8, ema20_8, ema50_8, rvol8, dvol8, chg8] = request.security(tk8, tf, f_swing_engine(emaLen, volMult))
-[c9, sig9, rsi9, ema20_9, ema50_9, rvol9, dvol9, chg9] = request.security(tk9, tf, f_swing_engine(emaLen, volMult))
-[c10, sig10, rsi10, ema20_10, ema50_10, rvol10, dvol10, chg10] = request.security(tk10, tf, f_swing_engine(emaLen, volMult))
-
-// ============================================================================
-// TABLE DISPLAY (Compact 5-Column Layout)
+// TABLE DISPLAY
 // ============================================================================
 tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
-var tbl = table.new(tbl_pos, 5, 11, border_width=1, border_color=#30363d)
-
-// Trend-aware signal background color
-f_sig_bg(sig, isBull, isBear) =>
-    sig == "BREAKOUT BUY" ? color.lime : sig == "BULL ABSORB" ? color.aqua : sig == "BEAR ABSORB" ? color.orange : sig == "DISTRIBUTION" ? color.red : isBull ? #1a3a1a : isBear ? #3a1a1a : color.gray
+var tbl = table.new(tbl_pos, 21, 11, border_width=1, border_color=#333333)
 
 if barstate.islast
-    hdr_bg = #8b5cf6
-    hdr_clr = color.white
-    table.cell(tbl, 0, 0, "TICKER", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 0, "PRICE", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 0, "$VOL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 0, "MOMENTUM", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 0, "SIGNAL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small, text_halign=text.align_center)
-
-if barstate.islast
-    table.cell(tbl, 0, 1, "TSLA", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 1, "$" + str.tostring(c1, "#.##") + " (" + str.tostring(chg1, "#.##") + "%)", text_color=chg1 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 1, dvol1 > 1e6 ? "$" + str.tostring(dvol1/1e6, "#.#") + "M" : "$" + str.tostring(dvol1/1e3, "#.#") + "K", text_color=dvol1 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 1, "R:" + str.tostring(rsi1, "#.#") + " V:" + str.tostring(rvol1, "#.#") + "x", text_color=rsi1 < 30 ? color.lime : rsi1 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 1, sig1, text_color=color.black, bgcolor=f_sig_bg(sig1, c1 > ema20_1 and ema20_1 > ema50_1, c1 < ema20_1 and ema20_1 < ema50_1), text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 0, 2, "NVDA", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 2, "$" + str.tostring(c2, "#.##") + " (" + str.tostring(chg2, "#.##") + "%)", text_color=chg2 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 2, dvol2 > 1e6 ? "$" + str.tostring(dvol2/1e6, "#.#") + "M" : "$" + str.tostring(dvol2/1e3, "#.#") + "K", text_color=dvol2 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 2, "R:" + str.tostring(rsi2, "#.#") + " V:" + str.tostring(rvol2, "#.#") + "x", text_color=rsi2 < 30 ? color.lime : rsi2 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 2, sig2, text_color=color.black, bgcolor=f_sig_bg(sig2, c2 > ema20_2 and ema20_2 > ema50_2, c2 < ema20_2 and ema20_2 < ema50_2), text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 0, 3, "AMD", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 3, "$" + str.tostring(c3, "#.##") + " (" + str.tostring(chg3, "#.##") + "%)", text_color=chg3 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 3, dvol3 > 1e6 ? "$" + str.tostring(dvol3/1e6, "#.#") + "M" : "$" + str.tostring(dvol3/1e3, "#.#") + "K", text_color=dvol3 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 3, "R:" + str.tostring(rsi3, "#.#") + " V:" + str.tostring(rvol3, "#.#") + "x", text_color=rsi3 < 30 ? color.lime : rsi3 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 3, sig3, text_color=color.black, bgcolor=f_sig_bg(sig3, c3 > ema20_3 and ema20_3 > ema50_3, c3 < ema20_3 and ema20_3 < ema50_3), text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 0, 4, "PLTR", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 4, "$" + str.tostring(c4, "#.##") + " (" + str.tostring(chg4, "#.##") + "%)", text_color=chg4 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 4, dvol4 > 1e6 ? "$" + str.tostring(dvol4/1e6, "#.#") + "M" : "$" + str.tostring(dvol4/1e3, "#.#") + "K", text_color=dvol4 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 4, "R:" + str.tostring(rsi4, "#.#") + " V:" + str.tostring(rvol4, "#.#") + "x", text_color=rsi4 < 30 ? color.lime : rsi4 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 4, sig4, text_color=color.black, bgcolor=f_sig_bg(sig4, c4 > ema20_4 and ema20_4 > ema50_4, c4 < ema20_4 and ema20_4 < ema50_4), text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 0, 5, "META", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 5, "$" + str.tostring(c5, "#.##") + " (" + str.tostring(chg5, "#.##") + "%)", text_color=chg5 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 5, dvol5 > 1e6 ? "$" + str.tostring(dvol5/1e6, "#.#") + "M" : "$" + str.tostring(dvol5/1e3, "#.#") + "K", text_color=dvol5 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 5, "R:" + str.tostring(rsi5, "#.#") + " V:" + str.tostring(rvol5, "#.#") + "x", text_color=rsi5 < 30 ? color.lime : rsi5 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 5, sig5, text_color=color.black, bgcolor=f_sig_bg(sig5, c5 > ema20_5 and ema20_5 > ema50_5, c5 < ema20_5 and ema20_5 < ema50_5), text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 0, 6, "AMZN", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 6, "$" + str.tostring(c6, "#.##") + " (" + str.tostring(chg6, "#.##") + "%)", text_color=chg6 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 6, dvol6 > 1e6 ? "$" + str.tostring(dvol6/1e6, "#.#") + "M" : "$" + str.tostring(dvol6/1e3, "#.#") + "K", text_color=dvol6 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 6, "R:" + str.tostring(rsi6, "#.#") + " V:" + str.tostring(rvol6, "#.#") + "x", text_color=rsi6 < 30 ? color.lime : rsi6 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 6, sig6, text_color=color.black, bgcolor=f_sig_bg(sig6, c6 > ema20_6 and ema20_6 > ema50_6, c6 < ema20_6 and ema20_6 < ema50_6), text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 0, 7, "AAPL", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 7, "$" + str.tostring(c7, "#.##") + " (" + str.tostring(chg7, "#.##") + "%)", text_color=chg7 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 7, dvol7 > 1e6 ? "$" + str.tostring(dvol7/1e6, "#.#") + "M" : "$" + str.tostring(dvol7/1e3, "#.#") + "K", text_color=dvol7 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 7, "R:" + str.tostring(rsi7, "#.#") + " V:" + str.tostring(rvol7, "#.#") + "x", text_color=rsi7 < 30 ? color.lime : rsi7 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 7, sig7, text_color=color.black, bgcolor=f_sig_bg(sig7, c7 > ema20_7 and ema20_7 > ema50_7, c7 < ema20_7 and ema20_7 < ema50_7), text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 0, 8, "GOOGL", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 8, "$" + str.tostring(c8, "#.##") + " (" + str.tostring(chg8, "#.##") + "%)", text_color=chg8 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 8, dvol8 > 1e6 ? "$" + str.tostring(dvol8/1e6, "#.#") + "M" : "$" + str.tostring(dvol8/1e3, "#.#") + "K", text_color=dvol8 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 8, "R:" + str.tostring(rsi8, "#.#") + " V:" + str.tostring(rvol8, "#.#") + "x", text_color=rsi8 < 30 ? color.lime : rsi8 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 8, sig8, text_color=color.black, bgcolor=f_sig_bg(sig8, c8 > ema20_8 and ema20_8 > ema50_8, c8 < ema20_8 and ema20_8 < ema50_8), text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 0, 9, "MSFT", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 9, "$" + str.tostring(c9, "#.##") + " (" + str.tostring(chg9, "#.##") + "%)", text_color=chg9 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 9, dvol9 > 1e6 ? "$" + str.tostring(dvol9/1e6, "#.#") + "M" : "$" + str.tostring(dvol9/1e3, "#.#") + "K", text_color=dvol9 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 9, "R:" + str.tostring(rsi9, "#.#") + " V:" + str.tostring(rvol9, "#.#") + "x", text_color=rsi9 < 30 ? color.lime : rsi9 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 9, sig9, text_color=color.black, bgcolor=f_sig_bg(sig9, c9 > ema20_9 and ema20_9 > ema50_9, c9 < ema20_9 and ema20_9 < ema50_9), text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 0, 10, "NFLX", text_color=color.yellow, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 1, 10, "$" + str.tostring(c10, "#.##") + " (" + str.tostring(chg10, "#.##") + "%)", text_color=chg10 > 0 ? color.lime : color.red, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 2, 10, dvol10 > 1e6 ? "$" + str.tostring(dvol10/1e6, "#.#") + "M" : "$" + str.tostring(dvol10/1e3, "#.#") + "K", text_color=dvol10 > 5e6 ? color.lime : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 3, 10, "R:" + str.tostring(rsi10, "#.#") + " V:" + str.tostring(rvol10, "#.#") + "x", text_color=rsi10 < 30 ? color.lime : rsi10 > 70 ? color.red : color.white, bgcolor=#0d1117, text_size=size.small, text_halign=text.align_center)
-    table.cell(tbl, 4, 10, sig10, text_color=color.black, bgcolor=f_sig_bg(sig10, c10 > ema20_10 and ema20_10 > ema50_10, c10 < ema20_10 and ema20_10 < ema50_10), text_size=size.small, text_halign=text.align_center)
+    f_header(tbl, 0, "TICKER")
+    f_header(tbl, 1, "TF")
+    f_header(tbl, 2, "SUP")
+    f_header(tbl, 3, "RST")
+    f_header(tbl, 4, "ENTRY")
+    f_header(tbl, 5, "NOW")
+    f_header(tbl, 6, "TP")
+    f_header(tbl, 7, "SL")
+    f_header(tbl, 8, "%TP")
+    f_header(tbl, 9, "PROFIT")
+    f_header(tbl, 10, "STATUS")
+    f_header(tbl, 11, "ZONA")
+    f_header(tbl, 12, "RSI")
+    f_header(tbl, 13, "sRSI")
+    f_header(tbl, 14, "MACD")
+    f_header(tbl, 15, "RVOL")
+    f_header(tbl, 16, "VALUE")
+    f_header(tbl, 17, "FLOW")
+    f_header(tbl, 18, "ACTION")
+    f_header(tbl, 19, "SCORE")
+    f_header(tbl, 20, "SINYAL")
+    // Row 1
+    f_cell(tbl, 0, 1, "TSLA", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 1, tf, cDark, color.white)
+    f_cell(tbl, 2, 1, str.tostring(sup1, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 1, str.tostring(rst1, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 1, str.tostring(entry1, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 1, str.tostring(now1, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 1, str.tostring(tp_1, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 1, str.tostring(sl_1, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 1, str.tostring(pctTp1, "#.##") + "%", pctTp1 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 1, str.tostring(profit1, "#.##") + "%", profit1 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 1, status1, f_status_color(status1), color.white)
+    f_cell(tbl, 11, 1, zona1, f_zona_color(zona1), color.white)
+    f_cell(tbl, 12, 1, str.tostring(rsi1, "#.0"), rsi1 < 30 ? cRed : rsi1 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 1, srsi1, srsi1 == "UP+" or srsi1 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 1, macd1, f_macd_color(macd1), color.white)
+    f_cell(tbl, 15, 1, str.tostring(rvolPct1, "#.0") + "%", rvolPct1 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 1, f_value_idr(valueBar1), valueBar1 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 1, bandar1, f_signal_color(bandar1), color.white)
+    f_cell(tbl, 18, 1, action1, action1 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 1, str.tostring(score1, "#"), f_score_color(score1), color.white)
+    f_cell(tbl, 20, 1, signal1, f_signal_color(signal1), color.white)
+    // Row 2
+    f_cell(tbl, 0, 2, "NVDA", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 2, tf, cDark, color.white)
+    f_cell(tbl, 2, 2, str.tostring(sup2, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 2, str.tostring(rst2, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 2, str.tostring(entry2, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 2, str.tostring(now2, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 2, str.tostring(tp_2, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 2, str.tostring(sl_2, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 2, str.tostring(pctTp2, "#.##") + "%", pctTp2 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 2, str.tostring(profit2, "#.##") + "%", profit2 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 2, status2, f_status_color(status2), color.white)
+    f_cell(tbl, 11, 2, zona2, f_zona_color(zona2), color.white)
+    f_cell(tbl, 12, 2, str.tostring(rsi2, "#.0"), rsi2 < 30 ? cRed : rsi2 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 2, srsi2, srsi2 == "UP+" or srsi2 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 2, macd2, f_macd_color(macd2), color.white)
+    f_cell(tbl, 15, 2, str.tostring(rvolPct2, "#.0") + "%", rvolPct2 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 2, f_value_idr(valueBar2), valueBar2 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 2, bandar2, f_signal_color(bandar2), color.white)
+    f_cell(tbl, 18, 2, action2, action2 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 2, str.tostring(score2, "#"), f_score_color(score2), color.white)
+    f_cell(tbl, 20, 2, signal2, f_signal_color(signal2), color.white)
+    // Row 3
+    f_cell(tbl, 0, 3, "AMD", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 3, tf, cDark, color.white)
+    f_cell(tbl, 2, 3, str.tostring(sup3, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 3, str.tostring(rst3, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 3, str.tostring(entry3, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 3, str.tostring(now3, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 3, str.tostring(tp_3, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 3, str.tostring(sl_3, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 3, str.tostring(pctTp3, "#.##") + "%", pctTp3 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 3, str.tostring(profit3, "#.##") + "%", profit3 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 3, status3, f_status_color(status3), color.white)
+    f_cell(tbl, 11, 3, zona3, f_zona_color(zona3), color.white)
+    f_cell(tbl, 12, 3, str.tostring(rsi3, "#.0"), rsi3 < 30 ? cRed : rsi3 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 3, srsi3, srsi3 == "UP+" or srsi3 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 3, macd3, f_macd_color(macd3), color.white)
+    f_cell(tbl, 15, 3, str.tostring(rvolPct3, "#.0") + "%", rvolPct3 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 3, f_value_idr(valueBar3), valueBar3 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 3, bandar3, f_signal_color(bandar3), color.white)
+    f_cell(tbl, 18, 3, action3, action3 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 3, str.tostring(score3, "#"), f_score_color(score3), color.white)
+    f_cell(tbl, 20, 3, signal3, f_signal_color(signal3), color.white)
+    // Row 4
+    f_cell(tbl, 0, 4, "PLTR", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 4, tf, cDark, color.white)
+    f_cell(tbl, 2, 4, str.tostring(sup4, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 4, str.tostring(rst4, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 4, str.tostring(entry4, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 4, str.tostring(now4, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 4, str.tostring(tp_4, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 4, str.tostring(sl_4, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 4, str.tostring(pctTp4, "#.##") + "%", pctTp4 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 4, str.tostring(profit4, "#.##") + "%", profit4 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 4, status4, f_status_color(status4), color.white)
+    f_cell(tbl, 11, 4, zona4, f_zona_color(zona4), color.white)
+    f_cell(tbl, 12, 4, str.tostring(rsi4, "#.0"), rsi4 < 30 ? cRed : rsi4 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 4, srsi4, srsi4 == "UP+" or srsi4 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 4, macd4, f_macd_color(macd4), color.white)
+    f_cell(tbl, 15, 4, str.tostring(rvolPct4, "#.0") + "%", rvolPct4 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 4, f_value_idr(valueBar4), valueBar4 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 4, bandar4, f_signal_color(bandar4), color.white)
+    f_cell(tbl, 18, 4, action4, action4 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 4, str.tostring(score4, "#"), f_score_color(score4), color.white)
+    f_cell(tbl, 20, 4, signal4, f_signal_color(signal4), color.white)
+    // Row 5
+    f_cell(tbl, 0, 5, "META", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 5, tf, cDark, color.white)
+    f_cell(tbl, 2, 5, str.tostring(sup5, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 5, str.tostring(rst5, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 5, str.tostring(entry5, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 5, str.tostring(now5, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 5, str.tostring(tp_5, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 5, str.tostring(sl_5, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 5, str.tostring(pctTp5, "#.##") + "%", pctTp5 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 5, str.tostring(profit5, "#.##") + "%", profit5 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 5, status5, f_status_color(status5), color.white)
+    f_cell(tbl, 11, 5, zona5, f_zona_color(zona5), color.white)
+    f_cell(tbl, 12, 5, str.tostring(rsi5, "#.0"), rsi5 < 30 ? cRed : rsi5 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 5, srsi5, srsi5 == "UP+" or srsi5 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 5, macd5, f_macd_color(macd5), color.white)
+    f_cell(tbl, 15, 5, str.tostring(rvolPct5, "#.0") + "%", rvolPct5 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 5, f_value_idr(valueBar5), valueBar5 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 5, bandar5, f_signal_color(bandar5), color.white)
+    f_cell(tbl, 18, 5, action5, action5 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 5, str.tostring(score5, "#"), f_score_color(score5), color.white)
+    f_cell(tbl, 20, 5, signal5, f_signal_color(signal5), color.white)
+    // Row 6
+    f_cell(tbl, 0, 6, "AMZN", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 6, tf, cDark, color.white)
+    f_cell(tbl, 2, 6, str.tostring(sup6, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 6, str.tostring(rst6, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 6, str.tostring(entry6, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 6, str.tostring(now6, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 6, str.tostring(tp_6, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 6, str.tostring(sl_6, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 6, str.tostring(pctTp6, "#.##") + "%", pctTp6 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 6, str.tostring(profit6, "#.##") + "%", profit6 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 6, status6, f_status_color(status6), color.white)
+    f_cell(tbl, 11, 6, zona6, f_zona_color(zona6), color.white)
+    f_cell(tbl, 12, 6, str.tostring(rsi6, "#.0"), rsi6 < 30 ? cRed : rsi6 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 6, srsi6, srsi6 == "UP+" or srsi6 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 6, macd6, f_macd_color(macd6), color.white)
+    f_cell(tbl, 15, 6, str.tostring(rvolPct6, "#.0") + "%", rvolPct6 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 6, f_value_idr(valueBar6), valueBar6 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 6, bandar6, f_signal_color(bandar6), color.white)
+    f_cell(tbl, 18, 6, action6, action6 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 6, str.tostring(score6, "#"), f_score_color(score6), color.white)
+    f_cell(tbl, 20, 6, signal6, f_signal_color(signal6), color.white)
+    // Row 7
+    f_cell(tbl, 0, 7, "AAPL", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 7, tf, cDark, color.white)
+    f_cell(tbl, 2, 7, str.tostring(sup7, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 7, str.tostring(rst7, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 7, str.tostring(entry7, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 7, str.tostring(now7, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 7, str.tostring(tp_7, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 7, str.tostring(sl_7, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 7, str.tostring(pctTp7, "#.##") + "%", pctTp7 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 7, str.tostring(profit7, "#.##") + "%", profit7 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 7, status7, f_status_color(status7), color.white)
+    f_cell(tbl, 11, 7, zona7, f_zona_color(zona7), color.white)
+    f_cell(tbl, 12, 7, str.tostring(rsi7, "#.0"), rsi7 < 30 ? cRed : rsi7 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 7, srsi7, srsi7 == "UP+" or srsi7 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 7, macd7, f_macd_color(macd7), color.white)
+    f_cell(tbl, 15, 7, str.tostring(rvolPct7, "#.0") + "%", rvolPct7 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 7, f_value_idr(valueBar7), valueBar7 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 7, bandar7, f_signal_color(bandar7), color.white)
+    f_cell(tbl, 18, 7, action7, action7 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 7, str.tostring(score7, "#"), f_score_color(score7), color.white)
+    f_cell(tbl, 20, 7, signal7, f_signal_color(signal7), color.white)
+    // Row 8
+    f_cell(tbl, 0, 8, "GOOGL", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 8, tf, cDark, color.white)
+    f_cell(tbl, 2, 8, str.tostring(sup8, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 8, str.tostring(rst8, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 8, str.tostring(entry8, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 8, str.tostring(now8, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 8, str.tostring(tp_8, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 8, str.tostring(sl_8, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 8, str.tostring(pctTp8, "#.##") + "%", pctTp8 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 8, str.tostring(profit8, "#.##") + "%", profit8 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 8, status8, f_status_color(status8), color.white)
+    f_cell(tbl, 11, 8, zona8, f_zona_color(zona8), color.white)
+    f_cell(tbl, 12, 8, str.tostring(rsi8, "#.0"), rsi8 < 30 ? cRed : rsi8 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 8, srsi8, srsi8 == "UP+" or srsi8 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 8, macd8, f_macd_color(macd8), color.white)
+    f_cell(tbl, 15, 8, str.tostring(rvolPct8, "#.0") + "%", rvolPct8 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 8, f_value_idr(valueBar8), valueBar8 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 8, bandar8, f_signal_color(bandar8), color.white)
+    f_cell(tbl, 18, 8, action8, action8 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 8, str.tostring(score8, "#"), f_score_color(score8), color.white)
+    f_cell(tbl, 20, 8, signal8, f_signal_color(signal8), color.white)
+    // Row 9
+    f_cell(tbl, 0, 9, "MSFT", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 9, tf, cDark, color.white)
+    f_cell(tbl, 2, 9, str.tostring(sup9, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 9, str.tostring(rst9, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 9, str.tostring(entry9, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 9, str.tostring(now9, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 9, str.tostring(tp_9, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 9, str.tostring(sl_9, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 9, str.tostring(pctTp9, "#.##") + "%", pctTp9 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 9, str.tostring(profit9, "#.##") + "%", profit9 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 9, status9, f_status_color(status9), color.white)
+    f_cell(tbl, 11, 9, zona9, f_zona_color(zona9), color.white)
+    f_cell(tbl, 12, 9, str.tostring(rsi9, "#.0"), rsi9 < 30 ? cRed : rsi9 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 9, srsi9, srsi9 == "UP+" or srsi9 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 9, macd9, f_macd_color(macd9), color.white)
+    f_cell(tbl, 15, 9, str.tostring(rvolPct9, "#.0") + "%", rvolPct9 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 9, f_value_idr(valueBar9), valueBar9 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 9, bandar9, f_signal_color(bandar9), color.white)
+    f_cell(tbl, 18, 9, action9, action9 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 9, str.tostring(score9, "#"), f_score_color(score9), color.white)
+    f_cell(tbl, 20, 9, signal9, f_signal_color(signal9), color.white)
+    // Row 10
+    f_cell(tbl, 0, 10, "NFLX", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 10, tf, cDark, color.white)
+    f_cell(tbl, 2, 10, str.tostring(sup10, format.mintick), cDark, color.white)
+    f_cell(tbl, 3, 10, str.tostring(rst10, format.mintick), cDark, color.white)
+    f_cell(tbl, 4, 10, str.tostring(entry10, format.mintick), cDark, color.white)
+    f_cell(tbl, 5, 10, str.tostring(now10, format.mintick), cDark, color.white)
+    f_cell(tbl, 6, 10, str.tostring(tp_10, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 10, str.tostring(sl_10, format.mintick), cDark, color.orange)
+    f_cell(tbl, 8, 10, str.tostring(pctTp10, "#.##") + "%", pctTp10 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 9, 10, str.tostring(profit10, "#.##") + "%", profit10 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 10, status10, f_status_color(status10), color.white)
+    f_cell(tbl, 11, 10, zona10, f_zona_color(zona10), color.white)
+    f_cell(tbl, 12, 10, str.tostring(rsi10, "#.0"), rsi10 < 30 ? cRed : rsi10 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 10, srsi10, srsi10 == "UP+" or srsi10 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 14, 10, macd10, f_macd_color(macd10), color.white)
+    f_cell(tbl, 15, 10, str.tostring(rvolPct10, "#.0") + "%", rvolPct10 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 16, 10, f_value_idr(valueBar10), valueBar10 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 10, bandar10, f_signal_color(bandar10), color.white)
+    f_cell(tbl, 18, 10, action10, action10 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 19, 10, str.tostring(score10, "#"), f_score_color(score10), color.white)
+    f_cell(tbl, 20, 10, signal10, f_signal_color(signal10), color.white)
 
 // ============================================================================
-// ALERTS — Human-readable text
+// ALERTS
 // ============================================================================
 if barstate.islast and barstate.isconfirmed
-    if sig1 != "WAIT"
-        msg_1 = "🚨 US SWING HUNTER\nTicker: TSLA\nPrice: $" + str.tostring(c1, "#.##") + " (" + str.tostring(chg1, "#.##") + "%)\nSignal: " + sig1 + "\nRSI: " + str.tostring(rsi1, "#.#") + " | R.Vol: " + str.tostring(rvol1, "#.#") + "x"
+    if signal1 != "WAIT" and valueBar1 >= min_tv
+        msg_1 = "🚨 US SWING HUNTER\nTicker: TSLA\nPrice: $" + str.tostring(now1, "#.##") + "\nSignal: " + signal1 + "\nRSI: " + str.tostring(rsi1, "#.#")
         alert(msg_1, alert.freq_once_per_bar_close)
-    if sig2 != "WAIT"
-        msg_2 = "🚨 US SWING HUNTER\nTicker: NVDA\nPrice: $" + str.tostring(c2, "#.##") + " (" + str.tostring(chg2, "#.##") + "%)\nSignal: " + sig2 + "\nRSI: " + str.tostring(rsi2, "#.#") + " | R.Vol: " + str.tostring(rvol2, "#.#") + "x"
+    if signal2 != "WAIT" and valueBar2 >= min_tv
+        msg_2 = "🚨 US SWING HUNTER\nTicker: NVDA\nPrice: $" + str.tostring(now2, "#.##") + "\nSignal: " + signal2 + "\nRSI: " + str.tostring(rsi2, "#.#")
         alert(msg_2, alert.freq_once_per_bar_close)
-    if sig3 != "WAIT"
-        msg_3 = "🚨 US SWING HUNTER\nTicker: AMD\nPrice: $" + str.tostring(c3, "#.##") + " (" + str.tostring(chg3, "#.##") + "%)\nSignal: " + sig3 + "\nRSI: " + str.tostring(rsi3, "#.#") + " | R.Vol: " + str.tostring(rvol3, "#.#") + "x"
+    if signal3 != "WAIT" and valueBar3 >= min_tv
+        msg_3 = "🚨 US SWING HUNTER\nTicker: AMD\nPrice: $" + str.tostring(now3, "#.##") + "\nSignal: " + signal3 + "\nRSI: " + str.tostring(rsi3, "#.#")
         alert(msg_3, alert.freq_once_per_bar_close)
-    if sig4 != "WAIT"
-        msg_4 = "🚨 US SWING HUNTER\nTicker: PLTR\nPrice: $" + str.tostring(c4, "#.##") + " (" + str.tostring(chg4, "#.##") + "%)\nSignal: " + sig4 + "\nRSI: " + str.tostring(rsi4, "#.#") + " | R.Vol: " + str.tostring(rvol4, "#.#") + "x"
+    if signal4 != "WAIT" and valueBar4 >= min_tv
+        msg_4 = "🚨 US SWING HUNTER\nTicker: PLTR\nPrice: $" + str.tostring(now4, "#.##") + "\nSignal: " + signal4 + "\nRSI: " + str.tostring(rsi4, "#.#")
         alert(msg_4, alert.freq_once_per_bar_close)
-    if sig5 != "WAIT"
-        msg_5 = "🚨 US SWING HUNTER\nTicker: META\nPrice: $" + str.tostring(c5, "#.##") + " (" + str.tostring(chg5, "#.##") + "%)\nSignal: " + sig5 + "\nRSI: " + str.tostring(rsi5, "#.#") + " | R.Vol: " + str.tostring(rvol5, "#.#") + "x"
+    if signal5 != "WAIT" and valueBar5 >= min_tv
+        msg_5 = "🚨 US SWING HUNTER\nTicker: META\nPrice: $" + str.tostring(now5, "#.##") + "\nSignal: " + signal5 + "\nRSI: " + str.tostring(rsi5, "#.#")
         alert(msg_5, alert.freq_once_per_bar_close)
-    if sig6 != "WAIT"
-        msg_6 = "🚨 US SWING HUNTER\nTicker: AMZN\nPrice: $" + str.tostring(c6, "#.##") + " (" + str.tostring(chg6, "#.##") + "%)\nSignal: " + sig6 + "\nRSI: " + str.tostring(rsi6, "#.#") + " | R.Vol: " + str.tostring(rvol6, "#.#") + "x"
+    if signal6 != "WAIT" and valueBar6 >= min_tv
+        msg_6 = "🚨 US SWING HUNTER\nTicker: AMZN\nPrice: $" + str.tostring(now6, "#.##") + "\nSignal: " + signal6 + "\nRSI: " + str.tostring(rsi6, "#.#")
         alert(msg_6, alert.freq_once_per_bar_close)
-    if sig7 != "WAIT"
-        msg_7 = "🚨 US SWING HUNTER\nTicker: AAPL\nPrice: $" + str.tostring(c7, "#.##") + " (" + str.tostring(chg7, "#.##") + "%)\nSignal: " + sig7 + "\nRSI: " + str.tostring(rsi7, "#.#") + " | R.Vol: " + str.tostring(rvol7, "#.#") + "x"
+    if signal7 != "WAIT" and valueBar7 >= min_tv
+        msg_7 = "🚨 US SWING HUNTER\nTicker: AAPL\nPrice: $" + str.tostring(now7, "#.##") + "\nSignal: " + signal7 + "\nRSI: " + str.tostring(rsi7, "#.#")
         alert(msg_7, alert.freq_once_per_bar_close)
-    if sig8 != "WAIT"
-        msg_8 = "🚨 US SWING HUNTER\nTicker: GOOGL\nPrice: $" + str.tostring(c8, "#.##") + " (" + str.tostring(chg8, "#.##") + "%)\nSignal: " + sig8 + "\nRSI: " + str.tostring(rsi8, "#.#") + " | R.Vol: " + str.tostring(rvol8, "#.#") + "x"
+    if signal8 != "WAIT" and valueBar8 >= min_tv
+        msg_8 = "🚨 US SWING HUNTER\nTicker: GOOGL\nPrice: $" + str.tostring(now8, "#.##") + "\nSignal: " + signal8 + "\nRSI: " + str.tostring(rsi8, "#.#")
         alert(msg_8, alert.freq_once_per_bar_close)
-    if sig9 != "WAIT"
-        msg_9 = "🚨 US SWING HUNTER\nTicker: MSFT\nPrice: $" + str.tostring(c9, "#.##") + " (" + str.tostring(chg9, "#.##") + "%)\nSignal: " + sig9 + "\nRSI: " + str.tostring(rsi9, "#.#") + " | R.Vol: " + str.tostring(rvol9, "#.#") + "x"
+    if signal9 != "WAIT" and valueBar9 >= min_tv
+        msg_9 = "🚨 US SWING HUNTER\nTicker: MSFT\nPrice: $" + str.tostring(now9, "#.##") + "\nSignal: " + signal9 + "\nRSI: " + str.tostring(rsi9, "#.#")
         alert(msg_9, alert.freq_once_per_bar_close)
-    if sig10 != "WAIT"
-        msg_10 = "🚨 US SWING HUNTER\nTicker: NFLX\nPrice: $" + str.tostring(c10, "#.##") + " (" + str.tostring(chg10, "#.##") + "%)\nSignal: " + sig10 + "\nRSI: " + str.tostring(rsi10, "#.#") + " | R.Vol: " + str.tostring(rvol10, "#.#") + "x"
+    if signal10 != "WAIT" and valueBar10 >= min_tv
+        msg_10 = "🚨 US SWING HUNTER\nTicker: NFLX\nPrice: $" + str.tostring(now10, "#.##") + "\nSignal: " + signal10 + "\nRSI: " + str.tostring(rsi10, "#.#")
         alert(msg_10, alert.freq_once_per_bar_close)
 
 plot(close, display=display.none)

@@ -1,23 +1,47 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 import httpx
 import os
 import re
 import uvicorn
+import asyncio
+import secrets
+import html
 from datetime import datetime, timezone
 
 app = FastAPI()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
 
+# ============================================================================
+# STATE & CACHE (P2-01)
+# ============================================================================
+last_alert = {}
+COOLDOWN_SECONDS = 300
+
+# ============================================================================
+# LOGGING (P2-02)
+# ============================================================================
+os.makedirs("logs", exist_ok=True)
+def log_alert(type_val, ticker, signal, score, tv, telegram_status):
+    try:
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        with open("logs/alerts.log", "a", encoding="utf-8") as f:
+            f.write(f"{ts} | {type_val} | {ticker} | {signal} | {score} | {tv} | {telegram_status}\n")
+    except Exception as e:
+        print(f"Error writing log: {e}")
+
+def h(value) -> str:
+    return html.escape(str(value), quote=True)
 
 # ============================================================================
 # TELEGRAM SENDER
 # ============================================================================
-async def send_to_telegram(text: str):
+async def send_to_telegram(text: str) -> bool:
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram Token/Chat ID is missing! Cannot send message.")
-        return
+        return False
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -25,15 +49,20 @@ async def send_to_telegram(text: str):
         "parse_mode": "HTML",
         "disable_web_page_preview": True
     }
-    async with httpx.AsyncClient() as client:
+    for attempt in range(3):
         try:
-            response = await client.post(url, json=payload)
-            if response.status_code != 200:
-                print(f"Telegram API Error: {response.text}")
-            response.raise_for_status()
-            print(f"Message sent to Telegram successfully: {text[:50]}...")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, json=payload)
+                if response.status_code != 200:
+                    print(f"Telegram API Error: {response.text}")
+                response.raise_for_status()
+                print(f"Message sent to Telegram successfully: {text[:50]}...")
+                return True
         except Exception as e:
-            print(f"Error sending to Telegram: {e}")
+            print(f"Telegram send failed attempt {attempt + 1}/3: {e}")
+            if attempt < 2:
+                await asyncio.sleep(2 ** attempt)
+    return False
 
 
 # ============================================================================
@@ -53,10 +82,10 @@ def format_us_swing_alert(raw: str) -> str:
         elif line.startswith("RSI:"):
             data["momentum"] = line.split(":", 1)[1].strip()
 
-    ticker = data.get("ticker", "???")
-    price = data.get("price", "$0")
-    signal = data.get("signal", "UNKNOWN")
-    momentum = data.get("momentum", "-")
+    ticker = h(data.get("ticker", "???"))
+    price = h(data.get("price", "$0"))
+    signal = h(data.get("signal", "UNKNOWN"))
+    momentum = h(data.get("momentum", "-"))
 
     rsi_match = re.search(r"([\d.]+)", momentum)
     rsi_val = float(rsi_match.group(1)) if rsi_match else 50.0
@@ -118,11 +147,11 @@ def format_us_bandar_alert(raw: str) -> str:
         elif line.startswith("Strength:"):
             data["strength"] = line.split(":", 1)[1].strip()
 
-    ticker = data.get("ticker", "???")
-    price = data.get("price", "$0")
-    signal = data.get("signal", "UNKNOWN")
-    flow = data.get("flow", "NORMAL")
-    strength = data.get("strength", "0%")
+    ticker = h(data.get("ticker", "???"))
+    price = h(data.get("price", "$0"))
+    signal = h(data.get("signal", "UNKNOWN"))
+    flow = h(data.get("flow", "NORMAL"))
+    strength = h(data.get("strength", "0%"))
 
     str_match = re.search(r"([\d.]+)", strength)
     str_val = float(str_match.group(1)) if str_match else 0.0
@@ -193,10 +222,10 @@ def format_quantum_alert(raw: str, market_type: str) -> str:
         elif line.startswith("Context:"):
             data["context"] = line.split(":", 1)[1].strip()[:200]
 
-    ticker = data.get("ticker") or "???"
-    context = data.get("context") or "???"
+    ticker = h(data.get("ticker") or "???")
+    context = h(data.get("context") or "???")
 
-    action_raw = data.get("action", "")
+    action_raw = h(data.get("action", ""))
     action = action_raw if action_raw in ("BUY", "SELL") else "???"
 
     # Helper function untuk membersihkan format harga
@@ -276,9 +305,9 @@ def format_quantum_alert(raw: str, market_type: str) -> str:
 # IDX BANDAR AI (Legacy) — JSON Alert Parser
 # ============================================================================
 def format_idx_bandar_alert(data: dict) -> str:
-    ticker = data.get("ticker", "UNKNOWN")
-    signal = data.get("signal", "UNKNOWN")
-    price = data.get("price", "0")
+    ticker = h(data.get("ticker", "UNKNOWN"))
+    signal = h(data.get("signal", "UNKNOWN"))
+    price = h(data.get("price", "0"))
 
     signal_upper = signal.upper()
     if any(k in signal_upper for k in ["BUY", "BULL", "AKUM", "HAKA"]):
@@ -307,13 +336,13 @@ def format_idx_bandar_alert(data: dict) -> str:
 # IDX SCALPING (Legacy) — JSON Alert Parser
 # ============================================================================
 def format_idx_scalp_alert(data: dict) -> str:
-    ticker = data.get("ticker", "UNKNOWN")
-    action = data.get("action", "UNKNOWN")
-    entry = data.get("entry", "0")
-    tp = data.get("tp", "0")
-    sl = data.get("sl", "0")
-    bandar = data.get("bandar", "-")
-    zona = data.get("zona", "-")
+    ticker = h(data.get("ticker", "UNKNOWN"))
+    action = h(data.get("action", "UNKNOWN"))
+    entry = h(data.get("entry", "0"))
+    tp = h(data.get("tp", "0"))
+    sl = h(data.get("sl", "0"))
+    bandar = h(data.get("bandar", "-"))
+    zona = h(data.get("zona", "-"))
 
     action_upper = action.upper()
     if action_upper == "HAKA":
@@ -369,8 +398,8 @@ def format_idx_bandar_v2_alert(data: dict) -> str:
     if not tier:
         raise ValueError("Missing 'tier' in payload")
         
-    ticker = str(data.get("ticker", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    signal = str(data.get("signal", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    ticker = h(data.get("ticker", "UNKNOWN"))
+    signal = h(data.get("signal", "UNKNOWN"))
     entry = data.get("entry", 0)
     tp1 = data.get("tp1", 0)
     tp2 = data.get("tp2", 0)
@@ -397,13 +426,32 @@ def format_idx_bandar_v2_alert(data: dict) -> str:
     msg = f"{icon} <b>IDX BANDAR AI V2</b> {icon}\n"
     msg += f"━━━━━━━━━━━━━━━━━━\n"
     msg += f"🏢 <b>Emiten</b>: <code>{ticker}</code> (BANDAR · SWING 1W)\n"
-    msg += f"📊 <b>Signal</b>: <b>{signal}</b>\n"
-    msg += f"💵 <b>Val/Bar</b>: {_format_tv(tv)}\n"
-    msg += f"━━━━━━━━━━━━━━━━━━\n"
-    msg += f"🎯 <b>Entry</b>: Rp{entry}\n"
-    msg += f"✅ <b>TP1</b>: Rp{tp1}\n"
-    msg += f"🚀 <b>TP2</b>: Rp{tp2}\n"
-    msg += f"🛑 <b>SL</b>: Rp{sl}{sl_warn}\n"
+    
+    # Optional Trade Plan Fields
+    score = data.get("score")
+    sup = data.get("support")
+    rst = data.get("resistance")
+    action = data.get("action")
+    
+    if score is not None and action is not None:
+        msg += f"📊 <b>Score</b>: {score} | {signal}\n"
+        msg += f"⚡ <b>Action</b>: <b>{action}</b>\n"
+        msg += f"💵 <b>Val/Bar</b>: {_format_tv(tv)}\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        msg += f"🎯 <b>Entry</b>: Rp{entry}\n"
+        msg += f"✅ <b>TP1</b>: Rp{tp1}\n"
+        msg += f"🚀 <b>TP2</b>: Rp{tp2}\n"
+        msg += f"🛑 <b>SL</b>: Rp{sl}{sl_warn}\n"
+        msg += f"📍 <b>SUP/RST</b>: {sup} / {rst}\n"
+    else:
+        msg += f"📊 <b>Signal</b>: <b>{signal}</b>\n"
+        msg += f"💵 <b>Val/Bar</b>: {_format_tv(tv)}\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        msg += f"🎯 <b>Entry</b>: Rp{entry}\n"
+        msg += f"✅ <b>TP1</b>: Rp{tp1}\n"
+        msg += f"🚀 <b>TP2</b>: Rp{tp2}\n"
+        msg += f"🛑 <b>SL</b>: Rp{sl}{sl_warn}\n"
+
     msg += f"━━━━━━━━━━━━━━━━━━\n"
     msg += f"💡 <i>{sentiment}</i>\n"
     msg += f"⏳ {hint}\n"
@@ -419,8 +467,8 @@ def format_idx_scalp_v2_alert(data: dict) -> str:
     if not tier:
         raise ValueError("Missing 'tier' in payload")
         
-    ticker = str(data.get("ticker", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    signal = str(data.get("signal", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    ticker = h(data.get("ticker", "UNKNOWN"))
+    signal = h(data.get("signal", "UNKNOWN"))
     entry = data.get("entry", 0)
     tp1 = data.get("tp1", 0)
     tp2 = data.get("tp2", 0)
@@ -447,13 +495,32 @@ def format_idx_scalp_v2_alert(data: dict) -> str:
     msg = f"{icon} <b>IDX SCALPING V2</b> {icon}\n"
     msg += f"━━━━━━━━━━━━━━━━━━\n"
     msg += f"🏢 <b>Emiten</b>: <code>{ticker}</code> (SCALP · GORENGAN)\n"
-    msg += f"⚡ <b>Signal</b>: <b>{signal}</b>\n"
-    msg += f"💵 <b>Val/Bar</b>: {_format_tv(tv)}\n"
-    msg += f"━━━━━━━━━━━━━━━━━━\n"
-    msg += f"🎯 <b>Entry</b>: Rp{entry}\n"
-    msg += f"✅ <b>TP1</b>: Rp{tp1}\n"
-    msg += f"🚀 <b>TP2</b>: Rp{tp2}\n"
-    msg += f"🛑 <b>SL</b>: Rp{sl}{sl_warn}\n"
+
+    # Optional Trade Plan Fields
+    score = data.get("score")
+    sup = data.get("support")
+    rst = data.get("resistance")
+    action = data.get("action")
+    
+    if score is not None and action is not None:
+        msg += f"📊 <b>Score</b>: {score} | {signal}\n"
+        msg += f"⚡ <b>Action</b>: <b>{action}</b>\n"
+        msg += f"💵 <b>Val/Bar</b>: {_format_tv(tv)}\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        msg += f"🎯 <b>Entry</b>: Rp{entry}\n"
+        msg += f"✅ <b>TP1</b>: Rp{tp1}\n"
+        msg += f"🚀 <b>TP2</b>: Rp{tp2}\n"
+        msg += f"🛑 <b>SL</b>: Rp{sl}{sl_warn}\n"
+        msg += f"📍 <b>SUP/RST</b>: {sup} / {rst}\n"
+    else:
+        msg += f"⚡ <b>Signal</b>: <b>{signal}</b>\n"
+        msg += f"💵 <b>Val/Bar</b>: {_format_tv(tv)}\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        msg += f"🎯 <b>Entry</b>: Rp{entry}\n"
+        msg += f"✅ <b>TP1</b>: Rp{tp1}\n"
+        msg += f"🚀 <b>TP2</b>: Rp{tp2}\n"
+        msg += f"🛑 <b>SL</b>: Rp{sl}{sl_warn}\n"
+
     msg += f"━━━━━━━━━━━━━━━━━━\n"
     msg += f"💡 <i>{sentiment}</i>\n"
     msg += f"⏳ {hint}\n"
@@ -462,44 +529,81 @@ def format_idx_scalp_v2_alert(data: dict) -> str:
 
 
 # ============================================================================
-# USD-M AUTOBOT V12 — JSON Alert Parser
+# BINANCE FUTURES — JSON Alert Parser
 # ============================================================================
-def format_usdm_v12_alert(data: dict) -> str:
-    ticker = str(data.get("ticker", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    signal = str(data.get("signal", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    side = str(data.get("side", "NONE")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    batch = str(data.get("batch", "?"))
-    entry = data.get("entry", 0)
-    tp = data.get("tp", 0)
-    sl = data.get("sl", 0)
-    lev = data.get("lev", 1)
-    qty = data.get("qty", 0)
+def format_futures_message(data: dict) -> str:
+    symbol = h(data.get("symbol", "UNKNOWN"))
+    event = h(data.get("event", "UNKNOWN"))
+    tf = h(data.get("tf", "15"))
+    side = h(data.get("side", "NONE"))
+    
+    price_decimals = data.get("price_decimals", 4)
+    def fmt_price(key):
+        val = data.get(key)
+        if f"{key}_text" in data and data[f"{key}_text"] != "-":
+            return h(data[f"{key}_text"])
+        if val is None or val == "-":
+            return "-"
+        try:
+            return f"{float(val):.{price_decimals}f}"
+        except:
+            return str(val)
 
-    signal_upper = signal.upper()
-    if signal_upper == "LONG":
+    now = fmt_price("now")
+    entry = fmt_price("entry")
+    tp = fmt_price("tp")
+    sl = fmt_price("sl")
+    
+    rr = float(data.get("rr", 0.0))
+    tp_pct = float(data.get("tp_pct", 0.0))
+    risk_pct = float(data.get("risk_pct", 0.0))
+    
+    lev = data.get("leverage", 1)
+    l_tp = float(data.get("lev_tp_pct", 0.0))
+    l_risk = float(data.get("lev_risk_pct", 0.0))
+    max_lev = data.get("max_safe_leverage", "-")
+    liq = h(data.get("liq_warn", "SAFE"))
+    
+    score = data.get("score", 0)
+    flow = h(data.get("flow", "-"))
+    signal = h(data.get("signal", "-"))
+    
+    if "LONG" in side.upper() or "LONG" in event:
         icon = "🟢"
-        sentiment = "High-Speed EMA Crossover: LONG 🚀"
-    elif signal_upper == "SHORT":
-        icon = "🔴"
-        sentiment = "High-Speed EMA Crossover: SHORT 🔻"
+        title = "BINANCE FUTURES LONG"
+        tp_sign = "+"
+        sl_sign = "-"
+        l_tp_sign = "+"
+        l_risk_sign = "-"
     else:
-        icon = "⚡"
-        sentiment = "Autobot V12 Signal"
+        icon = "🔴"
+        title = "BINANCE FUTURES SHORT"
+        tp_sign = "-"
+        sl_sign = "+"
+        l_tp_sign = "+"
+        l_risk_sign = "-"
 
-    msg = f"{icon} <b>USD-M AUTOBOT V12</b> {icon}\n"
-    msg += f"━━━━━━━━━━━━━━━━━━\n"
-    msg += f"🪙 <b>Pair</b>: <code>{ticker}</code> (Batch {batch})\n"
-    msg += f"⚡ <b>Signal</b>: <b>{signal}</b> / {side}\n"
-    msg += f"⚙️ <b>Leverage</b>: {lev}x\n"
-    msg += f"📦 <b>Qty</b>: {qty}\n"
-    msg += f"━━━━━━━━━━━━━━━━━━\n"
-    msg += f"🎯 <b>Entry</b>: {entry}\n"
-    msg += f"✅ <b>TP</b>: {tp}\n"
-    msg += f"🛑 <b>SL</b>: {sl}\n"
-    msg += f"━━━━━━━━━━━━━━━━━━\n"
-    msg += f"💡 <i>{sentiment}</i>\n"
-    msg += f"⏰ TF 5m · Binance Futures\n"
-    msg += f"#USDM_V12 #{ticker.replace('.P', '')}"
+    msg = f"{icon} <b>{title}</b>\n\n"
+    msg += f"<b>Symbol</b> : {symbol}\n"
+    msg += f"<b>TF</b>     : {tf}m\n"
+    msg += f"<b>Event</b>  : {event}\n\n"
+    
+    msg += f"<b>NOW</b>    : {now}\n"
+    msg += f"<b>ENTRY</b>  : {entry}\n"
+    msg += f"<b>TP</b>     : {tp} ({tp_sign}{tp_pct:.2f}%)\n"
+    msg += f"<b>SL</b>     : {sl} ({sl_sign}{risk_pct:.2f}%)\n"
+    msg += f"<b>RR</b>     : {rr:.2f}\n\n"
+    
+    msg += f"<b>LEV</b>    : {lev}x\n"
+    msg += f"<b>L-TP</b>   : {l_tp_sign}{l_tp:.2f}%\n"
+    msg += f"<b>L-RISK</b> : {l_risk_sign}{l_risk:.2f}%\n"
+    msg += f"<b>MAX LEV</b>: {max_lev}x\n"
+    msg += f"<b>LIQ</b>    : {liq}\n\n"
+    
+    msg += f"<b>Score</b>  : {score}\n"
+    msg += f"<b>Flow</b>   : {flow}\n"
+    msg += f"<b>Signal</b> : {signal}\n"
+    
     return msg
 
 
@@ -508,6 +612,11 @@ def format_usdm_v12_alert(data: dict) -> str:
 # ============================================================================
 @app.post("/webhook")
 async def handle_webhook(request: Request):
+    if WEBHOOK_SECRET:
+        provided_secret = request.headers.get("x-webhook-secret") or request.query_params.get("secret")
+        if not provided_secret or not secrets.compare_digest(provided_secret, WEBHOOK_SECRET):
+            raise HTTPException(status_code=403, detail="Forbidden")
+
     content_type = request.headers.get("content-type", "")
     user_agent = request.headers.get("user-agent", "unknown")
     raw_body = await request.body()
@@ -532,12 +641,16 @@ async def handle_webhook(request: Request):
                     message_text = format_idx_scalp_v2_alert(data)
                 else:
                     message_text = format_idx_scalp_alert(data) # Legacy not found
-            elif data.get("type") == "USDM_V12":
-                message_text = format_usdm_v12_alert(data)
+            elif data.get("type") == "FUTURES_SIGNAL":
+                if data.get("market") == "BINANCE_FUTURES":
+                    event = data.get("event")
+                    if event not in {"LONG_ENTRY", "SHORT_ENTRY", "TP_HIT", "SL_HIT"}:
+                        return {"status": "ignored", "reason": "non_actionable_event"}
+                    message_text = format_futures_message(data)
             elif "message" in data and "type" not in data:
-                message_text = data["message"]
+                message_text = h(data["message"])
             else:
-                message_text = f"🔔 <b>TradingView Alert</b>\n<pre>{data}</pre>"
+                message_text = f"🔔 <b>TradingView Alert</b>\n<pre>{h(data)}</pre>"
     except Exception as e:
         if isinstance(e, ValueError) and "Missing 'tier'" in str(e):
             print(f"[{ts}] ❌ Validation Error: {e}")
@@ -556,16 +669,46 @@ async def handle_webhook(request: Request):
         elif "US BANDAR AI" in body_str:
             message_text = format_us_bandar_alert(body_str)
         else:
-            message_text = f"🔔 <b>Alert</b>\n<pre>{body_str[:500]}</pre>"
+            message_text = f"🔔 <b>Alert</b>\n<pre>{h(body_str[:500])}</pre>"
+
+    # Cooldown & Data Extraction for Logging
+    signal_val = ""
+    ticker_val = ""
+    score_val = ""
+    tv_val = ""
+    type_val = "UNKNOWN"
+    
+    if isinstance(data, dict):
+        ticker_val = data.get("ticker", "UNKNOWN")
+        signal_val = data.get("signal", "UNKNOWN")
+        score_val = data.get("score", "-")
+        tv_val = data.get("transaction_value", "-")
+        type_val = data.get("type", "UNKNOWN")
+        
+        # P2-01: Cooldown
+        key = f"{ticker_val}:{signal_val}"
+        now = datetime.now().timestamp()
+        if now - last_alert.get(key, 0) < COOLDOWN_SECONDS:
+            print(f"[{ts}] ⏳ Skipping alert for {key} due to cooldown.")
+            return {"status": "skipped", "reason": "cooldown"}
+        last_alert[key] = now
 
     # 3. Kirim ke Telegram
     if message_text:
-        await send_to_telegram(message_text)
-        print(f"[{ts}] ✅ Message forwarded to Telegram")
+        sent = await send_to_telegram(message_text)
+        if sent:
+            print(f"[{ts}] ✅ Message forwarded to Telegram")
+        else:
+            print(f"[{ts}] ❌ Message failed to forward to Telegram")
+            
+        # P2-02: Logging
+        telegram_status = "SUCCESS" if sent else "FAILED"
+        log_alert(type_val, ticker_val, signal_val, score_val, tv_val, telegram_status)
+        
+        return {"status": "success" if sent else "telegram_failed", "received": True}
     else:
         print(f"[{ts}] ⚠️ No message generated from body")
-
-    return {"status": "success", "received": True}
+        return {"status": "success", "received": True}
 
 
 @app.get("/health")

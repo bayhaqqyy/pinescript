@@ -1,0 +1,369 @@
+import re
+
+new_code = r'''// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// Strategy: BTCUSDT DASHBOARD CARD
+//@version=6
+indicator("BTCUSDT DASHBOARD CARD", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+tf = input.timeframe("15", "Timeframe Screener")
+min_tv = input.float(1000000, "Min Volume (USDT)")
+
+riskMode = input.string("INTRADAY", "Futures Risk Mode", options=["SCALP", "INTRADAY", "SWING", "CUSTOM"])
+leverage = input.int(10, "Leverage", minval=1, maxval=125)
+useLevGuard = input.bool(true, "Use Leverage Safety Guard")
+
+customTpAtrMult = input.float(5.0, "CUSTOM TP ATR Mult", step=0.1)
+customSlAtrMult = input.float(2.2, "CUSTOM SL ATR Mult", step=0.1)
+customMinTpRawPct = input.float(2.0, "CUSTOM Min TP Raw %", step=0.1)
+customMinSlRawPct = input.float(0.7, "CUSTOM Min SL Raw %", step=0.1)
+customTargetLevProfitPct = input.float(45.0, "CUSTOM Target Lev Profit %", step=1.0)
+customMaxLevRiskPct = input.float(18.0, "CUSTOM Max Lev Risk %", step=1.0)
+customMinRR = input.float(1.8, "CUSTOM Min RR", step=0.1)
+
+breakoutBufferPct = input.float(0.05, "Breakout Buffer %", step=0.01)
+srAtrBuf = input.float(0.20, "SR ATR Buffer", step=0.05)
+
+srLen = input.int(20, "Support/Resistance Lookback", minval=5, maxval=200)
+atrLen = input.int(14, "ATR Length", minval=5, maxval=100)
+
+pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+tpAtrMult = riskMode == "SCALP" ? 4.0 : riskMode == "INTRADAY" ? 5.0 : riskMode == "SWING" ? 8.0 : customTpAtrMult
+slAtrMult = riskMode == "SCALP" ? 1.8 : riskMode == "INTRADAY" ? 2.2 : riskMode == "SWING" ? 3.0 : customSlAtrMult
+minTpRawPct = riskMode == "SCALP" ? 1.2 : riskMode == "INTRADAY" ? 2.0 : riskMode == "SWING" ? 4.0 : customMinTpRawPct
+minSlRawPct = riskMode == "SCALP" ? 0.45 : riskMode == "INTRADAY" ? 0.70 : riskMode == "SWING" ? 1.20 : customMinSlRawPct
+targetLevProfitPct = riskMode == "SCALP" ? 30.0 : riskMode == "INTRADAY" ? 45.0 : riskMode == "SWING" ? 70.0 : customTargetLevProfitPct
+maxLevRiskPct = riskMode == "SCALP" ? 12.0 : riskMode == "INTRADAY" ? 18.0 : riskMode == "SWING" ? 25.0 : customMaxLevRiskPct
+minRR = riskMode == "SCALP" ? 1.6 : riskMode == "INTRADAY" ? 1.8 : riskMode == "SWING" ? 2.0 : customMinRR
+
+// ============================================================================
+// COLORS & HELPERS
+// ============================================================================
+cHeader = color.rgb(55, 62, 70)
+cDark = color.rgb(28, 33, 40)
+cText = color.white
+cGreen = color.rgb(0, 180, 90)
+cLime = color.rgb(70, 220, 90)
+cBlue = color.rgb(40, 130, 220)
+cYellow = color.rgb(220, 190, 40)
+cOrange = color.rgb(230, 120, 40)
+cRed = color.rgb(220, 60, 60)
+cGray = color.rgb(110, 110, 110)
+
+f_status_color(s) =>
+    s == "FLYING" ? cLime :
+      s == "RUNNING" ? cGreen :
+      s == "BREAKOUT" or s == "BREAKDOWN" ? cLime :
+      s == "LONG SETUP" or s == "SHORT SETUP" ? cBlue :
+      s == "TP-HIT" ? cLime :
+      s == "SL-BROKE" ? cRed :
+      s == "BEARISH" ? cRed :
+      s == "BULLISH" ? cGreen :
+      cGray
+
+f_zona_color(z) =>
+    z == "LOW" ? cBlue :
+      z == "MID" ? cYellow :
+      z == "HIGH" ? cOrange :
+      cRed
+
+f_macd_color(m) =>
+    m == "UP" ? cGreen :
+      m == "DOWN" ? cRed :
+      cYellow
+
+f_signal_color(sig) =>
+    sig == "LONG" ? cLime :
+      sig == "SHORT" ? cRed :
+      sig == "LONG SETUP" ? cBlue :
+      sig == "SHORT SETUP" ? cOrange :
+      sig == "LEV-RISK" ? cYellow :
+      cGray
+
+f_action_color(act) =>
+    act == "BUY" or act == "LONG" ? cLime :
+      act == "SELL" or act == "SHORT" ? cRed :
+      str.contains(act, "BUY >") ? cBlue :
+      str.contains(act, "SELL <") ? cOrange :
+      act == "LEV RISK" ? cYellow :
+      cGray
+
+f_score_color(score) =>
+    score >= 80 ? cLime :
+      score >= 60 ? cGreen :
+      score >= 40 ? cOrange :
+      cRed
+
+f_liq_color(liq) =>
+    liq == "SAFE" ? cLime :
+      liq == "RISKY" ? cOrange :
+      cRed
+
+f_cell(tbl, col, row, txt, bg, txtColor) =>
+    table.cell(tbl, col, row, txt, bgcolor=bg, text_color=txtColor, text_size=size.normal)
+
+// ============================================================================
+// DASHBOARD ENGINE
+// ============================================================================
+f_round_tick(x) => math.round(x / syminfo.mintick) * syminfo.mintick
+
+f_dashboard_engine() =>
+    sup = ta.lowest(low[1], srLen)
+    rst = ta.highest(high[1], srLen)
+    atrVal = ta.atr(atrLen)
+    
+    buf = breakoutBufferPct / 100.0
+    longTrigger = math.max(rst * (1 + buf), rst + syminfo.mintick)
+    shortTrigger = math.min(sup * (1 - buf), sup - syminfo.mintick)
+    
+    longBreak = close > longTrigger
+    shortBreak = close < shortTrigger
+    
+    volMA = ta.sma(volume, 20)
+    rvol = volMA > 0 ? volume / volMA : 0.0
+    
+    ema20 = ta.ema(close, 20)
+    ema50 = ta.ema(close, 50)
+    ema200 = ta.ema(close, 200)
+    trendUp = close > ema20 and ema20 > ema50
+    trendDown = close < ema20 and ema20 < ema50
+    macroBull = close > ema200
+    macroBear = close < ema200
+    
+    rsiVal = ta.rsi(close, 14)
+    sRsi = ta.sma(rsiVal, 5)
+    rsiLongOk = rsiVal >= 50 and rsiVal <= 72
+    rsiShortOk = rsiVal <= 50 and rsiVal >= 28
+    
+    [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9)
+    macdUp = macdLine > signalLine and hist > 0
+    macdDown = macdLine < signalLine and hist < 0
+    macdStatus = macdUp ? "UP" : macdDown ? "DOWN" : "MID"
+    
+    longCandidate = trendUp and rsiLongOk and macdUp and rvol >= 1.0
+    shortCandidate = trendDown and rsiShortOk and macdDown and rvol >= 1.0
+    
+    entryLong = longBreak ? close : longTrigger
+    entryShort = shortBreak ? close : shortTrigger
+    
+    slLongByAtrDist = atrVal * slAtrMult
+    slLongByStructureDist = entryLong - (sup - atrVal * srAtrBuf)
+    slLongByMinPctDist = entryLong * (minSlRawPct / 100.0)
+    slLongDist = math.max(slLongByAtrDist, slLongByStructureDist, slLongByMinPctDist, syminfo.mintick)
+    slLong = entryLong - slLongDist
+    
+    slShortByAtrDist = atrVal * slAtrMult
+    slShortByStructureDist = (rst + atrVal * srAtrBuf) - entryShort
+    slShortByMinPctDist = entryShort * (minSlRawPct / 100.0)
+    slShortDist = math.max(slShortByAtrDist, slShortByStructureDist, slShortByMinPctDist, syminfo.mintick)
+    slShort = entryShort + slShortDist
+    
+    tpLongByAtrDist = atrVal * tpAtrMult
+    tpLongByMinPctDist = entryLong * (minTpRawPct / 100.0)
+    tpLongByLevTargetDist = entryLong * ((targetLevProfitPct / leverage) / 100.0)
+    tpLongByRRDist = slLongDist * minRR
+    tpLongDist = math.max(tpLongByAtrDist, tpLongByMinPctDist, tpLongByLevTargetDist, tpLongByRRDist, syminfo.mintick)
+    tpLong = entryLong + tpLongDist
+    
+    tpShortByAtrDist = atrVal * tpAtrMult
+    tpShortByMinPctDist = entryShort * (minTpRawPct / 100.0)
+    tpShortByLevTargetDist = entryShort * ((targetLevProfitPct / leverage) / 100.0)
+    tpShortByRRDist = slShortDist * minRR
+    tpShortDist = math.max(tpShortByAtrDist, tpShortByMinPctDist, tpShortByLevTargetDist, tpShortByRRDist, syminfo.mintick)
+    tpShort = math.max(entryShort - tpShortDist, syminfo.mintick)
+    
+    rrLong = slLongDist > 0 ? tpLongDist / slLongDist : 0.0
+    rrShort = slShortDist > 0 ? tpShortDist / slShortDist : 0.0
+    
+    rangeDenom = math.max(rst - sup, syminfo.mintick)
+    rangePos = (close - sup) / rangeDenom
+    rangePos := math.max(0.0, math.min(1.0, rangePos))
+    
+    riskPctLong = entryLong > 0 ? slLongDist / entryLong * 100.0 : na
+    riskPctShort = entryShort > 0 ? slShortDist / entryShort * 100.0 : na
+    
+    maxSafeLevLong = not na(riskPctLong) and riskPctLong > 0 ? maxLevRiskPct / riskPctLong : na
+    levRiskOkLong = not na(maxSafeLevLong) and leverage <= maxSafeLevLong
+    
+    maxSafeLevShort = not na(riskPctShort) and riskPctShort > 0 ? maxLevRiskPct / riskPctShort : na
+    levRiskOkShort = not na(maxSafeLevShort) and leverage <= maxSafeLevShort
+    
+    scoreLong = 0.0
+    scoreLong += trendUp ? 18 : 0
+    scoreLong += macroBull ? 7 : 0
+    scoreLong += rsiVal >= 50 and rsiVal <= 68 ? 15 : rsiVal > 68 and rsiVal <= 75 ? 8 : 0
+    scoreLong += macdUp ? 15 : 0
+    scoreLong += rvol >= 2.0 ? 15 : rvol >= 1.2 ? 10 : rvol >= 0.8 ? 5 : 0
+    scoreLong += close >= longTrigger ? 10 : rangePos >= 0.55 and rangePos <= 0.90 ? 6 : 0
+    scoreLong += rrLong >= minRR ? 10 : rrLong >= 1.2 ? 5 : 0
+    scoreLong += levRiskOkLong ? 5 : 0
+    scoreLong := math.min(scoreLong, 100)
+    
+    scoreShort = 0.0
+    scoreShort += trendDown ? 18 : 0
+    scoreShort += macroBear ? 7 : 0
+    scoreShort += rsiVal <= 50 and rsiVal >= 32 ? 15 : rsiVal < 32 and rsiVal >= 25 ? 8 : 0
+    scoreShort += macdDown ? 15 : 0
+    scoreShort += rvol >= 2.0 ? 15 : rvol >= 1.2 ? 10 : rvol >= 0.8 ? 5 : 0
+    scoreShort += close <= shortTrigger ? 10 : rangePos <= 0.45 and rangePos >= 0.10 ? 6 : 0
+    scoreShort += rrShort >= minRR ? 10 : rrShort >= 1.2 ? 5 : 0
+    scoreShort += levRiskOkShort ? 5 : 0
+    scoreShort := math.min(scoreShort, 100)
+    
+    bias = scoreLong >= scoreShort + 8 ? "LONG" : scoreShort >= scoreLong + 8 ? "SHORT" : "NEUTRAL"
+    
+    finalEntry = bias == "LONG" ? entryLong : bias == "SHORT" ? entryShort : na
+    finalTP = bias == "LONG" ? tpLong : bias == "SHORT" ? tpShort : na
+    finalSL = bias == "LONG" ? slLong : bias == "SHORT" ? slShort : na
+    finalEntry := f_round_tick(finalEntry)
+    finalTP := f_round_tick(finalTP)
+    finalSL := f_round_tick(finalSL)
+    
+    dirOkLong = bias == "LONG" and finalTP > finalEntry and finalSL < finalEntry
+    dirOkShort = bias == "SHORT" and finalTP < finalEntry and finalSL > finalEntry
+    dirOk = dirOkLong or dirOkShort
+    
+    riskPct = bias == "LONG" ? riskPctLong : bias == "SHORT" ? riskPctShort : na
+    tpPct = bias == "LONG" ? (entryLong > 0 ? tpLongDist / entryLong * 100.0 : na) : bias == "SHORT" ? (entryShort > 0 ? tpShortDist / entryShort * 100.0 : na) : na
+    rr = bias == "LONG" ? rrLong : bias == "SHORT" ? rrShort : na
+    
+    levTpPct = not na(tpPct) ? tpPct * leverage : na
+    levRiskPct = not na(riskPct) ? riskPct * leverage : na
+    
+    approxLiqDistPct = 100.0 / leverage
+    liqUtilization = not na(riskPct) and approxLiqDistPct > 0 ? riskPct / approxLiqDistPct : na
+    liqWarn = na(liqUtilization) ? "N/A" : liqUtilization >= 0.80 ? "NEAR-LIQ" : liqUtilization >= 0.60 ? "RISKY" : "SAFE"
+    
+    liqOk = na(liqUtilization) ? false : liqUtilization < 0.70
+    levRiskOk = bias == "LONG" ? levRiskOkLong : bias == "SHORT" ? levRiskOkShort : false
+    levOk = not useLevGuard or (levRiskOk and liqOk)
+    
+    status = longBreak and longCandidate ? "BREAKOUT" : shortBreak and shortCandidate ? "BREAKDOWN" : longCandidate ? "LONG SETUP" : shortCandidate ? "SHORT SETUP" : close < slLong and trendDown ? "BEARISH" : close > slShort and trendUp ? "BULLISH" : "WAIT"
+    
+    signalRaw = scoreLong >= 75 and scoreLong > scoreShort + 8 and dirOkLong ? "LONG" : scoreShort >= 75 and scoreShort > scoreLong + 8 and dirOkShort ? "SHORT" : scoreLong >= 60 and scoreLong > scoreShort + 5 and dirOkLong ? "LONG SETUP" : scoreShort >= 60 and scoreShort > scoreLong + 5 and dirOkShort ? "SHORT SETUP" : "NEUTRAL"
+    signal = not dirOk ? "NEUTRAL" : not levOk ? "LEV-RISK" : signalRaw
+    
+    actionRaw = signalRaw == "LONG" ? "BUY" : signalRaw == "SHORT" ? "SELL" : status == "LONG SETUP" ? "BUY > " + str.tostring(longTrigger, format.mintick) : status == "SHORT SETUP" ? "SELL < " + str.tostring(shortTrigger, format.mintick) : "WAIT"
+    action = not levOk ? "LEV RISK" : actionRaw
+    
+    score = bias == "LONG" ? scoreLong : bias == "SHORT" ? scoreShort : math.max(scoreLong, scoreShort)
+    
+    body = math.abs(close - open)
+    barRange = math.max(high - low, syminfo.mintick)
+    lowerWick = math.min(open, close) - low
+    upperWick = high - math.max(open, close)
+    closeNearHigh = close >= low + barRange * 0.70
+    closeNearLow = close <= low + barRange * 0.30
+    
+    bullImpulse = close > open and closeNearHigh and rvol >= 1.2
+    bearImpulse = close < open and closeNearLow and rvol >= 1.2
+    longAbsorb = lowerWick > body * 1.2 and closeNearHigh and rvol >= 1.3
+    shortAbsorb = upperWick > body * 1.2 and closeNearLow and rvol >= 1.3
+    smallBodyHighVol = body <= atrVal * 0.30 and rvol >= 1.8
+    
+    flow = bullImpulse and trendUp ? "LONG FLOW" : bearImpulse and trendDown ? "SHORT FLOW" : longAbsorb ? "BUY ABSORB" : shortAbsorb ? "SELL ABSORB" : smallBodyHighVol ? "SQUEEZE" : rvol < 0.5 ? "SEPI" : "NORMAL"
+    
+    zona = rangePos < 0.25 ? "LOW" : rangePos < 0.60 ? "MID" : rangePos < 0.85 ? "HIGH" : "EXTREME"
+    maxSafeLev = bias == "LONG" ? maxSafeLevLong : bias == "SHORT" ? maxSafeLevShort : na
+    
+    [close, trendUp, trendDown, sup, rst, longTrigger, shortTrigger, finalEntry, finalTP, finalSL, tpPct, riskPct, rr, levTpPct, levRiskPct, maxSafeLev, liqWarn, rsiVal, macdStatus, rvol * 100, flow, scoreLong, scoreShort, signal, action]
+
+// ============================================================================
+// DATA FETCH
+// ============================================================================
+tk1 = "BINANCE:BTCUSDT.P"
+[now1, trendUp1, trendDown1, sup1, rst1, longTrig1, shortTrig1, entry1, tp1, sl1, tpPct1, riskPct1, rr1, levTpPct1, levRiskPct1, maxSafeLev1, liq1, rsi1, macd1, rvolPct1, flow1, scoreLong1, scoreShort1, signal1, action1] = request.security(tk1, tf, f_dashboard_engine())
+
+// ============================================================================
+// UI TABLE & DASHBOARD CARD
+// ============================================================================
+tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+var tbl = table.new(tbl_pos, 2, 29, border_width=1, border_color=#333333)
+
+if barstate.islast
+    table.cell(tbl, 0, 0, "BTCUSDT DASHBOARD (" + tf + "m)", bgcolor=cHeader, text_color=color.yellow, text_size=size.normal)
+    table.merge_cells(tbl, 0, 0, 1, 0)
+    
+    f_cell(tbl, 0, 1, "NOW", cDark, cText)
+    f_cell(tbl, 1, 1, str.tostring(now1, format.mintick), cDark, cText)
+    
+    f_cell(tbl, 0, 2, "TREND", cDark, cText)
+    f_cell(tbl, 1, 2, trendUp1 ? "BULL" : trendDown1 ? "BEAR" : "SIDEWAYS", trendUp1 ? cGreen : trendDown1 ? cRed : cYellow, cText)
+    
+    f_cell(tbl, 0, 3, "SUP", cDark, cText)
+    f_cell(tbl, 1, 3, str.tostring(sup1, format.mintick), cDark, cText)
+    
+    f_cell(tbl, 0, 4, "RST", cDark, cText)
+    f_cell(tbl, 1, 4, str.tostring(rst1, format.mintick), cDark, cText)
+    
+    f_cell(tbl, 0, 5, "LONG TRIGGER", cDark, cText)
+    f_cell(tbl, 1, 5, str.tostring(longTrig1, format.mintick), cDark, cText)
+    
+    f_cell(tbl, 0, 6, "SHORT TRIGGER", cDark, cText)
+    f_cell(tbl, 1, 6, str.tostring(shortTrig1, format.mintick), cDark, cText)
+    
+    f_cell(tbl, 0, 7, "ENTRY", cDark, cText)
+    f_cell(tbl, 1, 7, str.tostring(entry1, format.mintick), cDark, cText)
+    
+    f_cell(tbl, 0, 8, "TP", cDark, cText)
+    f_cell(tbl, 1, 8, str.tostring(tp1, format.mintick), cDark, cLime)
+    
+    f_cell(tbl, 0, 9, "SL", cDark, cText)
+    f_cell(tbl, 1, 9, str.tostring(sl1, format.mintick), cDark, cOrange)
+    
+    f_cell(tbl, 0, 10, "TP%", cDark, cText)
+    f_cell(tbl, 1, 10, str.tostring(tpPct1, "#.##") + "%", cDark, cText)
+    
+    f_cell(tbl, 0, 11, "RISK%", cDark, cText)
+    f_cell(tbl, 1, 11, str.tostring(riskPct1, "#.##") + "%", cDark, cText)
+    
+    f_cell(tbl, 0, 12, "RR", cDark, cText)
+    f_cell(tbl, 1, 12, str.tostring(rr1, "#.##"), cDark, cText)
+    
+    f_cell(tbl, 0, 13, "LEV", cDark, cText)
+    f_cell(tbl, 1, 13, str.tostring(leverage) + "x", cDark, cText)
+    
+    f_cell(tbl, 0, 14, "LEV TP%", cDark, cText)
+    f_cell(tbl, 1, 14, str.tostring(levTpPct1, "#.##") + "%", cDark, cText)
+    
+    f_cell(tbl, 0, 15, "LEV RISK%", cDark, cText)
+    f_cell(tbl, 1, 15, str.tostring(levRiskPct1, "#.##") + "%", levRiskPct1 > maxLevRiskPct ? cRed : cDark, cText)
+    
+    f_cell(tbl, 0, 16, "MAX SAFE LEV", cDark, cText)
+    f_cell(tbl, 1, 16, str.tostring(maxSafeLev1, "#.##") + "x", cDark, cText)
+    
+    f_cell(tbl, 0, 17, "LIQ WARN", cDark, cText)
+    f_cell(tbl, 1, 17, liq1, f_liq_color(liq1), cText)
+    
+    f_cell(tbl, 0, 18, "RSI", cDark, cText)
+    f_cell(tbl, 1, 18, str.tostring(rsi1, "#.0"), rsi1 < 30 ? cRed : rsi1 > 70 ? cOrange : cBlue, cText)
+    
+    f_cell(tbl, 0, 19, "MACD", cDark, cText)
+    f_cell(tbl, 1, 19, macd1, f_macd_color(macd1), cText)
+    
+    f_cell(tbl, 0, 20, "RVOL", cDark, cText)
+    f_cell(tbl, 1, 20, str.tostring(rvolPct1, "#.0") + "%", rvolPct1 >= 150 ? cGreen : cDark, cText)
+    
+    f_cell(tbl, 0, 21, "FLOW", cDark, cText)
+    f_cell(tbl, 1, 21, flow1, cDark, cText)
+    
+    f_cell(tbl, 0, 22, "SCORE LONG", cDark, cText)
+    f_cell(tbl, 1, 22, str.tostring(scoreLong1, "#"), f_score_color(scoreLong1), cText)
+    
+    f_cell(tbl, 0, 23, "SCORE SHORT", cDark, cText)
+    f_cell(tbl, 1, 23, str.tostring(scoreShort1, "#"), f_score_color(scoreShort1), cText)
+    
+    f_cell(tbl, 0, 24, "FINAL SIGNAL", cDark, cText)
+    f_cell(tbl, 1, 24, signal1, f_signal_color(signal1), cText)
+    
+    f_cell(tbl, 0, 25, "ACTION", cDark, cText)
+    f_cell(tbl, 1, 25, action1, f_action_color(action1), cText)
+
+plot(close, display=display.none)
+'''
+
+with open("tv_scripts/btcusdt_dashboard.pine", "w", encoding="utf-8") as f:
+    f.write(new_code)

@@ -1,28 +1,17 @@
-"""
-Binance USDⓈ-M Futures — V8 Autobot Dashboard Generator
-=========================================================
-Fetches real-time 24hr ticker data from Binance Futures API,
-extracts the Top 100 highest-volume USDT perpetual CRYPTO pairs,
-and generates 10 batches (A-J) of Pine Script v6 indicator files.
-
-Usage:
-    py generate_screener.py
-"""
 import requests
 import json
 import os
 import time
 import sys
+import math
 from datetime import datetime
 
 # Fix Windows console encoding
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
 BINANCE_API = "https://fapi.binance.com/fapi/v1/ticker/24hr"
+BINANCE_INFO_API = "https://fapi.binance.com/fapi/v1/exchangeInfo"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_FILE = os.path.join(SCRIPT_DIR, "binance_futures_cache.json")
 TOP_N = 100
@@ -31,7 +20,6 @@ OUTPUT_DIR = os.path.join(SCRIPT_DIR, "generated_screeners")
 MAX_RETRIES = 3
 REQUEST_TIMEOUT = 15
 
-# TradFi / Equity / Commodity symbols to EXCLUDE (these are NOT crypto)
 TRADFI_SYMBOLS = {
     "AAPLUSDT", "AMDUSDT", "AMZNUSDT", "AVGOUSDT", "BABAUSDT", "BRKBUSDT",
     "BZUSDT", "CBRSUSDT", "CLUSDT", "COINUSDT", "COPPERUSDT", "CRCLUSDT",
@@ -41,379 +29,521 @@ TRADFI_SYMBOLS = {
     "XPLUSDT",
 }
 
-# Top 100 Binance USDⓈ-M Futures CRYPTO perpetual pairs by 24h volume
-# Source: CoinGlass (verified May 2026), filtered to crypto-only
-HARDCODED_TOP_100 = [
-    # --- Batch A ---
-    "BTCUSDT", "ETHUSDT", "HYPEUSDT", "SOLUSDT", "XRPUSDT",
-    "NEARUSDT", "DOGEUSDT", "BNBUSDT", "SUIUSDT", "ADAUSDT",
-    # --- Batch B (Requested / Screenshot hot pairs) ---
-    "GRASSUSDT", "FIDAUSDT", "BEATUSDT", "GENIUSUSDT", "ALTUSDT",
-    "AGTUSDT", "EDENUSDT", "JCTUSDT", "1000PEPEUSDT", "ONDOUSDT",
-    # --- Batch C ---
-    "WLDUSDT", "TAOUSDT", "LINKUSDT", "TONUSDT", "AVAXUSDT",
-    "DOTUSDT", "LTCUSDT", "FILUSDT", "INJUSDT", "ENAUSDT",
-    # --- Batch D ---
-    "TRUMPUSDT", "FETUSDT", "AAVEUSDT", "TRXUSDT", "ICPUSDT",
-    "UNIUSDT", "BCHUSDT", "ARBUSDT", "TIAUSDT", "VIRTUALUSDT",
-    # --- Batch E ---
-    "XMRUSDT", "RENDERUSDT", "ATOMUSDT", "XLMUSDT", "ETCUSDT",
-    "APTUSDT", "CHZUSDT", "1000SHIBUSDT", "OPUSDT", "HBARUSDT",
-    # --- Batch F ---
-    "ALGOUSDT", "SEIUSDT", "MKRUSDT", "ORDIUSDT", "RUNEUSDT",
-    "PENDLEUSDT", "CRVUSDT", "DYDXUSDT", "ENSUSDT", "MATICUSDT",
-    # --- Batch G ---
-    "WIFUSDT", "JUPUSDT", "STXUSDT", "LDOUSDT", "FLOKIUSDT",
-    "BONKUSDT", "PEPEUSDT", "CFXUSDT", "JASMYUSDT", "ARUSDT",
-    # --- Batch H ---
-    "GALAUSDT", "SNXUSDT", "IMXUSDT", "THETAUSDT", "FTMUSDT",
-    "SANDUSDT", "MANAUSDT", "AXSUSDT", "BEAMXUSDT", "GMXUSDT",
-    # --- Batch I ---
-    "APEUSDT", "EGLDUSDT", "FLOWUSDT", "MASKUSDT", "1INCHUSDT",
-    "COMPUSDT", "ZRXUSDT", "IOTAUSDT", "EOSUSDT", "NEOUSDT",
-    # --- Batch J ---
-    "XTZUSDT", "KAVAUSDT", "KLAYUSDT", "GRTUSDT", "VETUSDT",
-    "ZILUSDT", "WOOUSDT", "SKLUSDT", "CAKEUSDT", "LRCUSDT"
-]
-# Remove duplicates while preserving order
-seen = set()
-HARDCODED_TOP_100 = [x for x in HARDCODED_TOP_100 if not (x in seen or seen.add(x))]
-
-
-# ============================================================================
-# PHASE 1: FETCH & FILTER
-# ============================================================================
 def fetch_top_pairs():
-    """Fetch Binance Futures tickers. Tries live API first, falls back to hardcoded list."""
     print("=" * 60)
-    print(" BINANCE USDS-M AUTOBOT - V8 DASHBOARD GENERATOR")
+    print(" BINANCE USDS-M DASHBOARD GENERATOR")
     print("=" * 60)
 
     data = None
+    info_data = None
     api_success = False
 
-    # --- Try live API first ---
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             print(f"\n[FETCH] Attempt {attempt}/{MAX_RETRIES} - Connecting to Binance Futures API...")
             resp = requests.get(BINANCE_API, timeout=REQUEST_TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
-            print(f"[FETCH] Received {len(data)} tickers from API")
+            
+            resp_info = requests.get(BINANCE_INFO_API, timeout=REQUEST_TIMEOUT)
+            resp_info.raise_for_status()
+            info_data = resp_info.json()
+            
+            print(f"[FETCH] Received {len(data)} tickers and exchange info")
             api_success = True
             break
         except requests.RequestException as e:
             print(f"[FETCH] Attempt {attempt} failed: {str(e)[:100]}")
             if attempt < MAX_RETRIES:
                 wait = 2 ** attempt
-                print(f"[FETCH] Retrying in {wait}s...")
                 time.sleep(wait)
 
+    tick_map = {}
+    if info_data:
+        for sym in info_data.get("symbols", []):
+            symbol_name = sym["symbol"]
+            for f in sym.get("filters", []):
+                if f["filterType"] == "PRICE_FILTER":
+                    tick_size_str = f["tickSize"]
+                    tick_map[symbol_name] = float(tick_size_str)
+                    break
+
+    symbols_with_meta = []
     if api_success:
-        # --- Filter: USDT perpetuals only, crypto only ---
         filtered = [
             t for t in data
             if t["symbol"].endswith("USDT")
             and "_" not in t["symbol"]
             and t["symbol"] not in TRADFI_SYMBOLS
         ]
-        print(f"[FILTER] {len(data)} total -> {len(filtered)} crypto USDT perpetuals (TradFi excluded)")
-
-        # --- Sort by 24h quoteVolume descending ---
         filtered.sort(key=lambda t: float(t.get("quoteVolume", 0)), reverse=True)
         top = filtered[:TOP_N]
 
-        # Save cache
-        cache_data = [{"symbol": t["symbol"], "quoteVolume": t["quoteVolume"], "lastPrice": t["lastPrice"]} for t in top]
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(cache_data, f, indent=2)
-
-        symbols = [t["symbol"] for t in top]
-
+        for t in top:
+            sym = t["symbol"]
+            tick_size = tick_map.get(sym, 0.001)
+            # calculate decimals based on tick size
+            price_decimals = 0
+            tick_str = str(float(tick_size))
+            if "e" in tick_str:
+                price_decimals = abs(int(tick_str.split('e')[-1]))
+            elif "." in tick_str:
+                frac = tick_str.split('.')[1].rstrip('0')
+                if frac:
+                    price_decimals = len(frac)
+            
+            symbols_with_meta.append({
+                "symbol": sym,
+                "tick_size": tick_size,
+                "price_decimals": price_decimals
+            })
     else:
-        # --- Fallback: use hardcoded list ---
-        print(f"\n[FETCH] API unreachable (ISP block). Using verified pair list...")
-        symbols = HARDCODED_TOP_100[:TOP_N]
-        print(f"[LIST]  Loaded {len(symbols)} verified crypto perpetual pairs")
+        # fallback
+        HARDCODED = [
+            "BTCUSDT", "ETHUSDT", "HYPEUSDT", "SOLUSDT", "XRPUSDT",
+            "NEARUSDT", "DOGEUSDT", "BNBUSDT", "SUIUSDT", "ADAUSDT",
+            "GRASSUSDT", "FIDAUSDT", "BEATUSDT", "GENIUSUSDT", "ALTUSDT",
+            "AGTUSDT", "EDENUSDT", "JCTUSDT", "1000PEPEUSDT", "ONDOUSDT",
+            "WLDUSDT", "TAOUSDT", "LINKUSDT", "TONUSDT", "AVAXUSDT",
+            "DOTUSDT", "LTCUSDT", "FILUSDT", "INJUSDT", "ENAUSDT",
+            "TRUMPUSDT", "FETUSDT", "AAVEUSDT", "TRXUSDT", "ICPUSDT",
+            "UNIUSDT", "BCHUSDT", "ARBUSDT", "TIAUSDT", "VIRTUALUSDT",
+            "XMRUSDT", "RENDERUSDT", "ATOMUSDT", "XLMUSDT", "ETCUSDT",
+            "APTUSDT", "CHZUSDT", "1000SHIBUSDT", "OPUSDT", "HBARUSDT"
+        ]
+        for sym in HARDCODED:
+            tick_size = 0.001
+            if sym.startswith("1000"):
+                tick_size = 0.0000001
+            elif sym == "BTCUSDT":
+                tick_size = 0.1
+            elif sym == "ETHUSDT":
+                tick_size = 0.01
+                
+            price_decimals = 0
+            tick_str = str(float(tick_size))
+            if "e" in tick_str:
+                price_decimals = abs(int(tick_str.split('e')[-1]))
+            elif "." in tick_str:
+                frac = tick_str.split('.')[1].rstrip('0')
+                if frac:
+                    price_decimals = len(frac)
+                
+            symbols_with_meta.append({
+                "symbol": sym,
+                "tick_size": tick_size,
+                "price_decimals": price_decimals
+            })
 
-    print(f"[TOP 5] {', '.join(symbols[:5])}")
-    return symbols
+    return symbols_with_meta
 
+ENGINE_TEMPLATE = """
+// ============================================================================
+// INPUTS
+// ============================================================================
+tf = input.timeframe("15", "Timeframe Screener")
 
-# ============================================================================
-# PHASE 3: PINE SCRIPT V8 ENGINE (IMPROVED)
-# ============================================================================
-def generate_pine_script(symbols, batch_label):
-    """Generate a complete Pine Script v6 file for one batch of 10 symbols.
+srLen = input.int(20, "S/R Length")
+atrLen = input.int(14, "ATR Length")
+leverage = input.int(10, "Leverage", minval=1, maxval=125)
+
+entryScore = input.int(70, "Entry Score")
+scoreGap = input.int(8, "Score Gap")
+
+slAtrMult = input.float(1.5, "SL ATR Mult", step=0.1)
+tpAtrMult = input.float(3.0, "TP ATR Mult", step=0.1)
+minRR = input.float(1.8, "Minimum RR", step=0.1)
+
+minSlRawPct = input.float(0.6, "Minimum SL Raw %", step=0.1)
+minTpRawPct = input.float(1.2, "Minimum TP Raw %", step=0.1)
+maxPlanRiskPct = input.float(5.0, "Max Raw Risk % For Action", step=0.5)
+maxLevRiskPct = input.float(65.0, "Max Leveraged Risk % For Action", step=5.0)
+
+breakoutBufferPct = input.float(0.05, "Breakout Buffer %", step=0.01)
+srAtrBuffer = input.float(0.20, "S/R ATR Buffer", step=0.05)
+useStructureSL = input.bool(true, "Use Structure SL When Reasonable")
+maxStructureRiskPct = input.float(6.0, "Max Structure SL %", step=0.5)
+
+cooldownBars = input.int(5, "Alert Cooldown Bars", minval=1)
+
+pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+// ============================================================================
+// COLORS & HELPERS
+// ============================================================================
+cHeader = color.rgb(55, 62, 70)
+cDark = color.rgb(28, 33, 40)
+cText = color.white
+cGreen = color.rgb(0, 180, 90)
+cLime = color.rgb(70, 220, 90)
+cBlue = color.rgb(40, 130, 220)
+cYellow = color.rgb(220, 190, 40)
+cOrange = color.rgb(230, 120, 40)
+cRed = color.rgb(220, 60, 60)
+cGray = color.rgb(110, 110, 110)
+
+f_risk_label(levRiskPct) =>
+    na(levRiskPct) ? "NO_DATA" :
+      levRiskPct <= 35 ? "SAFE" :
+      levRiskPct <= 65 ? "RISKY" :
+      "HIGH"
+
+f_risk_color(risk) =>
+    risk == "SAFE" ? cLime :
+      risk == "RISKY" ? cOrange :
+      cRed
+
+f_action_color(act) =>
+    act == "LONG" ? cLime :
+      act == "SHORT" ? cRed :
+      cGray
+
+f_signal_color(sig) =>
+    sig == "LONG" ? cLime :
+      sig == "SHORT" ? cRed :
+      sig == "RISKY" ? cOrange :
+      cGray
+
+f_score_color(score) =>
+    score >= 80 ? cLime :
+      score >= 60 ? cGreen :
+      score >= 40 ? cOrange :
+      cRed
+
+f_cell(tbl, col, row, txt, bg, txtColor) =>
+    table.cell(tbl, col, row, txt, bgcolor=bg, text_color=txtColor, text_size=size.small)
+
+f_header(tbl, col, title) =>
+    table.cell(tbl, col, 0, title, bgcolor=cHeader, text_color=color.yellow, text_size=size.small)
+
+f_fmt_price(val, tickSize) =>
+    str.tostring(val, tickSize == 0.1 ? "0.0" : tickSize == 0.01 ? "0.00" : tickSize == 0.001 ? "0.000" : tickSize == 0.0001 ? "0.0000" : tickSize == 0.00001 ? "0.00000" : tickSize == 0.000001 ? "0.000000" : tickSize == 0.0000001 ? "0.0000000" : tickSize == 0.00000001 ? "0.00000000" : "0.00")
+
+// ============================================================================
+// DASHBOARD ENGINE
+// ============================================================================
+f_dashboard_engine() =>
+    sup = ta.lowest(low[1], srLen)
+    rst = ta.highest(high[1], srLen)
+    atrVal = ta.atr(atrLen)
     
-    V8 Engine uses triple-confirmation strategy:
-    - EMA 200 trend filter
-    - HMA turn detection for precise entries
-    - ADX trend strength filter (>20 = trending)
-    - RSI momentum filter (avoid overbought/oversold entries)
-    - Volume spike confirmation
-    - ATR-based dynamic TP/SL
-    """
+    validData = not na(close) and close > 0 and not na(atrVal) and atrVal > 0 and not na(sup) and not na(rst)
+    
+    buf = breakoutBufferPct / 100.0
+    longTriggerRaw  = rst * (1 + buf)
+    shortTriggerRaw = sup * (1 - buf)
+    
+    longTrigger  = longTriggerRaw
+    shortTrigger = shortTriggerRaw
+    
+    longBreak  = close >= longTrigger
+    shortBreak = close <= shortTrigger
+    
+    entryLong  = longBreak ? close : longTrigger
+    entryShort = shortBreak ? close : shortTrigger
+    
+    // SL LONG
+    baseSlLongDist = math.max(atrVal * slAtrMult, entryLong * minSlRawPct / 100.0, syminfo.mintick)
+    structSlLong = sup - atrVal * srAtrBuffer
+    structSlLongDist = entryLong - structSlLong
+    structRiskLongPct = entryLong > 0 ? structSlLongDist / entryLong * 100.0 : na
+    useStructLong = useStructureSL and not na(structSlLongDist) and structSlLongDist > 0 and structRiskLongPct <= maxStructureRiskPct
+    slLongDist = useStructLong ? math.max(baseSlLongDist, structSlLongDist) : baseSlLongDist
+    slLong = entryLong - slLongDist
+    
+    // SL SHORT
+    baseSlShortDist = math.max(atrVal * slAtrMult, entryShort * minSlRawPct / 100.0, syminfo.mintick)
+    structSlShort = rst + atrVal * srAtrBuffer
+    structSlShortDist = structSlShort - entryShort
+    structRiskShortPct = entryShort > 0 ? structSlShortDist / entryShort * 100.0 : na
+    useStructShort = useStructureSL and not na(structSlShortDist) and structSlShortDist > 0 and structRiskShortPct <= maxStructureRiskPct
+    slShortDist = useStructShort ? math.max(baseSlShortDist, structSlShortDist) : baseSlShortDist
+    slShort = entryShort + slShortDist
+    
+    // TP LONG
+    tpLongByAtrDist = atrVal * tpAtrMult
+    tpLongByMinPctDist = entryLong * minTpRawPct / 100.0
+    tpLongByRRDist = slLongDist * minRR
+    tpLongDist = math.max(tpLongByAtrDist, tpLongByMinPctDist, tpLongByRRDist)
+    tpLong = entryLong + tpLongDist
+    
+    // TP SHORT
+    tpShortByAtrDist = atrVal * tpAtrMult
+    tpShortByMinPctDist = entryShort * minTpRawPct / 100.0
+    tpShortByRRDist = slShortDist * minRR
+    tpShortDist = math.max(tpShortByAtrDist, tpShortByMinPctDist, tpShortByRRDist)
+    tpShort = math.max(entryShort - tpShortDist, 0.00000001)
+    
+    dirOkLong  = not na(entryLong) and not na(tpLong) and not na(slLong) and tpLong > entryLong and slLong < entryLong
+    dirOkShort = not na(entryShort) and not na(tpShort) and not na(slShort) and tpShort < entryShort and slShort > entryShort
+    
+    riskPctLong = entryLong > 0 ? math.abs(entryLong - slLong) / entryLong * 100.0 : na
+    tpPctLong   = entryLong > 0 ? math.abs(tpLong - entryLong) / entryLong * 100.0 : na
+    rrLong      = riskPctLong > 0 ? tpPctLong / riskPctLong : na
+    
+    riskPctShort = entryShort > 0 ? math.abs(slShort - entryShort) / entryShort * 100.0 : na
+    tpPctShort   = entryShort > 0 ? math.abs(entryShort - tpShort) / entryShort * 100.0 : na
+    rrShort      = riskPctShort > 0 ? tpPctShort / riskPctShort : na
+    
+    levRiskPctLong = riskPctLong * leverage
+    levTpPctLong   = tpPctLong * leverage
+    levRiskPctShort = riskPctShort * leverage
+    levTpPctShort   = tpPctShort * leverage
+    
+    riskOkLong = not na(riskPctLong) and riskPctLong <= maxPlanRiskPct and levRiskPctLong <= maxLevRiskPct and rrLong >= minRR
+    riskOkShort = not na(riskPctShort) and riskPctShort <= maxPlanRiskPct and levRiskPctShort <= maxLevRiskPct and rrShort >= minRR
+    
+    // Score Features
+    ema20 = ta.ema(close, 20)
+    ema50 = ta.ema(close, 50)
+    ema200 = ta.ema(close, 200)
+    
+    trendUp = close > ema20 and ema20 > ema50
+    trendDown = close < ema20 and ema20 < ema50
+    macroBull = close > ema200
+    macroBear = close < ema200
+    
+    rsiVal = ta.rsi(close, 14)
+    rsiLongOk = rsiVal >= 50 and rsiVal <= 72
+    rsiShortOk = rsiVal <= 50 and rsiVal >= 28
+    
+    [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9)
+    macdUp = macdLine > signalLine and hist > 0
+    macdDown = macdLine < signalLine and hist < 0
+    
+    volMA = ta.sma(volume, 20)
+    rvol = volMA > 0 ? volume / volMA : na
+    
+    [plusDI, minusDI, adxVal] = ta.dmi(14, 14)
+    adxOk = adxVal >= 18
+    longDmiOk = plusDI > minusDI
+    shortDmiOk = minusDI > plusDI
+    
+    scoreLong = 0.0
+    scoreLong += trendUp ? 18 : 0
+    scoreLong += macroBull ? 7 : 0
+    scoreLong += rsiVal >= 50 and rsiVal <= 68 ? 15 : rsiVal > 68 and rsiVal <= 75 ? 8 : 0
+    scoreLong += macdUp ? 15 : 0
+    scoreLong += rvol >= 2.0 ? 15 : rvol >= 1.2 ? 10 : rvol >= 0.8 ? 5 : 0
+    scoreLong += adxOk and longDmiOk ? 10 : adxOk ? 5 : 0
+    scoreLong += longBreak ? 10 : close > ema20 ? 5 : 0
+    scoreLong += rrLong >= 1.8 ? 10 : rrLong >= 1.3 ? 5 : 0
+    
+    scoreShort = 0.0
+    scoreShort += trendDown ? 18 : 0
+    scoreShort += macroBear ? 7 : 0
+    scoreShort += rsiVal <= 50 and rsiVal >= 32 ? 15 : rsiVal < 32 and rsiVal >= 25 ? 8 : 0
+    scoreShort += macdDown ? 15 : 0
+    scoreShort += rvol >= 2.0 ? 15 : rvol >= 1.2 ? 10 : rvol >= 0.8 ? 5 : 0
+    scoreShort += adxOk and shortDmiOk ? 10 : adxOk ? 5 : 0
+    scoreShort += shortBreak ? 10 : close < ema20 ? 5 : 0
+    scoreShort += rrShort >= 1.8 ? 10 : rrShort >= 1.3 ? 5 : 0
+    
+    technicalSide = scoreLong >= entryScore and scoreLong > scoreShort + scoreGap ? "LONG" : scoreShort >= entryScore and scoreShort > scoreLong + scoreGap ? "SHORT" : "NEUTRAL"
+    
+    longCandidate = trendUp and rsiLongOk and macdUp and rvol >= 1.0
+    shortCandidate = trendDown and rsiShortOk and macdDown and rvol >= 1.0
+    
+    validLongAction = validData and longCandidate and technicalSide == "LONG" and riskOkLong and dirOkLong
+    validShortAction = validData and shortCandidate and technicalSide == "SHORT" and riskOkShort and dirOkShort
+    
+    action = validLongAction ? "LONG" : validShortAction ? "SHORT" : "WAIT"
+    
+    isLong = action == "LONG" or (action == "WAIT" and scoreLong >= scoreShort)
+    isShort = action == "SHORT" or (action == "WAIT" and scoreShort > scoreLong)
+    
+    finalEntry = isLong ? entryLong : isShort ? entryShort : na
+    finalTP = isLong ? tpLong : isShort ? tpShort : na
+    finalSL = isLong ? slLong : isShort ? slShort : na
+    tpPct = isLong ? tpPctLong : isShort ? tpPctShort : na
+    riskPct = isLong ? riskPctLong : isShort ? riskPctShort : na
+    rr = isLong ? rrLong : isShort ? rrShort : na
+    levTpPct = isLong ? levTpPctLong : isShort ? levTpPctShort : na
+    levRiskPct = isLong ? levRiskPctLong : isShort ? levRiskPctShort : na
+    score = isLong ? scoreLong : isShort ? scoreShort : math.max(scoreLong, scoreShort)
+    
+    riskLabel = f_risk_label(levRiskPct)
+    
+    signal = action == "LONG" ? "LONG" : action == "SHORT" ? "SHORT" : riskLabel == "HIGH" or riskLabel == "RISKY" ? "RISKY" : "NEUTRAL"
+    
+    body = math.abs(close - open)
+    barRange = math.max(high - low, syminfo.mintick)
+    lowerWick = math.min(open, close) - low
+    upperWick = high - math.max(open, close)
+    closeNearHigh = close >= low + barRange * 0.70
+    closeNearLow  = close <= low + barRange * 0.30
+    
+    bullImpulse = close > open and closeNearHigh and rvol >= 1.2
+    bearImpulse = close < open and closeNearLow and rvol >= 1.2
+    longAbsorb  = lowerWick > body * 1.2 and closeNearHigh and rvol >= 1.3
+    shortAbsorb = upperWick > body * 1.2 and closeNearLow and rvol >= 1.3
+    smallBodyHighVol = body <= atrVal * 0.30 and rvol >= 1.8
+    
+    flow = bullImpulse and trendUp ? "LONG FLOW" : bearImpulse and trendDown ? "SHORT FLOW" : longAbsorb ? "BUY ABSORB" : shortAbsorb ? "SELL ABSORB" : smallBodyHighVol ? "SQUEEZE" : rvol < 0.5 ? "SEPI" : "NORMAL"
+
+    [close, finalEntry, finalTP, finalSL, tpPct, riskPct, rr, levTpPct, levRiskPct, riskLabel, rsiVal, rvol * 100, flow, action, score, signal]
+"""
+
+def generate_pine_script(symbols, batch_label):
     n = len(symbols)
-
-    # --- 3.1: Ticker Definitions ---
+    
     ticker_lines = []
+    tick_lines = []
+    decimals_lines = []
     for i, sym in enumerate(symbols):
-        ticker_lines.append(f'tk{i+1} = "BINANCE:{sym}.P"')
-    ticker_definitions = "\n".join(ticker_lines)
-
-    # --- 3.2: Security Calls ---
+        ticker_lines.append(f'tk{i+1} = "BINANCE:{sym["symbol"]}.P"')
+        tick_lines.append(f'tick{i+1} = {sym["tick_size"]}')
+        decimals_lines.append(f'dec{i+1} = {sym["price_decimals"]}')
+        
     security_lines = []
     for i in range(n):
         idx = i + 1
         security_lines.append(
-            f'[c{idx}, ep{idx}, sig{idx}, at{idx}, sd{idx}, tp{idx}, sl{idx}, lev{idx}, qty{idx}] = '
-            f'request.security(tk{idx}, tf, f_engine())'
+            f'[now{idx}, entry{idx}, tp_{idx}, sl_{idx}, pctTp{idx}, riskPct{idx}, rr{idx}, levTpPct{idx}, levRiskPct{idx}, risk{idx}, rsi{idx}, rvolPct{idx}, flow{idx}, action{idx}, score{idx}, signal{idx}] = request.security(tk{idx}, tf, f_dashboard_engine())'
         )
-    security_calls = "\n".join(security_lines)
 
-    # --- 3.3: Table Rows ---
-    row_lines = []
+    row_chunks = []
     for i in range(n):
         idx = i + 1
+        t = symbols[i]["symbol"]
         row = i + 1
-        sym = symbols[i]
-        row_lines.append(f'''    // Row {row}: {sym}
-    sig_bg{idx} = sig{idx} == "LONG" ? color.lime : sig{idx} == "SHORT" ? color.red : color.gray
-    sig_tc{idx} = sig{idx} == "WAIT" ? color.white : color.black
-    table.cell(tbl, 0, {row}, "{sym}", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 1, {row}, sig{idx}, text_color=sig_tc{idx}, bgcolor=sig_bg{idx}, text_size=size.small)
-    table.cell(tbl, 2, {row}, c{idx}, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 3, {row}, ep{idx}, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 4, {row}, tp{idx}, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 5, {row}, sl{idx}, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 6, {row}, str.tostring(lev{idx}), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 7, {row}, qty{idx}, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)''')
-    table_rows = "\n".join(row_lines)
+        
+        row_str = f"""    // Row {row}
+    f_cell(tbl, 0, {row}, "{t}", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, {row}, tf, cDark, color.white)
+    f_cell(tbl, 2, {row}, f_fmt_price(entry{idx}, tick{idx}), cDark, color.white)
+    f_cell(tbl, 3, {row}, f_fmt_price(now{idx}, tick{idx}), cDark, color.white)
+    f_cell(tbl, 4, {row}, f_fmt_price(tp_{idx}, tick{idx}), cDark, color.lime)
+    f_cell(tbl, 5, {row}, f_fmt_price(sl_{idx}, tick{idx}), cDark, color.orange)
+    f_cell(tbl, 6, {row}, str.tostring(pctTp{idx}, "#.##") + "%", cDark, color.white)
+    f_cell(tbl, 7, {row}, str.tostring(riskPct{idx}, "#.##") + "%", cDark, color.white)
+    f_cell(tbl, 8, {row}, str.tostring(rr{idx}, "#.##"), cDark, color.white)
+    f_cell(tbl, 9, {row}, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 10, {row}, risk{idx}, f_risk_color(risk{idx}), color.white)
+    f_cell(tbl, 11, {row}, str.tostring(rsi{idx}, "#.0"), rsi{idx} < 30 ? cRed : rsi{idx} > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 12, {row}, str.tostring(rvolPct{idx}, "#.0") + "%", rvolPct{idx} >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 13, {row}, flow{idx}, cDark, color.white)
+    f_cell(tbl, 14, {row}, action{idx}, f_action_color(action{idx}), color.white)
+    f_cell(tbl, 15, {row}, str.tostring(score{idx}, "#"), f_score_color(score{idx}), color.white)
+    f_cell(tbl, 16, {row}, signal{idx}, f_signal_color(signal{idx}), color.white)"""
+        row_chunks.append(row_str)
 
-    # --- 3.4: Webhook Alerts ---
+    headers = """    f_header(tbl, 0, "PAIR")
+    f_header(tbl, 1, "TF")
+    f_header(tbl, 2, "ENTRY")
+    f_header(tbl, 3, "NOW")
+    f_header(tbl, 4, "TP")
+    f_header(tbl, 5, "SL")
+    f_header(tbl, 6, "TP%")
+    f_header(tbl, 7, "RISK%")
+    f_header(tbl, 8, "RR")
+    f_header(tbl, 9, "LEV")
+    f_header(tbl, 10, "RISK")
+    f_header(tbl, 11, "RSI")
+    f_header(tbl, 12, "RVOL")
+    f_header(tbl, 13, "FLOW")
+    f_header(tbl, 14, "ACTION")
+    f_header(tbl, 15, "SCORE")
+    f_header(tbl, 16, "SIGNAL")"""
+
     alert_lines = []
     for i in range(n):
         idx = i + 1
-        sym = symbols[i]
-        alert_lines.append(
-            f'    if at{idx} != "WAIT"\n'
-            f'        alert(\'{{"type":"USDM_V12","batch":"{batch_label}","ticker":"{sym}","side":"\' + sd{idx} + \'","signal":"\' + at{idx} + \'","entry":\' + ep{idx} + \',"tp":\' + tp{idx} + \',"sl":\' + sl{idx} + \',"lev":\' + str.tostring(lev{idx}) + \',"qty":\' + qty{idx} + \',"time":\' + str.tostring(time) + \'}}\', alert.freq_once_per_bar)'
-        )
-    webhook_alerts = "\n".join(alert_lines)
+        t = symbols[i]["symbol"]
+        alert_lines.append(f'''var string activeSide{idx} = ""
+var float activeEntry{idx} = na
+var float activeTp{idx} = na
+var float activeSl{idx} = na
+var string lastEvent{idx} = ""
+var int lastBar{idx} = na
 
-    # --- Assemble Full Script with IMPROVED V12 PREMIUM ENGINE ---
-    script = f'''// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// Strategy: USD-M AUTOBOT DASHBOARD V12 PREMIUM (BATCH {batch_label})
-// Engine: Premium High-Speed EMA Crossover (EMA 5/13 + Volume + RSI)
+longTpHit{idx} = activeSide{idx} == "LONG" and high >= activeTp{idx}
+longSlHit{idx} = activeSide{idx} == "LONG" and low <= activeSl{idx}
+shortTpHit{idx} = activeSide{idx} == "SHORT" and low <= activeTp{idx}
+shortSlHit{idx} = activeSide{idx} == "SHORT" and high >= activeSl{idx}
+
+event{idx} = longSlHit{idx} or shortSlHit{idx} ? "SL_HIT" : longTpHit{idx} or shortTpHit{idx} ? "TP_HIT" : action{idx} == "LONG" ? "LONG_ENTRY" : action{idx} == "SHORT" ? "SHORT_ENTRY" : "NONE"
+
+if event{idx} == "SL_HIT" or event{idx} == "TP_HIT"
+    activeSide{idx} := ""
+    activeEntry{idx} := na
+    activeTp{idx} := na
+    activeSl{idx} := na
+else if event{idx} == "LONG_ENTRY"
+    activeSide{idx} := "LONG"
+    activeEntry{idx} := entry{idx}
+    activeTp{idx} := tp_{idx}
+    activeSl{idx} := sl_{idx}
+else if event{idx} == "SHORT_ENTRY"
+    activeSide{idx} := "SHORT"
+    activeEntry{idx} := entry{idx}
+    activeTp{idx} := tp_{idx}
+    activeSl{idx} := sl_{idx}
+    
+sendAlert{idx} = event{idx} == "LONG_ENTRY" or event{idx} == "SHORT_ENTRY" or event{idx} == "TP_HIT" or event{idx} == "SL_HIT"
+canAlert{idx} = sendAlert{idx} and (event{idx} != lastEvent{idx} or na(lastBar{idx}) or bar_index - lastBar{idx} >= cooldownBars)
+
+if barstate.isconfirmed and canAlert{idx}
+    msg_{idx} = '{{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event{idx} + '", "side": "' + str.tostring(action{idx}) + '", "symbol": "{t}", "tf": "' + tf + '", "entry": ' + str.tostring(entry{idx}) + ', "entry_text": "' + f_fmt_price(entry{idx}, tick{idx}) + '", "now": ' + str.tostring(now{idx}) + ', "now_text": "' + f_fmt_price(now{idx}, tick{idx}) + '", "tp": ' + str.tostring(tp_{idx}) + ', "tp_text": "' + f_fmt_price(tp_{idx}, tick{idx}) + '", "sl": ' + str.tostring(sl_{idx}) + ', "sl_text": "' + f_fmt_price(sl_{idx}, tick{idx}) + '", "tp_pct": ' + str.tostring(pctTp{idx}) + ', "risk_pct": ' + str.tostring(riskPct{idx}) + ', "rr": ' + str.tostring(rr{idx}) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct{idx}) + ', "lev_risk_pct": ' + str.tostring(levRiskPct{idx}) + ', "risk_label": "' + risk{idx} + '", "score": ' + str.tostring(score{idx}) + ', "flow": "' + flow{idx} + '", "signal": "' + signal{idx} + '", "tick_size": ' + str.tostring(tick{idx}) + ', "price_decimals": ' + str.tostring(dec{idx}) + ', "time": ' + str.tostring(time) + '}}'
+    alert(msg_{idx}, alert.freq_once_per_bar_close)
+    lastEvent{idx} := event{idx}
+    lastBar{idx} := bar_index
+''')
+
+    pine_code = f"""// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// Strategy: Binance USD-M Autobot {batch_label}
 //@version=6
-indicator("USD-M DASHBOARD V12 - BATCH {batch_label}", overlay=true, max_bars_back=500)
+indicator("Binance USD-M Autobot {batch_label}", overlay=true, max_bars_back=500)
+
+{ENGINE_TEMPLATE}
 
 // ============================================================================
-// 1. SOP & TRADING PLAN
+// DATA FETCH
 // ============================================================================
-fixedMargin = input.float(20.0, "Modal per Trade (USDT)", group="1. TRADING PLAN (SOP)")
-maxMarginRiskPct = input.float(50.0, "Max Drawdown Modal (%)", step=5.0, group="1. TRADING PLAN (SOP)")
-maxLeverageCap = input.int(20, "Maksimal Leverage (Limit)", minval=1, maxval=125, group="1. TRADING PLAN (SOP)")
-tradeWeekdaysOnly = input.bool(true, "Matikan Bot di Sabtu & Minggu?", group="1. TRADING PLAN (SOP)")
+{chr(10).join(ticker_lines)}
+{chr(10).join(tick_lines)}
+{chr(10).join(decimals_lines)}
+
+{chr(10).join(security_lines)}
 
 // ============================================================================
-// 2. ENGINE PARAMETERS
+// ALERT LOGIC
 // ============================================================================
-tf = input.timeframe("5", "Timeframe Screener", group="2. ENGINE")
-maFastLen = input.int(5, "Fast MA (Momentum)", group="2. ENGINE")
-maSlowLen = input.int(13, "Slow MA (Trigger)", group="2. ENGINE")
-volLen = input.int(20, "Volume SMA Length", group="2. ENGINE")
-volSpikeMult = input.float(1.5, "Volume Spike Multiplier", step=0.1, group="2. ENGINE")
-rsiLen = input.int(14, "RSI Length", group="2. ENGINE")
-atrPeriod = input.int(14, "ATR Period", group="2. ENGINE")
-tpMult = input.float(1.5, "TP ATR Multiplier", step=0.1, group="2. ENGINE")
-slMult = input.float(1.0, "SL ATR Multiplier", step=0.1, group="2. ENGINE")
-waitForClose = input.bool(false, "Wait for Bar Close (Lebih aman, tapi lambat)", group="2. ENGINE")
+{chr(10).join(alert_lines)}
 
 // ============================================================================
-// TICKER DEFINITIONS
+// UI TABLE
 // ============================================================================
-{ticker_definitions}
+tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_right : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+var tbl = table.new(tbl_pos, 17, {n+1}, border_width=1, border_color=#333333)
 
-// ============================================================================
-// CORE ENGINE V12 — HIGH-SPEED EMA 5/13 CROSSOVER STRATEGY
-// Strategy Logic (V12 Premium - Ultra Fast):
-//   1. Entry Trigger: HMA (Hull Moving Average) 5 crosses 13 for NO-LAG reaction!
-//   2. Volume Spike: Volume must be X times higher than its SMA to detect real momentum.
-//   3. Momentum Filter: RSI >= 50 for Long, <= 50 for Short to ensure trend direction.
-//   4. Auto-Invalidation: Exit immediately on reverse crossover.
-// ============================================================================
-f_engine() =>
-    // --- MOVING AVERAGES (Using HMA for zero-lag real-time reaction) ---
-    maFast = ta.hma(close, maFastLen)
-    maSlow = ta.hma(close, maSlowLen)
-    
-    // --- VOLUME CONFIRMATION (Spike Detection) ---
-    volMA = ta.sma(volume, volLen)
-    isVolOk = volume > (volMA * volSpikeMult)
-    
-    // --- MOMENTUM: RSI ---
-    rsiVal = ta.rsi(close, rsiLen)
-    rsiLongOk = rsiVal >= 50
-    rsiShortOk = rsiVal <= 50
-    
-    // --- WEEKEND FILTER ---
-    isWeekend = dayofweek == dayofweek.saturday or dayofweek == dayofweek.sunday
-    isTradingAllowed = tradeWeekdaysOnly ? not isWeekend : true
-    
-    // === HIGH-SPEED CROSSOVER ENTRY TRIGGERS ===
-    isLong = isTradingAllowed and ta.crossover(maFast, maSlow) and isVolOk and rsiLongOk
-    isShort = isTradingAllowed and ta.crossunder(maFast, maSlow) and isVolOk and rsiShortOk
-    
-    // --- ATR for dynamic TP/SL ---
-    atrVal = ta.atr(atrPeriod)
-    
-    // === STATE MACHINE & LIVE CALCULATIONS ===
-    var int tradeState = 0 
-    var float ep = 0.0
-    var float tp = 0.0
-    var float sl = 0.0
-    
-    // Auto-Invalidation Exit: If opposite crossover occurs, exit immediately!
-    if tradeState == 1
-        if high >= tp or low <= sl or ta.crossunder(maFast, maSlow)
-            tradeState := 0 
-    if tradeState == -1
-        if low <= tp or high >= sl or ta.crossover(maFast, maSlow)
-            tradeState := 0 
-
-    bool isNewLong = false
-    bool isNewShort = false
-    
-    if isTradingAllowed
-        if isLong and tradeState != 1
-            tradeState := 1
-            ep := close
-            tp := close + (atrVal * tpMult)
-            sl := close - (atrVal * slMult)
-            isNewLong := true
-        else if isShort and tradeState != -1
-            tradeState := -1
-            ep := close
-            tp := close - (atrVal * tpMult)
-            sl := close + (atrVal * slMult)
-            isNewShort := true
-
-    // Compute live values (shows actual trade values if active, or potential values if waiting)
-    isBearishTrend = maFast < maSlow
-    potential_tp = isBearishTrend ? (close - (atrVal * tpMult)) : (close + (atrVal * tpMult))
-    potential_sl = isBearishTrend ? (close + (atrVal * slMult)) : (close - (atrVal * slMult))
-    
-    display_ep = tradeState != 0 ? ep : close
-    display_tp = tradeState != 0 ? tp : potential_tp
-    display_sl = tradeState != 0 ? sl : potential_sl
-    
-    display_sl_dist = (math.abs(display_ep - display_sl) / display_ep) * 100
-    display_raw_lev = display_sl_dist > 0 ? (maxMarginRiskPct / display_sl_dist) : 1.0
-    display_leverage = math.max(1, math.min(maxLeverageCap, math.round(display_raw_lev)))
-    display_qty = display_ep > 0 ? ((fixedMargin * display_leverage) / display_ep) : 0.0
-    
-    // Convert all numeric values to beautiful strings matching ticker-specific decimal precision
-    str_close = str.tostring(close, format.mintick)
-    str_ep = str.tostring(display_ep, format.mintick)
-    str_tp = str.tostring(display_tp, format.mintick)
-    str_sl = str.tostring(display_sl, format.mintick)
-    
-    // Dynamic quantity formatting based on coin price magnitude to keep table extremely clean
-    str_qty = display_qty >= 1000 ? str.tostring(math.round(display_qty)) : display_qty >= 10 ? str.tostring(display_qty, "#.##") : str.tostring(display_qty, "#.####")
-            
-    activeSig = tradeState == 1 ? "LONG" : tradeState == -1 ? "SHORT" : "WAIT"
-    alert_trigger = isNewLong ? "LONG" : isNewShort ? "SHORT" : "WAIT"
-    alert_side = isNewLong ? "BUY" : isNewShort ? "SELL" : "NONE"
-    
-    [str_close, str_ep, activeSig, alert_trigger, alert_side, str_tp, str_sl, display_leverage, str_qty]
-
-// ============================================================================
-// DATA FETCH - request.security
-// ============================================================================
-{security_calls}
-
-// ============================================================================
-// UI TABLE & DASHBOARD
-// ============================================================================
-var tbl = table.new(position.top_right, 8, 11, border_width=1, border_color=#333333)
 if barstate.islast
-    table.cell(tbl, 0, 0, "PAIR (B-{batch_label})", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
-    table.cell(tbl, 1, 0, "SIGNAL", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
-    table.cell(tbl, 2, 0, "PRICE NOW", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
-    table.cell(tbl, 3, 0, "ENTRY", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
-    table.cell(tbl, 4, 0, "TARGET TP", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
-    table.cell(tbl, 5, 0, "STOP LOSS", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
-    table.cell(tbl, 6, 0, "LEV", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
-    table.cell(tbl, 7, 0, "COIN QTY", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
-    
-{table_rows}
+{headers}
 
-// ============================================================================
-// WEBHOOK ALERTS - JSON Payload
-// ============================================================================
-triggerAlert = waitForClose ? (barstate.islast and barstate.isconfirmed) : barstate.islast
-if triggerAlert
-{webhook_alerts}
+{chr(10).join(row_chunks)}
 
 plot(close, display=display.none)
-'''
-    return script
-
-
-# ============================================================================
-# MAIN - ORCHESTRATION
-# ============================================================================
-def main():
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    # Phase 1: Fetch
-    symbols = fetch_top_pairs()
-
-    # Phase 2: Batch split
-    batches = []
-    for i in range(0, min(TOP_N, len(symbols)), BATCH_SIZE):
-        batch_symbols = symbols[i:i + BATCH_SIZE]
-        label = chr(65 + i // BATCH_SIZE)  # A, B, C, ..., J
-        batches.append((label, batch_symbols))
-
-    # Phase 3 & 4: Generate & Write
+"""
+    
+    filename = os.path.join(OUTPUT_DIR, f"binance_usdm_autobot_batch_{batch_label.lower()}.pine")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    print(f"\n[OUTPUT] Directory: {OUTPUT_DIR}")
-    print("-" * 60)
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(pine_code)
 
-    for label, batch_symbols in batches:
-        script = generate_pine_script(batch_symbols, label)
-        filename = f"binance_usdm_autobot_batch_{label.lower()}.pine"
-        filepath = os.path.join(OUTPUT_DIR, filename)
-
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(script)
-
-        pair_preview = ", ".join(batch_symbols[:4]) + ", ..." if len(batch_symbols) > 4 else ", ".join(batch_symbols)
-        print(f"[GEN] Batch {label} -> {pair_preview} ({len(batch_symbols)} pairs)")
-
-    # Summary
-    print("\n" + "=" * 60)
-    print(f"[DONE] Generated {len(batches)} Pine Script V12 Premium files -> generated_screeners/")
-    print(f"[TIME] {timestamp}")
-    print("=" * 60)
-
-    # Save metadata JSON
-    meta = {
-        "generated_at": timestamp,
-        "total_pairs": len(symbols),
-        "batches": len(batches),
-        "engine": "V12 Premium High-Speed EMA Crossover (EMA 5/13 + Volume + RSI)",
-        "pairs": {label: syms for label, syms in batches},
-        "top_10": symbols[:10]
-    }
-    meta_path = os.path.join(OUTPUT_DIR, "_metadata.json")
-    with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump(meta, f, indent=2)
-    print(f"[META] Saved metadata -> _metadata.json")
-
+def main():
+    symbols = fetch_top_pairs()
+    if not symbols:
+        print("No symbols found.")
+        return
+        
+    num_batches = (len(symbols) + BATCH_SIZE - 1) // BATCH_SIZE
+    for i in range(num_batches):
+        batch_syms = symbols[i*BATCH_SIZE : (i+1)*BATCH_SIZE]
+        batch_label = chr(65 + i)
+        generate_pine_script(batch_syms, batch_label)
+        print(f"  [BINANCE V2] Batch {batch_label} -> {len(batch_syms)} tickers")
+        
+    print(f"\\n[DONE] Generated Binance USD-M files")
 
 if __name__ == "__main__":
     main()

@@ -8,8 +8,8 @@ ENV PORT=8000
 WORKDIR /app
 
 # Install dependencies first to leverage Docker layer caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-webhook.txt .
+RUN pip install --no-cache-dir -r requirements-webhook.txt
 
 # Copy application code
 COPY main.py .

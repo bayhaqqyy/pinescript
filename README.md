@@ -25,7 +25,7 @@ Pipeline end-to-end untuk screener TradingView saham Indonesia (IDX) berbasis al
 - **Timeframe:** 5 Menit (Intraday).
 - **Target:** Holding period dari hitungan menit hingga maksimal penutupan sesi.
 - **Kriteria:** Seeded dari 35 ticker terbukti aktif minggu ini (BUMI, DYAN, PACK, dsb).
-- **Logika Alert:** Pivot Support Entry + RSI < 35 + Volume Spike. TP/SL menggunakan standar ATR.
+- **Logika Alert:** Candle hijau, close > low, relative volume > 1.5, close > EMA5, transaction value >= min_tv, dan close-bar confirmed. TP/SL menggunakan standar ATR.
 
 ### 2. BANDAR SWING (`bandar_ai_v2_*.pine`)
 - **Fokus:** Saham penny liquid dengan indikasi akumulasi institusi/bandar.
