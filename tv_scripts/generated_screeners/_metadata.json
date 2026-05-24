@@ -1,0 +1,140 @@
+{
+  "generated_at": "2026-05-24 20:09:23",
+  "total_pairs": 100,
+  "batches": 10,
+  "engine": "V12 Premium High-Speed EMA Crossover (EMA 5/13 + Volume + RSI)",
+  "pairs": {
+    "A": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "HYPEUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "NEARUSDT",
+      "DOGEUSDT",
+      "BNBUSDT",
+      "SUIUSDT",
+      "ADAUSDT"
+    ],
+    "B": [
+      "GRASSUSDT",
+      "FIDAUSDT",
+      "BEATUSDT",
+      "GENIUSUSDT",
+      "ALTUSDT",
+      "AGTUSDT",
+      "EDENUSDT",
+      "JCTUSDT",
+      "1000PEPEUSDT",
+      "ONDOUSDT"
+    ],
+    "C": [
+      "WLDUSDT",
+      "TAOUSDT",
+      "LINKUSDT",
+      "TONUSDT",
+      "AVAXUSDT",
+      "DOTUSDT",
+      "LTCUSDT",
+      "FILUSDT",
+      "INJUSDT",
+      "ENAUSDT"
+    ],
+    "D": [
+      "TRUMPUSDT",
+      "FETUSDT",
+      "AAVEUSDT",
+      "TRXUSDT",
+      "ICPUSDT",
+      "UNIUSDT",
+      "BCHUSDT",
+      "ARBUSDT",
+      "TIAUSDT",
+      "VIRTUALUSDT"
+    ],
+    "E": [
+      "XMRUSDT",
+      "RENDERUSDT",
+      "ATOMUSDT",
+      "XLMUSDT",
+      "ETCUSDT",
+      "APTUSDT",
+      "CHZUSDT",
+      "1000SHIBUSDT",
+      "OPUSDT",
+      "HBARUSDT"
+    ],
+    "F": [
+      "ALGOUSDT",
+      "SEIUSDT",
+      "MKRUSDT",
+      "ORDIUSDT",
+      "RUNEUSDT",
+      "PENDLEUSDT",
+      "CRVUSDT",
+      "DYDXUSDT",
+      "ENSUSDT",
+      "MATICUSDT"
+    ],
+    "G": [
+      "WIFUSDT",
+      "JUPUSDT",
+      "STXUSDT",
+      "LDOUSDT",
+      "FLOKIUSDT",
+      "BONKUSDT",
+      "PEPEUSDT",
+      "CFXUSDT",
+      "JASMYUSDT",
+      "ARUSDT"
+    ],
+    "H": [
+      "GALAUSDT",
+      "SNXUSDT",
+      "IMXUSDT",
+      "THETAUSDT",
+      "FTMUSDT",
+      "SANDUSDT",
+      "MANAUSDT",
+      "AXSUSDT",
+      "BEAMXUSDT",
+      "GMXUSDT"
+    ],
+    "I": [
+      "APEUSDT",
+      "EGLDUSDT",
+      "FLOWUSDT",
+      "MASKUSDT",
+      "1INCHUSDT",
+      "COMPUSDT",
+      "ZRXUSDT",
+      "IOTAUSDT",
+      "EOSUSDT",
+      "NEOUSDT"
+    ],
+    "J": [
+      "XTZUSDT",
+      "KAVAUSDT",
+      "KLAYUSDT",
+      "GRTUSDT",
+      "VETUSDT",
+      "ZILUSDT",
+      "WOOUSDT",
+      "SKLUSDT",
+      "CAKEUSDT",
+      "LRCUSDT"
+    ]
+  },
+  "top_10": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "HYPEUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "NEARUSDT",
+    "DOGEUSDT",
+    "BNBUSDT",
+    "SUIUSDT",
+    "ADAUSDT"
+  ]
+}

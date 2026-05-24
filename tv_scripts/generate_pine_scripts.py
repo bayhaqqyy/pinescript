@@ -8,9 +8,8 @@ import os
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
 # ============================================================================
-# SCALPING GENERATOR
+# SCALPING GENERATOR (UPDATED: ANTI-ARB ENGINE)
 # ============================================================================
 def generate_scalping_script(tickers, batch_label, stocks_map, date_str):
     """Generate Pine Script v6 scalping screener v2 for a batch of tickers."""
@@ -23,42 +22,24 @@ def generate_scalping_script(tickers, batch_label, stocks_map, date_str):
     
     security_lines = []
     for i in range(n):
+        idx = i + 1
+        # Memanggil f_scalp_engine untuk efisiensi komputasi
         security_lines.append(
-            f'[c{i+1}, h{i+1}, l{i+1}, v{i+1}, o{i+1}, atr_{i+1}] = request.security(tk{i+1}, tf, [close, high, low, volume, open, ta.atr(14)])'
+            f'[c{idx}, st_{idx}, rsi_{idx}, rvol_{idx}, atr_{idx}] = request.security(tk{idx}, tf, f_scalp_engine())'
         )
     
     calc_lines = []
     for i in range(n):
         idx = i + 1
-        t = tickers[i]
-        tier = stocks_map.get(t, {}).get("tier", "SCALP_GORENGAN")
-        
-        calc_lines.append(f'''// --- {t} ---
-pv{idx} = (h{idx}[1] + l{idx}[1] + c{idx}[1]) / 3
-entry{idx} = math.round(2 * pv{idx} - h{idx}[1])
-tv_{idx} = v{idx} * c{idx}
+        calc_lines.append(f'''// --- Calculation Ticker {idx} ---
+tp1_{idx} = math.round(c{idx} + (atr_{idx} * tp1_mult))
+tp2_{idx} = math.round(c{idx} + (atr_{idx} * tp2_mult))
+sl_{idx}  = math.round(c{idx} - (atr_{idx} * sl_mult))
+tv_{idx}  = volume * c{idx}
 
-tp1_{idx} = math.round(entry{idx} + (atr_{idx} * tp1_mult))
-tp2_{idx} = math.round(entry{idx} + (atr_{idx} * tp2_mult))
-sl_{idx}  = math.round(entry{idx} - (atr_{idx} * sl_mult))
-
-rsi{idx}   = ta.rsi(c{idx}, 14)
-avgv{idx}  = ta.sma(v{idx}, 20)
-rvol{idx}  = avgv{idx} > 0 ? v{idx} / avgv{idx} : 0
-
-// Base signal
-sig_base{idx} = (c{idx} <= entry{idx} and rsi{idx} < 35 and rvol{idx} > 1.5) ? "FRESH BUY" : "WAIT"
-
-// Validation Checks
-is_atr_valid{idx} = not na(atr_{idx}) and atr_{idx} > 0
-is_liq_valid{idx} = tv_{idx} >= min_tv
-is_mono_valid{idx} = (tp2_{idx} > tp1_{idx}) and (tp1_{idx} > entry{idx}) and (entry{idx} > sl_{idx})
-
-st{idx} = not is_atr_valid{idx} ? "WAIT_ATR" : not is_liq_valid{idx} ? "WAIT_LIQ" : not is_mono_valid{idx} ? "WAIT_TICK" : sig_base{idx}
-
-st_c{idx}  = st{idx} == "FRESH BUY" ? color.lime : st{idx} == "WAIT_ATR" or st{idx} == "WAIT_LIQ" or st{idx} == "WAIT_TICK" ? color.gray : color.gray
-rs_c{idx}  = rsi{idx} < 30 ? color.lime : rsi{idx} > 70 ? color.red : color.white
-rv_c{idx}  = rvol{idx} > 2 ? color.lime : rvol{idx} > 1 ? color.yellow : color.gray''')
+st_c{idx} = st_{idx} == "HAKA" ? color.lime : color.gray
+rs_c{idx} = rsi_{idx} < 30 ? color.lime : rsi_{idx} > 70 ? color.red : color.white
+rv_c{idx} = rvol_{idx} > 2 ? color.lime : rvol_{idx} > 1.5 ? color.yellow : color.gray''')
     
     row_chunks = []
     current_chunk = []
@@ -69,19 +50,17 @@ rv_c{idx}  = rvol{idx} > 2 ? color.lime : rvol{idx} > 1 ? color.yellow : color.g
         if i > 0 and i % 10 == 0:
             row_chunks.append(chr(10).join(current_chunk))
             current_chunk = []
+            
         current_chunk.append(f'''    // Row {row}: {t}
-    row{idx} = {row}
-    table.cell(tbl, 0, row{idx}, "{t}", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 1, row{idx}, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 2, row{idx}, str.tostring(entry{idx}, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 3, row{idx}, str.tostring(c{idx}, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 4, row{idx}, str.tostring(tp1_{idx}, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 5, row{idx}, str.tostring(tp2_{idx}, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 6, row{idx}, str.tostring(sl_{idx}, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 7, row{idx}, st{idx}, text_color=color.black, bgcolor=st_c{idx}, text_size=size.small)
-    table.cell(tbl, 8, row{idx}, str.tostring(rsi{idx}, "#.#"), text_color=rs_c{idx}, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 9, row{idx}, str.tostring(rvol{idx}, "#.##"), text_color=rv_c{idx}, bgcolor=#1a1a2e, text_size=size.small)
-    table.cell(tbl, 10, row{idx}, tv_{idx} > 1e9 ? str.tostring(tv_{idx}/1e9, "#.#") + "B" : str.tostring(tv_{idx}/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)''')
+    table.cell(tbl, 0, {row}, "{t}", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, {row}, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 2, {row}, str.tostring(c{idx}, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, {row}, str.tostring(tp1_{idx}, "#"), text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, {row}, str.tostring(sl_{idx}, "#"), text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, {row}, st_{idx}, text_color=color.black, bgcolor=st_c{idx}, text_size=size.small)
+    table.cell(tbl, 6, {row}, str.tostring(rsi_{idx}, "#.#"), text_color=rs_c{idx}, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, {row}, str.tostring(rvol_{idx}, "#.##"), text_color=rv_c{idx}, bgcolor=#1a1a2e, text_size=size.small)''')
+    
     if current_chunk:
         row_chunks.append(chr(10).join(current_chunk))
     formatted_rows = chr(10).join([f"if barstate.islast\n{chunk}" for chunk in row_chunks])
@@ -91,16 +70,11 @@ rv_c{idx}  = rvol{idx} > 2 ? color.lime : rvol{idx} > 1 ? color.yellow : color.g
         idx = i + 1
         t = tickers[i]
         tier = stocks_map.get(t, {}).get("tier", "SCALP_GORENGAN")
-        alert_lines.append(f'''    if st{idx} == "FRESH BUY"
-        alert('{{"type":"SCALP","tier":"{tier}","ticker":"{t}","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry{idx}) + ',"tp1":' + str.tostring(tp1_{idx}) + ',"tp2":' + str.tostring(tp2_{idx}) + ',"sl":' + str.tostring(sl_{idx}) + ',"holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(tv_{idx}) + ',"time":' + str.tostring(time) + '}}', alert.freq_once_per_bar)''')
+        alert_lines.append(f'''    if st_{idx} == "HAKA" and tv_{idx} >= min_tv
+        alert('{{"type":"SCALP","tier":"{tier}","ticker":"{t}","tf":"' + tf + '","signal":"HAKA","entry":' + str.tostring(c{idx}) + ',"tp1":' + str.tostring(tp1_{idx}) + ',"tp2":' + str.tostring(tp2_{idx}) + ',"sl":' + str.tostring(sl_{idx}) + ',"holding_hint":"intraday","time":' + str.tostring(time) + '}}', alert.freq_once_per_bar)''')
     
     script = f'''// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// https://mozilla.org/MPL/2.0/
-// Generated on {date_str} | Strategy: SCALPING_V2 (Intraday)
-//
-// @description Scalping screener v2 untuk penny stocks.
-//   Default Timeframe: 5 menit. Holding period: intraday.
-
+// Generated on {date_str} | Strategy: SCALPING_V2 (Anti-ARB Engine)
 //@version=6
 indicator("SCALPING V2 - BATCH {batch_label} ({n} Emiten)", overlay=true, max_bars_back=500)
 
@@ -111,13 +85,36 @@ tf = input.timeframe("5", "Timeframe Screener")
 min_tv = input.float(500000000, "Min Transaction Value per Bar (Rp)")
 tp1_mult = input.float(1.0, "TP1 ATR Multiplier")
 tp2_mult = input.float(2.0, "TP2 ATR Multiplier")
-sl_mult  = input.float(1.0, "SL ATR Multiplier")
+sl_mult  = input.float(1.5, "SL ATR Multiplier") // SL dilebarkan sedikit untuk volatilitas
 pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
 
 // ============================================================================
-// TICKER DEFINITIONS (harga per {date_str})
+// TICKER DEFINITIONS
 // ============================================================================
 {chr(10).join(ticker_lines)}
+
+// ============================================================================
+// CORE ENGINE FUNCTION (ANTI FALLING KNIFE)
+// ============================================================================
+f_scalp_engine() =>
+    emaFast = ta.ema(close, 5)
+    
+    // Filter Price Action Ketat
+    isGreenCandle = close > open
+    isNotARB = close > low
+    
+    // Analisis Volume & Momentum
+    volMA = ta.sma(volume, 20)
+    rvol = volMA > 0 ? volume / volMA : 0
+    rsiVal = ta.rsi(close, 14)
+    
+    // Syarat HAKA: Harus hijau, tidak ARB, volume meledak, di atas EMA 5
+    validHaka = isGreenCandle and isNotARB and (rvol > 1.5) and (close > emaFast)
+    
+    status = validHaka ? "HAKA" : "WAIT"
+    atr_val = ta.atr(14)
+    
+    [close, status, rsiVal, rvol, atr_val]
 
 // ============================================================================
 // DATA FETCH - request.security
@@ -133,36 +130,28 @@ pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Lef
 // TABLE DISPLAY
 // ============================================================================
 tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
-
-var tbl = table.new(tbl_pos, 11, {n + 1}, border_width=1, border_color=#333333)
+var tbl = table.new(tbl_pos, 8, {n + 1}, border_width=1, border_color=#333333)
 
 if barstate.islast
-    // Header row
     hdr_bg = #ff8c00
     hdr_clr = color.black
     table.cell(tbl, 0, 0, "EMITEN", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
     table.cell(tbl, 1, 0, "TF", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
     table.cell(tbl, 2, 0, "ENTRY", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
-    table.cell(tbl, 3, 0, "NOW", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
-    table.cell(tbl, 4, 0, "TP1", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
-    table.cell(tbl, 5, 0, "TP2", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
-    table.cell(tbl, 6, 0, "SL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
-    table.cell(tbl, 7, 0, "STATUS", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
-    table.cell(tbl, 8, 0, "RSI", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
-    table.cell(tbl, 9, 0, "RVOL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
-    table.cell(tbl, 10, 0, "VALUE", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 3, 0, "TP1", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 4, 0, "SL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 5, 0, "STATUS", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 6, 0, "RSI", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
+    table.cell(tbl, 7, 0, "RVOL", text_color=hdr_clr, bgcolor=hdr_bg, text_size=size.small)
 
 {formatted_rows}
 
 // ============================================================================
-// ALERTS - Webhook JSON payload v2
+// ALERTS - Webhook JSON
 // ============================================================================
-if barstate.islast
+if barstate.islast and barstate.isconfirmed
 {chr(10).join(alert_lines)}
 
-// ============================================================================
-// PLOT (hidden)
-// ============================================================================
 plot(close, display=display.none)
 '''
     return script
@@ -183,22 +172,15 @@ def generate_bandar_ai_script(tickers, batch_label, stocks_map, date_str):
     security_lines = []
     for i in range(n):
         idx = i + 1
-        security_lines.append(f'[c{idx}, st_base_{idx}, entry_{idx}, atr_{idx}, tv_{idx}] = request.security(tk{idx}, tf, f_engine(emaSlowLen, volMultiplier))')
+        security_lines.append(f'[c{idx}, st_{idx}, atr_{idx}, tv_{idx}] = request.security(tk{idx}, tf, f_engine(emaSlowLen, volMultiplier))')
         
     calc_lines = []
     for i in range(n):
         idx = i + 1
-        t = tickers[i]
-        calc_lines.append(f'''// --- {t} ---
-tp1_{idx} = math.round(entry_{idx} + (atr_{idx} * tp1_mult))
-tp2_{idx} = math.round(entry_{idx} + (atr_{idx} * tp2_mult))
-sl_{idx}  = math.round(entry_{idx} - (atr_{idx} * sl_mult))
-
-is_atr_valid_{idx} = not na(atr_{idx}) and atr_{idx} > 0
-is_liq_valid_{idx} = tv_{idx} >= min_tv
-is_mono_valid_{idx} = (st_base_{idx} == "SNIPER BUY" or st_base_{idx} == "BULL ABSORB") ? (tp2_{idx} > tp1_{idx} and tp1_{idx} > entry_{idx} and entry_{idx} > sl_{idx}) : true
-
-st_{idx} = not is_atr_valid_{idx} ? "WAIT_ATR" : not is_liq_valid_{idx} ? "WAIT_LIQ" : not is_mono_valid_{idx} ? "WAIT_TICK" : st_base_{idx}
+        calc_lines.append(f'''// --- {tickers[i]} ---
+tp1_{idx} = math.round(c{idx} + (atr_{idx} * tp1_mult))
+tp2_{idx} = math.round(c{idx} + (atr_{idx} * tp2_mult))
+sl_{idx}  = math.round(c{idx} - (atr_{idx} * sl_mult))
 ''')
 
     row_lines = []
@@ -217,15 +199,11 @@ st_{idx} = not is_atr_valid_{idx} ? "WAIT_ATR" : not is_liq_valid_{idx} ? "WAIT_
         idx = i + 1
         t = tickers[i]
         tier = stocks_map.get(t, {}).get("tier", "BANDAR_SWING")
-        alert_lines.append(f'''    if st_{idx} == "SNIPER BUY" or st_{idx} == "BULL ABSORB"
-        alert('{{"type":"BANDAR_AI","tier":"{tier}","ticker":"{t}","tf":"' + tf + '","signal":"' + st_{idx} + '","entry":' + str.tostring(entry_{idx}) + ',"tp1":' + str.tostring(tp1_{idx}) + ',"tp2":' + str.tostring(tp2_{idx}) + ',"sl":' + str.tostring(sl_{idx}) + ',"holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(tv_{idx}) + ',"time":' + str.tostring(time) + '}}', alert.freq_once_per_bar_close)''')
+        alert_lines.append(f'''    if (st_{idx} == "SNIPER BUY" or st_{idx} == "BULL ABSORB") and tv_{idx} >= min_tv
+        alert('{{"type":"BANDAR_AI","tier":"{tier}","ticker":"{t}","tf":"' + tf + '","signal":"' + st_{idx} + '","entry":' + str.tostring(c{idx}) + ',"tp1":' + str.tostring(tp1_{idx}) + ',"tp2":' + str.tostring(tp2_{idx}) + ',"sl":' + str.tostring(sl_{idx}) + ',"holding_hint":"swing 3-7 hari","time":' + str.tostring(time) + '}}', alert.freq_once_per_bar_close)''')
         
     script = f'''// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// https://mozilla.org/MPL/2.0/
 // Generated on {date_str} | Strategy: BANDAR_AI_V2 (Swing Detection)
-//
-// @description Bandar AI screener v2. Default Timeframe: 60 menit.
-
 //@version=6
 indicator("BANDAR AI V2 - BATCH {batch_label} ({n} Emiten)", overlay=true, max_bars_back=500)
 
@@ -242,7 +220,7 @@ volMultiplier  = input.float(1.5, "Vol Spike Multiplier")
 pos            = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
 
 // ============================================================================
-// TICKER DEFINITIONS (harga per {date_str})
+// TICKER DEFINITIONS
 // ============================================================================
 {chr(10).join(ticker_lines)}
 
@@ -264,10 +242,9 @@ f_engine(ema_len, vol_mult) =>
     sniperBuy = bullTrend and volSpike and (close > open)
     
     status = sniperBuy ? "SNIPER BUY" : bullAbsorb ? "BULL ABSORB" : "WAIT"
-    entry_val = close
     atr_val = ta.atr(14)
     tv_val = volume * close
-    [close, status, entry_val, atr_val, tv_val]
+    [close, status, atr_val, tv_val]
 
 // ============================================================================
 // DATA FETCH (request.security)
@@ -309,7 +286,6 @@ plot(close, display=display.none)
 '''
     return script
 
-
 # ============================================================================
 # MAIN — Generate all scripts
 # ============================================================================
@@ -328,7 +304,7 @@ if __name__ == "__main__":
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(script)
         scalp_count += 1
-        print(f"  [SCALP V2]  Batch {label} -> {len(tickers)} emiten ({len(script):,} chars)")
+        print(f"  [SCALP V2]  Batch {label} -> {len(tickers)} emiten")
     
     # --- 2. BANDAR AI ---
     with open(os.path.join(SCRIPT_DIR, "bandar_ai_stocks.json"), "r") as f:
@@ -344,8 +320,7 @@ if __name__ == "__main__":
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(script)
         bandar_count += 1
-        print(f"  [BANDAR V2] Batch {label} -> {len(tickers)} emiten ({len(script):,} chars)")
+        print(f"  [BANDAR V2] Batch {label} -> {len(tickers)} emiten")
     
     total = scalp_count + bandar_count
     print(f"\n[DONE] Generated {total} Pine Script V2 files")
-    print(f"Files saved to: {SCRIPT_DIR}")

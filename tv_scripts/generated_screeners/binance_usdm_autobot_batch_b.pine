@@ -1,0 +1,301 @@
+// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// Strategy: USD-M AUTOBOT DASHBOARD V12 PREMIUM (BATCH B)
+// Engine: Premium High-Speed EMA Crossover (EMA 5/13 + Volume + RSI)
+//@version=6
+indicator("USD-M DASHBOARD V12 - BATCH B", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// 1. SOP & TRADING PLAN
+// ============================================================================
+fixedMargin = input.float(20.0, "Modal per Trade (USDT)", group="1. TRADING PLAN (SOP)")
+maxMarginRiskPct = input.float(50.0, "Max Drawdown Modal (%)", step=5.0, group="1. TRADING PLAN (SOP)")
+maxLeverageCap = input.int(20, "Maksimal Leverage (Limit)", minval=1, maxval=125, group="1. TRADING PLAN (SOP)")
+tradeWeekdaysOnly = input.bool(true, "Matikan Bot di Sabtu & Minggu?", group="1. TRADING PLAN (SOP)")
+
+// ============================================================================
+// 2. ENGINE PARAMETERS
+// ============================================================================
+tf = input.timeframe("5", "Timeframe Screener", group="2. ENGINE")
+maFastLen = input.int(5, "Fast MA (Momentum)", group="2. ENGINE")
+maSlowLen = input.int(13, "Slow MA (Trigger)", group="2. ENGINE")
+volLen = input.int(20, "Volume SMA Length", group="2. ENGINE")
+volSpikeMult = input.float(1.5, "Volume Spike Multiplier", step=0.1, group="2. ENGINE")
+rsiLen = input.int(14, "RSI Length", group="2. ENGINE")
+atrPeriod = input.int(14, "ATR Period", group="2. ENGINE")
+tpMult = input.float(1.5, "TP ATR Multiplier", step=0.1, group="2. ENGINE")
+slMult = input.float(1.0, "SL ATR Multiplier", step=0.1, group="2. ENGINE")
+waitForClose = input.bool(false, "Wait for Bar Close (Lebih aman, tapi lambat)", group="2. ENGINE")
+
+// ============================================================================
+// TICKER DEFINITIONS
+// ============================================================================
+tk1 = "BINANCE:GRASSUSDT.P"
+tk2 = "BINANCE:FIDAUSDT.P"
+tk3 = "BINANCE:BEATUSDT.P"
+tk4 = "BINANCE:GENIUSUSDT.P"
+tk5 = "BINANCE:ALTUSDT.P"
+tk6 = "BINANCE:AGTUSDT.P"
+tk7 = "BINANCE:EDENUSDT.P"
+tk8 = "BINANCE:JCTUSDT.P"
+tk9 = "BINANCE:1000PEPEUSDT.P"
+tk10 = "BINANCE:ONDOUSDT.P"
+
+// ============================================================================
+// CORE ENGINE V12 — HIGH-SPEED EMA 5/13 CROSSOVER STRATEGY
+// Strategy Logic (V12 Premium - Ultra Fast):
+//   1. Entry Trigger: HMA (Hull Moving Average) 5 crosses 13 for NO-LAG reaction!
+//   2. Volume Spike: Volume must be X times higher than its SMA to detect real momentum.
+//   3. Momentum Filter: RSI >= 50 for Long, <= 50 for Short to ensure trend direction.
+//   4. Auto-Invalidation: Exit immediately on reverse crossover.
+// ============================================================================
+f_engine() =>
+    // --- MOVING AVERAGES (Using HMA for zero-lag real-time reaction) ---
+    maFast = ta.hma(close, maFastLen)
+    maSlow = ta.hma(close, maSlowLen)
+    
+    // --- VOLUME CONFIRMATION (Spike Detection) ---
+    volMA = ta.sma(volume, volLen)
+    isVolOk = volume > (volMA * volSpikeMult)
+    
+    // --- MOMENTUM: RSI ---
+    rsiVal = ta.rsi(close, rsiLen)
+    rsiLongOk = rsiVal >= 50
+    rsiShortOk = rsiVal <= 50
+    
+    // --- WEEKEND FILTER ---
+    isWeekend = dayofweek == dayofweek.saturday or dayofweek == dayofweek.sunday
+    isTradingAllowed = tradeWeekdaysOnly ? not isWeekend : true
+    
+    // === HIGH-SPEED CROSSOVER ENTRY TRIGGERS ===
+    isLong = isTradingAllowed and ta.crossover(maFast, maSlow) and isVolOk and rsiLongOk
+    isShort = isTradingAllowed and ta.crossunder(maFast, maSlow) and isVolOk and rsiShortOk
+    
+    // --- ATR for dynamic TP/SL ---
+    atrVal = ta.atr(atrPeriod)
+    
+    // === STATE MACHINE & LIVE CALCULATIONS ===
+    var int tradeState = 0 
+    var float ep = 0.0
+    var float tp = 0.0
+    var float sl = 0.0
+    
+    // Auto-Invalidation Exit: If opposite crossover occurs, exit immediately!
+    if tradeState == 1
+        if high >= tp or low <= sl or ta.crossunder(maFast, maSlow)
+            tradeState := 0 
+    if tradeState == -1
+        if low <= tp or high >= sl or ta.crossover(maFast, maSlow)
+            tradeState := 0 
+
+    bool isNewLong = false
+    bool isNewShort = false
+    
+    if isTradingAllowed
+        if isLong and tradeState != 1
+            tradeState := 1
+            ep := close
+            tp := close + (atrVal * tpMult)
+            sl := close - (atrVal * slMult)
+            isNewLong := true
+        else if isShort and tradeState != -1
+            tradeState := -1
+            ep := close
+            tp := close - (atrVal * tpMult)
+            sl := close + (atrVal * slMult)
+            isNewShort := true
+
+    // Compute live values (shows actual trade values if active, or potential values if waiting)
+    isBearishTrend = maFast < maSlow
+    potential_tp = isBearishTrend ? (close - (atrVal * tpMult)) : (close + (atrVal * tpMult))
+    potential_sl = isBearishTrend ? (close + (atrVal * slMult)) : (close - (atrVal * slMult))
+    
+    display_ep = tradeState != 0 ? ep : close
+    display_tp = tradeState != 0 ? tp : potential_tp
+    display_sl = tradeState != 0 ? sl : potential_sl
+    
+    display_sl_dist = (math.abs(display_ep - display_sl) / display_ep) * 100
+    display_raw_lev = display_sl_dist > 0 ? (maxMarginRiskPct / display_sl_dist) : 1.0
+    display_leverage = math.max(1, math.min(maxLeverageCap, math.round(display_raw_lev)))
+    display_qty = display_ep > 0 ? ((fixedMargin * display_leverage) / display_ep) : 0.0
+    
+    // Convert all numeric values to beautiful strings matching ticker-specific decimal precision
+    str_close = str.tostring(close, format.mintick)
+    str_ep = str.tostring(display_ep, format.mintick)
+    str_tp = str.tostring(display_tp, format.mintick)
+    str_sl = str.tostring(display_sl, format.mintick)
+    
+    // Dynamic quantity formatting based on coin price magnitude to keep table extremely clean
+    str_qty = display_qty >= 1000 ? str.tostring(math.round(display_qty)) : display_qty >= 10 ? str.tostring(display_qty, "#.##") : str.tostring(display_qty, "#.####")
+            
+    activeSig = tradeState == 1 ? "LONG" : tradeState == -1 ? "SHORT" : "WAIT"
+    alert_trigger = isNewLong ? "LONG" : isNewShort ? "SHORT" : "WAIT"
+    alert_side = isNewLong ? "BUY" : isNewShort ? "SELL" : "NONE"
+    
+    [str_close, str_ep, activeSig, alert_trigger, alert_side, str_tp, str_sl, display_leverage, str_qty]
+
+// ============================================================================
+// DATA FETCH - request.security
+// ============================================================================
+[c1, ep1, sig1, at1, sd1, tp1, sl1, lev1, qty1] = request.security(tk1, tf, f_engine())
+[c2, ep2, sig2, at2, sd2, tp2, sl2, lev2, qty2] = request.security(tk2, tf, f_engine())
+[c3, ep3, sig3, at3, sd3, tp3, sl3, lev3, qty3] = request.security(tk3, tf, f_engine())
+[c4, ep4, sig4, at4, sd4, tp4, sl4, lev4, qty4] = request.security(tk4, tf, f_engine())
+[c5, ep5, sig5, at5, sd5, tp5, sl5, lev5, qty5] = request.security(tk5, tf, f_engine())
+[c6, ep6, sig6, at6, sd6, tp6, sl6, lev6, qty6] = request.security(tk6, tf, f_engine())
+[c7, ep7, sig7, at7, sd7, tp7, sl7, lev7, qty7] = request.security(tk7, tf, f_engine())
+[c8, ep8, sig8, at8, sd8, tp8, sl8, lev8, qty8] = request.security(tk8, tf, f_engine())
+[c9, ep9, sig9, at9, sd9, tp9, sl9, lev9, qty9] = request.security(tk9, tf, f_engine())
+[c10, ep10, sig10, at10, sd10, tp10, sl10, lev10, qty10] = request.security(tk10, tf, f_engine())
+
+// ============================================================================
+// UI TABLE & DASHBOARD
+// ============================================================================
+var tbl = table.new(position.top_right, 8, 11, border_width=1, border_color=#333333)
+if barstate.islast
+    table.cell(tbl, 0, 0, "PAIR (B-B)", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
+    table.cell(tbl, 1, 0, "SIGNAL", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
+    table.cell(tbl, 2, 0, "PRICE NOW", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
+    table.cell(tbl, 3, 0, "ENTRY", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
+    table.cell(tbl, 4, 0, "TARGET TP", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
+    table.cell(tbl, 5, 0, "STOP LOSS", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
+    table.cell(tbl, 6, 0, "LEV", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
+    table.cell(tbl, 7, 0, "COIN QTY", text_color=color.black, bgcolor=#f3ba2f, text_size=size.small)
+    
+    // Row 1: GRASSUSDT
+    sig_bg1 = sig1 == "LONG" ? color.lime : sig1 == "SHORT" ? color.red : color.gray
+    sig_tc1 = sig1 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 1, "GRASSUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 1, sig1, text_color=sig_tc1, bgcolor=sig_bg1, text_size=size.small)
+    table.cell(tbl, 2, 1, c1, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 1, ep1, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 1, tp1, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 1, sl1, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 1, str.tostring(lev1), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 1, qty1, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 2: FIDAUSDT
+    sig_bg2 = sig2 == "LONG" ? color.lime : sig2 == "SHORT" ? color.red : color.gray
+    sig_tc2 = sig2 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 2, "FIDAUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 2, sig2, text_color=sig_tc2, bgcolor=sig_bg2, text_size=size.small)
+    table.cell(tbl, 2, 2, c2, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 2, ep2, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 2, tp2, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 2, sl2, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 2, str.tostring(lev2), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 2, qty2, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 3: BEATUSDT
+    sig_bg3 = sig3 == "LONG" ? color.lime : sig3 == "SHORT" ? color.red : color.gray
+    sig_tc3 = sig3 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 3, "BEATUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 3, sig3, text_color=sig_tc3, bgcolor=sig_bg3, text_size=size.small)
+    table.cell(tbl, 2, 3, c3, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 3, ep3, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 3, tp3, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 3, sl3, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 3, str.tostring(lev3), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 3, qty3, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 4: GENIUSUSDT
+    sig_bg4 = sig4 == "LONG" ? color.lime : sig4 == "SHORT" ? color.red : color.gray
+    sig_tc4 = sig4 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 4, "GENIUSUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 4, sig4, text_color=sig_tc4, bgcolor=sig_bg4, text_size=size.small)
+    table.cell(tbl, 2, 4, c4, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 4, ep4, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 4, tp4, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 4, sl4, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 4, str.tostring(lev4), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 4, qty4, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 5: ALTUSDT
+    sig_bg5 = sig5 == "LONG" ? color.lime : sig5 == "SHORT" ? color.red : color.gray
+    sig_tc5 = sig5 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 5, "ALTUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 5, sig5, text_color=sig_tc5, bgcolor=sig_bg5, text_size=size.small)
+    table.cell(tbl, 2, 5, c5, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 5, ep5, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 5, tp5, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 5, sl5, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 5, str.tostring(lev5), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 5, qty5, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 6: AGTUSDT
+    sig_bg6 = sig6 == "LONG" ? color.lime : sig6 == "SHORT" ? color.red : color.gray
+    sig_tc6 = sig6 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 6, "AGTUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 6, sig6, text_color=sig_tc6, bgcolor=sig_bg6, text_size=size.small)
+    table.cell(tbl, 2, 6, c6, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 6, ep6, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 6, tp6, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 6, sl6, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 6, str.tostring(lev6), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 6, qty6, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 7: EDENUSDT
+    sig_bg7 = sig7 == "LONG" ? color.lime : sig7 == "SHORT" ? color.red : color.gray
+    sig_tc7 = sig7 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 7, "EDENUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 7, sig7, text_color=sig_tc7, bgcolor=sig_bg7, text_size=size.small)
+    table.cell(tbl, 2, 7, c7, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 7, ep7, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 7, tp7, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 7, sl7, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 7, str.tostring(lev7), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 7, qty7, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 8: JCTUSDT
+    sig_bg8 = sig8 == "LONG" ? color.lime : sig8 == "SHORT" ? color.red : color.gray
+    sig_tc8 = sig8 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 8, "JCTUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 8, sig8, text_color=sig_tc8, bgcolor=sig_bg8, text_size=size.small)
+    table.cell(tbl, 2, 8, c8, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 8, ep8, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 8, tp8, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 8, sl8, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 8, str.tostring(lev8), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 8, qty8, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 9: 1000PEPEUSDT
+    sig_bg9 = sig9 == "LONG" ? color.lime : sig9 == "SHORT" ? color.red : color.gray
+    sig_tc9 = sig9 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 9, "1000PEPEUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 9, sig9, text_color=sig_tc9, bgcolor=sig_bg9, text_size=size.small)
+    table.cell(tbl, 2, 9, c9, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 9, ep9, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 9, tp9, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 9, sl9, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 9, str.tostring(lev9), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 9, qty9, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    // Row 10: ONDOUSDT
+    sig_bg10 = sig10 == "LONG" ? color.lime : sig10 == "SHORT" ? color.red : color.gray
+    sig_tc10 = sig10 == "WAIT" ? color.white : color.black
+    table.cell(tbl, 0, 10, "ONDOUSDT", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 1, 10, sig10, text_color=sig_tc10, bgcolor=sig_bg10, text_size=size.small)
+    table.cell(tbl, 2, 10, c10, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 3, 10, ep10, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 4, 10, tp10, text_color=color.lime, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 5, 10, sl10, text_color=color.red, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 6, 10, str.tostring(lev10), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 7, 10, qty10, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
+
+// ============================================================================
+// WEBHOOK ALERTS - JSON Payload
+// ============================================================================
+triggerAlert = waitForClose ? (barstate.islast and barstate.isconfirmed) : barstate.islast
+if triggerAlert
+    if at1 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"GRASSUSDT","side":"' + sd1 + '","signal":"' + at1 + '","entry":' + ep1 + ',"tp":' + tp1 + ',"sl":' + sl1 + ',"lev":' + str.tostring(lev1) + ',"qty":' + qty1 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if at2 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"FIDAUSDT","side":"' + sd2 + '","signal":"' + at2 + '","entry":' + ep2 + ',"tp":' + tp2 + ',"sl":' + sl2 + ',"lev":' + str.tostring(lev2) + ',"qty":' + qty2 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if at3 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"BEATUSDT","side":"' + sd3 + '","signal":"' + at3 + '","entry":' + ep3 + ',"tp":' + tp3 + ',"sl":' + sl3 + ',"lev":' + str.tostring(lev3) + ',"qty":' + qty3 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if at4 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"GENIUSUSDT","side":"' + sd4 + '","signal":"' + at4 + '","entry":' + ep4 + ',"tp":' + tp4 + ',"sl":' + sl4 + ',"lev":' + str.tostring(lev4) + ',"qty":' + qty4 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if at5 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"ALTUSDT","side":"' + sd5 + '","signal":"' + at5 + '","entry":' + ep5 + ',"tp":' + tp5 + ',"sl":' + sl5 + ',"lev":' + str.tostring(lev5) + ',"qty":' + qty5 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if at6 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"AGTUSDT","side":"' + sd6 + '","signal":"' + at6 + '","entry":' + ep6 + ',"tp":' + tp6 + ',"sl":' + sl6 + ',"lev":' + str.tostring(lev6) + ',"qty":' + qty6 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if at7 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"EDENUSDT","side":"' + sd7 + '","signal":"' + at7 + '","entry":' + ep7 + ',"tp":' + tp7 + ',"sl":' + sl7 + ',"lev":' + str.tostring(lev7) + ',"qty":' + qty7 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if at8 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"JCTUSDT","side":"' + sd8 + '","signal":"' + at8 + '","entry":' + ep8 + ',"tp":' + tp8 + ',"sl":' + sl8 + ',"lev":' + str.tostring(lev8) + ',"qty":' + qty8 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if at9 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"1000PEPEUSDT","side":"' + sd9 + '","signal":"' + at9 + '","entry":' + ep9 + ',"tp":' + tp9 + ',"sl":' + sl9 + ',"lev":' + str.tostring(lev9) + ',"qty":' + qty9 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+    if at10 != "WAIT"
+        alert('{"type":"USDM_V12","batch":"B","ticker":"ONDOUSDT","side":"' + sd10 + '","signal":"' + at10 + '","entry":' + ep10 + ',"tp":' + tp10 + ',"sl":' + sl10 + ',"lev":' + str.tostring(lev10) + ',"qty":' + qty10 + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+
+plot(close, display=display.none)

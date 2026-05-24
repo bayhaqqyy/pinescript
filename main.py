@@ -462,6 +462,48 @@ def format_idx_scalp_v2_alert(data: dict) -> str:
 
 
 # ============================================================================
+# USD-M AUTOBOT V12 — JSON Alert Parser
+# ============================================================================
+def format_usdm_v12_alert(data: dict) -> str:
+    ticker = str(data.get("ticker", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    signal = str(data.get("signal", "UNKNOWN")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    side = str(data.get("side", "NONE")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    batch = str(data.get("batch", "?"))
+    entry = data.get("entry", 0)
+    tp = data.get("tp", 0)
+    sl = data.get("sl", 0)
+    lev = data.get("lev", 1)
+    qty = data.get("qty", 0)
+
+    signal_upper = signal.upper()
+    if signal_upper == "LONG":
+        icon = "🟢"
+        sentiment = "High-Speed EMA Crossover: LONG 🚀"
+    elif signal_upper == "SHORT":
+        icon = "🔴"
+        sentiment = "High-Speed EMA Crossover: SHORT 🔻"
+    else:
+        icon = "⚡"
+        sentiment = "Autobot V12 Signal"
+
+    msg = f"{icon} <b>USD-M AUTOBOT V12</b> {icon}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🪙 <b>Pair</b>: <code>{ticker}</code> (Batch {batch})\n"
+    msg += f"⚡ <b>Signal</b>: <b>{signal}</b> / {side}\n"
+    msg += f"⚙️ <b>Leverage</b>: {lev}x\n"
+    msg += f"📦 <b>Qty</b>: {qty}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🎯 <b>Entry</b>: {entry}\n"
+    msg += f"✅ <b>TP</b>: {tp}\n"
+    msg += f"🛑 <b>SL</b>: {sl}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"💡 <i>{sentiment}</i>\n"
+    msg += f"⏰ TF 5m · Binance Futures\n"
+    msg += f"#USDM_V12 #{ticker.replace('.P', '')}"
+    return msg
+
+
+# ============================================================================
 # WEBHOOK HANDLER
 # ============================================================================
 @app.post("/webhook")
@@ -490,6 +532,8 @@ async def handle_webhook(request: Request):
                     message_text = format_idx_scalp_v2_alert(data)
                 else:
                     message_text = format_idx_scalp_alert(data) # Legacy not found
+            elif data.get("type") == "USDM_V12":
+                message_text = format_usdm_v12_alert(data)
             elif "message" in data and "type" not in data:
                 message_text = data["message"]
             else:
@@ -535,7 +579,8 @@ async def health_check():
             "US Swing Hunter v2 (plain text)",
             "US Bandar AI v2 (plain text)",
             "IDX Bandar AI V2 (JSON)",
-            "IDX Scalping V2 (JSON)"
+            "IDX Scalping V2 (JSON)",
+            "USD-M Autobot V12 (JSON)"
         ]
     }
 
