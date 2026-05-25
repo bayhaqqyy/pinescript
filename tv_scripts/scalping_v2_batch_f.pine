@@ -174,7 +174,7 @@ tk4 = "IDX:TOWR"  // SCALP_GORENGAN
 tk5 = "IDX:DEWA"  // SCALP_GORENGAN
 tk6 = "IDX:BSML"  // SCALP_GORENGAN
 tk7 = "IDX:BULL"  // SCALP_GORENGAN
-tk8 = "IDX:TRIO"  // SCALP_GORENGAN
+tk8 = "IDX:DIVA"  // SCALP_GORENGAN
 tk9 = "IDX:SIDO"  // SCALP_GORENGAN
 tk10 = "IDX:BANK"  // SCALP_GORENGAN
 
@@ -375,7 +375,7 @@ if barstate.islast
     f_cell(tbl, 19, 7, str.tostring(score7, "#"), f_score_color(score7), color.white)
     f_cell(tbl, 20, 7, signal7, f_signal_color(signal7), color.white)
     // Row 8
-    f_cell(tbl, 0, 8, "TRIO", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 0, 8, "DIVA", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 8, tf, cDark, color.white)
     f_cell(tbl, 2, 8, str.tostring(sup8, format.mintick), cDark, color.white)
     f_cell(tbl, 3, 8, str.tostring(rst8, format.mintick), cDark, color.white)
@@ -460,7 +460,7 @@ if barstate.islast and barstate.isconfirmed
     if (signal7 == "AKUMULASI" or signal7 == "BOW-SIAP" or signal7 == "SETUP-OK") and valueBar7 >= min_tv
         alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"BULL","tf":"' + tf + '","signal":"' + signal7 + '","action":"' + action7 + '","entry":' + str.tostring(entry7) + ',"tp1":' + str.tostring(tp_7) + ',"tp2":' + str.tostring(tp_7) + ',"sl":' + str.tostring(sl_7) + ',"support":' + str.tostring(sup7) + ',"resistance":' + str.tostring(rst7) + ',"score":' + str.tostring(score7) + ',"zona":"' + zona7 + '","bandar":"' + bandar7 + '","holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(valueBar7) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if (signal8 == "AKUMULASI" or signal8 == "BOW-SIAP" or signal8 == "SETUP-OK") and valueBar8 >= min_tv
-        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"TRIO","tf":"' + tf + '","signal":"' + signal8 + '","action":"' + action8 + '","entry":' + str.tostring(entry8) + ',"tp1":' + str.tostring(tp_8) + ',"tp2":' + str.tostring(tp_8) + ',"sl":' + str.tostring(sl_8) + ',"support":' + str.tostring(sup8) + ',"resistance":' + str.tostring(rst8) + ',"score":' + str.tostring(score8) + ',"zona":"' + zona8 + '","bandar":"' + bandar8 + '","holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(valueBar8) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
+        alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"DIVA","tf":"' + tf + '","signal":"' + signal8 + '","action":"' + action8 + '","entry":' + str.tostring(entry8) + ',"tp1":' + str.tostring(tp_8) + ',"tp2":' + str.tostring(tp_8) + ',"sl":' + str.tostring(sl_8) + ',"support":' + str.tostring(sup8) + ',"resistance":' + str.tostring(rst8) + ',"score":' + str.tostring(score8) + ',"zona":"' + zona8 + '","bandar":"' + bandar8 + '","holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(valueBar8) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if (signal9 == "AKUMULASI" or signal9 == "BOW-SIAP" or signal9 == "SETUP-OK") and valueBar9 >= min_tv
         alert('{"type":"SCALP","tier":"SCALP_GORENGAN","ticker":"SIDO","tf":"' + tf + '","signal":"' + signal9 + '","action":"' + action9 + '","entry":' + str.tostring(entry9) + ',"tp1":' + str.tostring(tp_9) + ',"tp2":' + str.tostring(tp_9) + ',"sl":' + str.tostring(sl_9) + ',"support":' + str.tostring(sup9) + ',"resistance":' + str.tostring(rst9) + ',"score":' + str.tostring(score9) + ',"zona":"' + zona9 + '","bandar":"' + bandar9 + '","holding_hint":"intraday (menit-jam)","transaction_value":' + str.tostring(valueBar9) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if (signal10 == "AKUMULASI" or signal10 == "BOW-SIAP" or signal10 == "SETUP-OK") and valueBar10 >= min_tv

@@ -28,7 +28,7 @@ tk5 = "IDX:ERAA"  // ~Rp402
 tk6 = "IDX:ACES"  // ~Rp380
 tk7 = "IDX:INDS"  // ~Rp378
 tk8 = "IDX:SAFE"  // ~Rp358
-tk9 = "IDX:MMLP"  // ~Rp354
+tk9 = "IDX:DIVA"  // ~Rp354
 tk10 = "IDX:SGER"  // ~Rp352
 
 // ============================================================================
@@ -240,7 +240,7 @@ rs_c8  = rsi8 < 30 ? color.lime : rsi8 > 70 ? color.red : color.white
 bd_c8  = bd8 == "BIG ACCUM" ? color.fuchsia : bd8 == "ACCUM" ? color.lime : color.gray
 ac_c8  = act8 == "HAKA" ? color.lime : act8 == "SELL" ? color.red : act8 == "HOLD" ? color.yellow : act8 == "SKIP" ? color.red : color.gray
 rv_c8  = rvol8 > 2 ? color.lime : rvol8 > 1 ? color.yellow : color.gray
-// --- MMLP ---
+// --- DIVA ---
 pv9 = (h9[1] + l9[1] + c9[1]) / 3
 atr9 = ta.atr(14)
 entry9 = math.round(2 * pv9 - h9[1])
@@ -444,9 +444,9 @@ if barstate.islast
     table.cell(tbl, 11, row8, val8 > 1e9 ? str.tostring(val8/1e9, "#.#") + "B" : str.tostring(val8/1e6, "#.#") + "M", text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 12, row8, bd8, text_color=color.black, bgcolor=bd_c8, text_size=size.small)
     table.cell(tbl, 13, row8, act8, text_color=color.black, bgcolor=ac_c8, text_size=size.small)
-    // Row 9: MMLP
+    // Row 9: DIVA
     row9 = 9
-    table.cell(tbl, 0, row9, "MMLP", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
+    table.cell(tbl, 0, row9, "DIVA", text_color=color.yellow, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 1, row9, tf, text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 2, row9, str.tostring(entry9, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
     table.cell(tbl, 3, row9, str.tostring(c9, "#"), text_color=color.white, bgcolor=#1a1a2e, text_size=size.small)
@@ -498,7 +498,7 @@ if barstate.islast
     if st8 == "FRESH BUY" and act8 == "HAKA"
         alert('{"type":"SCALP","batch":"F","ticker":"SAFE","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry8) + ',"tp":' + str.tostring(tp8) + ',"sl":' + str.tostring(sl8) + ',"rsi":' + str.tostring(rsi8, "#.#") + ',"rvol":' + str.tostring(rvol8, "#.##") + ',"zona":"' + zona8 + '","bandar":"' + bd8 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
     if st9 == "FRESH BUY" and act9 == "HAKA"
-        alert('{"type":"SCALP","batch":"F","ticker":"MMLP","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry9) + ',"tp":' + str.tostring(tp9) + ',"sl":' + str.tostring(sl9) + ',"rsi":' + str.tostring(rsi9, "#.#") + ',"rvol":' + str.tostring(rvol9, "#.##") + ',"zona":"' + zona9 + '","bandar":"' + bd9 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
+        alert('{"type":"SCALP","batch":"F","ticker":"DIVA","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry9) + ',"tp":' + str.tostring(tp9) + ',"sl":' + str.tostring(sl9) + ',"rsi":' + str.tostring(rsi9, "#.#") + ',"rvol":' + str.tostring(rvol9, "#.##") + ',"zona":"' + zona9 + '","bandar":"' + bd9 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
     if st10 == "FRESH BUY" and act10 == "HAKA"
         alert('{"type":"SCALP","batch":"F","ticker":"SGER","tf":"' + tf + '","signal":"FRESH_BUY","entry":' + str.tostring(entry10) + ',"tp":' + str.tostring(tp10) + ',"sl":' + str.tostring(sl10) + ',"rsi":' + str.tostring(rsi10, "#.#") + ',"rvol":' + str.tostring(rvol10, "#.##") + ',"zona":"' + zona10 + '","bandar":"' + bd10 + '","action":"HAKA","time":' + str.tostring(time) + '}', alert.freq_once_per_bar)
 

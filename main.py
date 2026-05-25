@@ -19,6 +19,18 @@ WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
 # ============================================================================
 last_alert = {}
 COOLDOWN_SECONDS = 300
+FUTURES_FREEZE = False
+
+ALLOWED_FUTURES_EVENTS = {
+    "LONG_ENTRY", "SHORT_ENTRY",
+    "LONG_TP_HIT", "LONG_SL_HIT",
+    "SHORT_TP_HIT", "SHORT_SL_HIT",
+}
+
+ALLOWED_EQUITY_EVENTS = {
+    "BUY_ENTRY", "SELL_EXIT",
+    "TP_HIT", "SL_HIT",
+}
 
 # ============================================================================
 # LOGGING (P2-02)
@@ -529,6 +541,52 @@ def format_idx_scalp_v2_alert(data: dict) -> str:
 
 
 # ============================================================================
+# WEBHOOK VALIDATION HELPERS (Phase 5)
+# ============================================================================
+def validate_direction(data: dict) -> bool:
+    side = data.get("side", "")
+    try:
+        entry = float(data.get("entry", 0))
+        tp = float(data.get("tp", 0))
+        sl = float(data.get("sl", 0))
+    except (ValueError, TypeError):
+        return False
+        
+    if entry <= 0:
+        return True  # skip check if entry not specified
+        
+    if side == "LONG":
+        return tp > entry and sl < entry
+    if side == "SHORT":
+        return tp < entry and sl > entry
+    return False
+
+def validate_hit(data: dict) -> bool:
+    event = data.get("event", "")
+    try:
+        now = float(data.get("now", 0))
+        tp = float(data.get("tp", 0))
+        sl = float(data.get("sl", 0))
+    except (ValueError, TypeError):
+        return False
+        
+    if event == "LONG_TP_HIT":   return now >= tp
+    if event == "LONG_SL_HIT":   return now <= sl
+    if event == "SHORT_TP_HIT":  return now <= tp
+    if event == "SHORT_SL_HIT":  return now >= sl
+    return True
+
+def validate_market_type(data: dict) -> bool:
+    market = data.get("market", "")
+    event = data.get("event", "")
+    
+    if market in ("IDX", "US"):
+        if event in ("SHORT_ENTRY", "SHORT_TP_HIT", "SHORT_SL_HIT") or data.get("side") == "SHORT":
+            return False
+    return True
+
+
+# ============================================================================
 # BINANCE FUTURES — JSON Alert Parser
 # ============================================================================
 def format_futures_message(data: dict) -> str:
@@ -549,10 +607,45 @@ def format_futures_message(data: dict) -> str:
         except:
             return str(val)
 
-    now = fmt_price("now")
-    entry = fmt_price("entry")
-    tp = fmt_price("tp")
-    sl = fmt_price("sl")
+    price_text = data.get("price_text", {})
+    now = h(price_text.get("now", fmt_price("now")))
+    entry = h(price_text.get("entry", fmt_price("entry")))
+    tp = h(price_text.get("tp", fmt_price("tp")))
+    sl = h(price_text.get("sl", fmt_price("sl")))
+    
+    # Format Header and Title based on event
+    if event == "LONG_ENTRY":
+        icon = "🟢"
+        title = "BINANCE FUTURES LONG - ENTRY"
+    elif event == "SHORT_ENTRY":
+        icon = "🔴"
+        title = "BINANCE FUTURES SHORT - ENTRY"
+    elif event == "LONG_TP_HIT":
+        icon = "🎯"
+        title = "TP HIT - LONG CLOSED"
+    elif event == "SHORT_TP_HIT":
+        icon = "🎯"
+        title = "TP HIT - SHORT CLOSED"
+    elif event == "LONG_SL_HIT":
+        icon = "🛑"
+        title = "SL HIT - LONG CLOSED"
+    elif event == "SHORT_SL_HIT":
+        icon = "🛑"
+        title = "SL HIT - SHORT CLOSED"
+    else:
+        icon = "🟢" if "LONG" in side.upper() else "🔴"
+        title = f"BINANCE FUTURES {side.upper()}"
+    
+    if "LONG" in side.upper() or "LONG" in event:
+        tp_sign = "+"
+        sl_sign = "-"
+        l_tp_sign = "+"
+        l_risk_sign = "-"
+    else:
+        tp_sign = "-"
+        sl_sign = "+"
+        l_tp_sign = "+"
+        l_risk_sign = "-"
     
     rr = float(data.get("rr", 0.0))
     tp_pct = float(data.get("tp_pct", 0.0))
@@ -568,41 +661,27 @@ def format_futures_message(data: dict) -> str:
     flow = h(data.get("flow", "-"))
     signal = h(data.get("signal", "-"))
     
-    if "LONG" in side.upper() or "LONG" in event:
-        icon = "🟢"
-        title = "BINANCE FUTURES LONG"
-        tp_sign = "+"
-        sl_sign = "-"
-        l_tp_sign = "+"
-        l_risk_sign = "-"
-    else:
-        icon = "🔴"
-        title = "BINANCE FUTURES SHORT"
-        tp_sign = "-"
-        sl_sign = "+"
-        l_tp_sign = "+"
-        l_risk_sign = "-"
-
-    msg = f"{icon} <b>{title}</b>\n\n"
-    msg += f"<b>Symbol</b> : {symbol}\n"
-    msg += f"<b>TF</b>     : {tf}m\n"
-    msg += f"<b>Event</b>  : {event}\n\n"
+    msg = f"{icon} <b>{title}</b> {icon}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🏷 <b>Symbol</b> : <code>{symbol}</code>\n"
+    msg += f"⏰ <b>TF</b>     : {tf}m\n"
+    msg += f"⚡ <b>Event</b>  : <b>{event}</b>\n\n"
     
-    msg += f"<b>NOW</b>    : {now}\n"
-    msg += f"<b>ENTRY</b>  : {entry}\n"
-    msg += f"<b>TP</b>     : {tp} ({tp_sign}{tp_pct:.2f}%)\n"
-    msg += f"<b>SL</b>     : {sl} ({sl_sign}{risk_pct:.2f}%)\n"
-    msg += f"<b>RR</b>     : {rr:.2f}\n\n"
+    msg += f"💵 <b>NOW</b>    : {now}\n"
+    msg += f"🎯 <b>ENTRY</b>  : {entry}\n"
+    msg += f"✅ <b>TP</b>     : {tp} ({tp_sign}{tp_pct:.2f}%)\n"
+    msg += f"🛑 <b>SL</b>     : {sl} ({sl_sign}{risk_pct:.2f}%)\n"
+    msg += f"⚖️ <b>RR</b>     : {rr:.2f}\n━━━━━━━━━━━━━━━━━━\n"
     
-    msg += f"<b>LEV</b>    : {lev}x\n"
-    msg += f"<b>L-TP</b>   : {l_tp_sign}{l_tp:.2f}%\n"
-    msg += f"<b>L-RISK</b> : {l_risk_sign}{l_risk:.2f}%\n"
-    msg += f"<b>MAX LEV</b>: {max_lev}x\n"
-    msg += f"<b>LIQ</b>    : {liq}\n\n"
+    msg += f"📈 <b>LEV</b>    : {lev}x\n"
+    msg += f"🚀 <b>L-TP</b>   : {l_tp_sign}{l_tp:.2f}%\n"
+    msg += f"📉 <b>L-RISK</b> : {l_risk_sign}{l_risk:.2f}%\n"
+    msg += f"🛡️ <b>MAX LEV</b>: {max_lev}x\n"
+    msg += f"🔥 <b>LIQ</b>    : {liq}\n━━━━━━━━━━━━━━━━━━\n"
     
-    msg += f"<b>Score</b>  : {score}\n"
-    msg += f"<b>Flow</b>   : {flow}\n"
-    msg += f"<b>Signal</b> : {signal}\n"
+    msg += f"📊 <b>Score</b>  : {score}\n"
+    msg += f"💰 <b>Flow</b>   : {flow}\n"
+    msg += f"🌡 <b>Signal</b> : {signal}\n"
     
     return msg
 
@@ -631,6 +710,12 @@ async def handle_webhook(request: Request):
     try:
         data = await request.json()
         if isinstance(data, dict):
+            # Reject any SHORT signals for IDX/US equity/stocks
+            if data.get("type") in ("BANDAR_AI", "SCALP") or data.get("market") in ("IDX", "US"):
+                if data.get("side") == "SHORT" or "SHORT" in str(data.get("signal", "")) or "SHORT" in str(data.get("action", "")) or "SHORT" in str(data.get("event", "")):
+                    print(f"[{ts}] ❌ Equity alert rejected: SHORT is not supported for stocks.")
+                    return {"status": "ignored", "reason": "invalid_equity_event"}
+                    
             if data.get("type") == "BANDAR_AI":
                 if "tier" in data:
                     message_text = format_idx_bandar_v2_alert(data)
@@ -642,10 +727,19 @@ async def handle_webhook(request: Request):
                 else:
                     message_text = format_idx_scalp_alert(data) # Legacy not found
             elif data.get("type") == "FUTURES_SIGNAL":
+                if FUTURES_FREEZE:
+                    print(f"[{ts}] ❄️ Webhook ignored: FUTURES_SIGNAL is currently FROZEN.")
+                    return {"status": "frozen"}
                 if data.get("market") == "BINANCE_FUTURES":
                     event = data.get("event")
-                    if event not in {"LONG_ENTRY", "SHORT_ENTRY", "TP_HIT", "SL_HIT"}:
+                    if event not in ALLOWED_FUTURES_EVENTS:
                         return {"status": "ignored", "reason": "non_actionable_event"}
+                    if not validate_market_type(data):
+                        return {"status": "ignored", "reason": "invalid_market_type"}
+                    if not validate_direction(data):
+                        return {"status": "ignored", "reason": "invalid_direction"}
+                    if not validate_hit(data):
+                        return {"status": "ignored", "reason": "invalid_hit"}
                     message_text = format_futures_message(data)
             elif "message" in data and "type" not in data:
                 message_text = h(data["message"])

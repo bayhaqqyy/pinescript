@@ -159,95 +159,122 @@ f_dashboard_engine() =>
     riskOkLong = not na(riskPctLong) and riskPctLong <= maxPlanRiskPct and levRiskPctLong <= maxLevRiskPct and rrLong >= minRR
     riskOkShort = not na(riskPctShort) and riskPctShort <= maxPlanRiskPct and levRiskPctShort <= maxLevRiskPct and rrShort >= minRR
     
-    // Score Features
-    ema20 = ta.ema(close, 20)
-    ema50 = ta.ema(close, 50)
-    ema200 = ta.ema(close, 200)
-    
-    trendUp = close > ema20 and ema20 > ema50
-    trendDown = close < ema20 and ema20 < ema50
-    macroBull = close > ema200
-    macroBear = close < ema200
-    
+    // Layer 2 — Indicator Engine
+    emaFast = ta.ema(close, 20)
+    emaSlow = ta.ema(close, 50)
+    emaTrend = ta.ema(close, 200)
     rsiVal = ta.rsi(close, 14)
-    rsiLongOk = rsiVal >= 50 and rsiVal <= 72
-    rsiShortOk = rsiVal <= 50 and rsiVal >= 28
-    
     [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9)
-    macdUp = macdLine > signalLine and hist > 0
-    macdDown = macdLine < signalLine and hist < 0
-    
     volMA = ta.sma(volume, 20)
     rvol = volMA > 0 ? volume / volMA : na
+    volOk = not na(rvol) and rvol >= 1.0
     
-    [plusDI, minusDI, adxVal] = ta.dmi(14, 14)
-    adxOk = adxVal >= 18
-    longDmiOk = plusDI > minusDI
-    shortDmiOk = minusDI > plusDI
-    
-    scoreLong = 0.0
-    scoreLong += trendUp ? 18 : 0
-    scoreLong += macroBull ? 7 : 0
-    scoreLong += rsiVal >= 50 and rsiVal <= 68 ? 15 : rsiVal > 68 and rsiVal <= 75 ? 8 : 0
-    scoreLong += macdUp ? 15 : 0
-    scoreLong += rvol >= 2.0 ? 15 : rvol >= 1.2 ? 10 : rvol >= 0.8 ? 5 : 0
-    scoreLong += adxOk and longDmiOk ? 10 : adxOk ? 5 : 0
-    scoreLong += longBreak ? 10 : close > ema20 ? 5 : 0
-    scoreLong += rrLong >= 1.8 ? 10 : rrLong >= 1.3 ? 5 : 0
-    
-    scoreShort = 0.0
-    scoreShort += trendDown ? 18 : 0
-    scoreShort += macroBear ? 7 : 0
-    scoreShort += rsiVal <= 50 and rsiVal >= 32 ? 15 : rsiVal < 32 and rsiVal >= 25 ? 8 : 0
-    scoreShort += macdDown ? 15 : 0
-    scoreShort += rvol >= 2.0 ? 15 : rvol >= 1.2 ? 10 : rvol >= 0.8 ? 5 : 0
-    scoreShort += adxOk and shortDmiOk ? 10 : adxOk ? 5 : 0
-    scoreShort += shortBreak ? 10 : close < ema20 ? 5 : 0
-    scoreShort += rrShort >= 1.8 ? 10 : rrShort >= 1.3 ? 5 : 0
-    
-    technicalSide = scoreLong >= entryScore and scoreLong > scoreShort + scoreGap ? "LONG" : scoreShort >= entryScore and scoreShort > scoreLong + scoreGap ? "SHORT" : "NEUTRAL"
-    
-    longCandidate = trendUp and rsiLongOk and macdUp and rvol >= 1.0
-    shortCandidate = trendDown and rsiShortOk and macdDown and rvol >= 1.0
-    
-    validLongAction = validData and longCandidate and technicalSide == "LONG" and riskOkLong and dirOkLong
-    validShortAction = validData and shortCandidate and technicalSide == "SHORT" and riskOkShort and dirOkShort
-    
-    action = validLongAction ? "LONG" : validShortAction ? "SHORT" : "WAIT"
-    
-    isLong = action == "LONG" or (action == "WAIT" and scoreLong >= scoreShort)
-    isShort = action == "SHORT" or (action == "WAIT" and scoreShort > scoreLong)
-    
-    finalEntry = isLong ? entryLong : isShort ? entryShort : na
-    finalTP = isLong ? tpLong : isShort ? tpShort : na
-    finalSL = isLong ? slLong : isShort ? slShort : na
-    tpPct = isLong ? tpPctLong : isShort ? tpPctShort : na
-    riskPct = isLong ? riskPctLong : isShort ? riskPctShort : na
-    rr = isLong ? rrLong : isShort ? rrShort : na
-    levTpPct = isLong ? levTpPctLong : isShort ? levTpPctShort : na
-    levRiskPct = isLong ? levRiskPctLong : isShort ? levRiskPctShort : na
-    score = isLong ? scoreLong : isShort ? scoreShort : math.max(scoreLong, scoreShort)
-    
-    riskLabel = f_risk_label(levRiskPct)
-    
-    signal = action == "LONG" ? "LONG" : action == "SHORT" ? "SHORT" : riskLabel == "HIGH" or riskLabel == "RISKY" ? "RISKY" : "NEUTRAL"
-    
+    // Layer 3 — Candle Behavior
     body = math.abs(close - open)
     barRange = math.max(high - low, syminfo.mintick)
+    greenCandle = close > open
+    redCandle = close < open
+    closeNearHigh = barRange > 0 ? close >= low + barRange * 0.65 : false
+    closeNearLow  = barRange > 0 ? close <= low + barRange * 0.35 : false
+    
+    upperReject = body > 0 ? (high - math.max(open, close)) >= body * 0.8 : false
+    lowerReject = body > 0 ? (math.min(open, close) - low) >= body * 0.8 : false
+    
+    // Layer 4 — Bias Engine
+    trendLong = close > emaFast and emaFast > emaSlow
+    trendShort = close < emaFast and emaFast < emaSlow
+    momentumLong = rsiVal >= 50 and rsiVal <= 72 and hist > 0 and hist >= hist[1]
+    momentumShort = rsiVal <= 50 and rsiVal >= 28 and hist < 0 and hist <= hist[1]
+    
+    // Layer 5 — Setup & Overheat/Oversold Engine
+    overheat = rsiVal > 72 or close > emaFast + atrVal * 1.8
+    oversold = rsiVal < 28 or close < emaFast - atrVal * 1.8
+    
+    // Impulse guards
+    bullishImpulse = greenCandle and closeNearHigh and close > close[1]
+    bearishImpulse = redCandle and closeNearLow and close < close[1]
+    
+    // Layer 6 — Action Engine
+    longTrendAction = trendLong and momentumLong and volOk and greenCandle and closeNearHigh and not overheat
+    shortTrendAction = trendShort and momentumShort and volOk and redCandle and closeNearLow and not oversold
+    
+    longBreakoutAction = close > longTrigger and greenCandle and closeNearHigh and volOk
+    shortBreakdownAction = close < shortTrigger and redCandle and closeNearLow and volOk
+    
+    longReversalAction = oversold and lowerReject and greenCandle and closeNearHigh and rvol >= 1.2 and hist > hist[1]
+    shortReversalAction = overheat and upperReject and redCandle and closeNearLow and rvol >= 1.2 and hist < hist[1]
+    
+    validLongAction = validData and (longTrendAction or longBreakoutAction or longReversalAction) and riskOkLong and dirOkLong
+    validShortAction = validData and (shortTrendAction or shortBreakdownAction or shortReversalAction) and riskOkShort and dirOkShort
+    
+    if bullishImpulse
+        validShortAction := false
+    if bearishImpulse
+        validLongAction := false
+        
+    // Layer 7 — Flow & Score
     lowerWick = math.min(open, close) - low
     upperWick = high - math.max(open, close)
-    closeNearHigh = close >= low + barRange * 0.70
-    closeNearLow  = close <= low + barRange * 0.30
-    
-    bullImpulse = close > open and closeNearHigh and rvol >= 1.2
-    bearImpulse = close < open and closeNearLow and rvol >= 1.2
     longAbsorb  = lowerWick > body * 1.2 and closeNearHigh and rvol >= 1.3
     shortAbsorb = upperWick > body * 1.2 and closeNearLow and rvol >= 1.3
     smallBodyHighVol = body <= atrVal * 0.30 and rvol >= 1.8
     
-    flow = bullImpulse and trendUp ? "LONG FLOW" : bearImpulse and trendDown ? "SHORT FLOW" : longAbsorb ? "BUY ABSORB" : shortAbsorb ? "SELL ABSORB" : smallBodyHighVol ? "SQUEEZE" : rvol < 0.5 ? "SEPI" : "NORMAL"
-
-    [close, finalEntry, finalTP, finalSL, tpPct, riskPct, rr, levTpPct, levRiskPct, riskLabel, rsiVal, rvol * 100, flow, action, score, signal]
+    bullImpulse = greenCandle and closeNearHigh and rvol >= 1.2
+    bearImpulse = redCandle and closeNearLow and rvol >= 1.2
+    
+    flow = bullImpulse and trendLong ? "LONG FLOW" : bearImpulse and trendShort ? "SHORT FLOW" : longAbsorb ? "BUY ABSORB" : shortAbsorb ? "SELL ABSORB" : smallBodyHighVol ? "SQUEEZE" : rvol < 0.5 ? "SEPI" : "NORMAL"
+    
+    longFlow = flow == "LONG FLOW" or flow == "BUY ABSORB"
+    shortFlow = flow == "SHORT FLOW" or flow == "SELL ABSORB"
+    
+    // Flow conflict rule
+    flowConflict = (validShortAction and longFlow) or (validLongAction and shortFlow)
+    
+    if flowConflict
+        validLongAction := false
+        validShortAction := false
+        
+    // Scoring
+    scoreLong = 0.0
+    scoreLong += trendLong ? 20.0 : 0.0
+    scoreLong += momentumLong ? 20.0 : 0.0
+    scoreLong += volOk ? 15.0 : 0.0
+    scoreLong += greenCandle ? 15.0 : 0.0
+    scoreLong += closeNearHigh ? 10.0 : 0.0
+    scoreLong += longFlow ? 10.0 : 0.0
+    scoreLong += not overheat ? 10.0 : 0.0
+    
+    scoreShort = 0.0
+    scoreShort += trendShort ? 20.0 : 0.0
+    scoreShort += momentumShort ? 20.0 : 0.0
+    scoreShort += volOk ? 15.0 : 0.0
+    scoreShort += redCandle ? 15.0 : 0.0
+    scoreShort += closeNearLow ? 10.0 : 0.0
+    scoreShort += shortFlow ? 10.0 : 0.0
+    scoreShort += not oversold ? 10.0 : 0.0
+    
+    // Final action with score gate
+    longScoreOk = scoreLong >= entryScore and scoreLong > scoreShort + scoreGap
+    shortScoreOk = scoreShort >= entryScore and scoreShort > scoreLong + scoreGap
+    
+    action = validLongAction and longScoreOk ? "LONG" : validShortAction and shortScoreOk ? "SHORT" : "WAIT"
+    
+    finalEntry = action == "LONG" ? close : action == "SHORT" ? close : na
+    finalTP = action == "LONG" ? tpLong : action == "SHORT" ? tpShort : na
+    finalSL = action == "LONG" ? slLong : action == "SHORT" ? slShort : na
+    tpPct = action == "LONG" ? tpPctLong : action == "SHORT" ? tpPctShort : na
+    riskPct = action == "LONG" ? riskPctLong : action == "SHORT" ? riskPctShort : na
+    rr = action == "LONG" ? rrLong : action == "SHORT" ? rrShort : na
+    levTpPct = action == "LONG" ? levTpPctLong : action == "SHORT" ? levTpPctShort : na
+    levRiskPct = action == "LONG" ? levRiskPctLong : action == "SHORT" ? levRiskPctShort : na
+    
+    score = action == "LONG" ? scoreLong : action == "SHORT" ? scoreShort : math.max(scoreLong, scoreShort)
+    riskLabel = f_risk_label(levRiskPct)
+    
+    status = overheat ? "OVERHEAT" : oversold ? "OVERSOLD" : flowConflict ? "CONFLICT" : riskLabel == "HIGH" ? "RISKY" : action != "WAIT" ? action + " SETUP" : "WATCH"
+    signal = action == "LONG" ? "LONG" : action == "SHORT" ? "SHORT" : riskLabel == "HIGH" or riskLabel == "RISKY" ? "RISKY" : "NEUTRAL"
+    
+    [close, longTrigger, shortTrigger, finalEntry, finalTP, finalSL, tpPct, riskPct, rr, levTpPct, levRiskPct, riskLabel, rsiVal, rvol * 100.0, flow, status, action, score, signal, syminfo.mintick]
 
 
 // ============================================================================
@@ -263,16 +290,7 @@ tk7 = "BINANCE:LTCUSDT.P"
 tk8 = "BINANCE:FILUSDT.P"
 tk9 = "BINANCE:INJUSDT.P"
 tk10 = "BINANCE:ENAUSDT.P"
-tick1 = 0.001
-tick2 = 0.001
-tick3 = 0.001
-tick4 = 0.001
-tick5 = 0.001
-tick6 = 0.001
-tick7 = 0.001
-tick8 = 0.001
-tick9 = 0.001
-tick10 = 0.001
+
 dec1 = 3
 dec2 = 3
 dec3 = 3
@@ -284,16 +302,16 @@ dec8 = 3
 dec9 = 3
 dec10 = 3
 
-[now1, entry1, tp_1, sl_1, pctTp1, riskPct1, rr1, levTpPct1, levRiskPct1, risk1, rsi1, rvolPct1, flow1, action1, score1, signal1] = request.security(tk1, tf, f_dashboard_engine())
-[now2, entry2, tp_2, sl_2, pctTp2, riskPct2, rr2, levTpPct2, levRiskPct2, risk2, rsi2, rvolPct2, flow2, action2, score2, signal2] = request.security(tk2, tf, f_dashboard_engine())
-[now3, entry3, tp_3, sl_3, pctTp3, riskPct3, rr3, levTpPct3, levRiskPct3, risk3, rsi3, rvolPct3, flow3, action3, score3, signal3] = request.security(tk3, tf, f_dashboard_engine())
-[now4, entry4, tp_4, sl_4, pctTp4, riskPct4, rr4, levTpPct4, levRiskPct4, risk4, rsi4, rvolPct4, flow4, action4, score4, signal4] = request.security(tk4, tf, f_dashboard_engine())
-[now5, entry5, tp_5, sl_5, pctTp5, riskPct5, rr5, levTpPct5, levRiskPct5, risk5, rsi5, rvolPct5, flow5, action5, score5, signal5] = request.security(tk5, tf, f_dashboard_engine())
-[now6, entry6, tp_6, sl_6, pctTp6, riskPct6, rr6, levTpPct6, levRiskPct6, risk6, rsi6, rvolPct6, flow6, action6, score6, signal6] = request.security(tk6, tf, f_dashboard_engine())
-[now7, entry7, tp_7, sl_7, pctTp7, riskPct7, rr7, levTpPct7, levRiskPct7, risk7, rsi7, rvolPct7, flow7, action7, score7, signal7] = request.security(tk7, tf, f_dashboard_engine())
-[now8, entry8, tp_8, sl_8, pctTp8, riskPct8, rr8, levTpPct8, levRiskPct8, risk8, rsi8, rvolPct8, flow8, action8, score8, signal8] = request.security(tk8, tf, f_dashboard_engine())
-[now9, entry9, tp_9, sl_9, pctTp9, riskPct9, rr9, levTpPct9, levRiskPct9, risk9, rsi9, rvolPct9, flow9, action9, score9, signal9] = request.security(tk9, tf, f_dashboard_engine())
-[now10, entry10, tp_10, sl_10, pctTp10, riskPct10, rr10, levTpPct10, levRiskPct10, risk10, rsi10, rvolPct10, flow10, action10, score10, signal10] = request.security(tk10, tf, f_dashboard_engine())
+[now1, longTrig1, shortTrig1, entry1, tp_1, sl_1, pctTp1, riskPct1, rr1, levTpPct1, levRiskPct1, risk1, rsi1, rvolPct1, flow1, status1, action1, score1, signal1, tick1] = request.security(tk1, tf, f_dashboard_engine())
+[now2, longTrig2, shortTrig2, entry2, tp_2, sl_2, pctTp2, riskPct2, rr2, levTpPct2, levRiskPct2, risk2, rsi2, rvolPct2, flow2, status2, action2, score2, signal2, tick2] = request.security(tk2, tf, f_dashboard_engine())
+[now3, longTrig3, shortTrig3, entry3, tp_3, sl_3, pctTp3, riskPct3, rr3, levTpPct3, levRiskPct3, risk3, rsi3, rvolPct3, flow3, status3, action3, score3, signal3, tick3] = request.security(tk3, tf, f_dashboard_engine())
+[now4, longTrig4, shortTrig4, entry4, tp_4, sl_4, pctTp4, riskPct4, rr4, levTpPct4, levRiskPct4, risk4, rsi4, rvolPct4, flow4, status4, action4, score4, signal4, tick4] = request.security(tk4, tf, f_dashboard_engine())
+[now5, longTrig5, shortTrig5, entry5, tp_5, sl_5, pctTp5, riskPct5, rr5, levTpPct5, levRiskPct5, risk5, rsi5, rvolPct5, flow5, status5, action5, score5, signal5, tick5] = request.security(tk5, tf, f_dashboard_engine())
+[now6, longTrig6, shortTrig6, entry6, tp_6, sl_6, pctTp6, riskPct6, rr6, levTpPct6, levRiskPct6, risk6, rsi6, rvolPct6, flow6, status6, action6, score6, signal6, tick6] = request.security(tk6, tf, f_dashboard_engine())
+[now7, longTrig7, shortTrig7, entry7, tp_7, sl_7, pctTp7, riskPct7, rr7, levTpPct7, levRiskPct7, risk7, rsi7, rvolPct7, flow7, status7, action7, score7, signal7, tick7] = request.security(tk7, tf, f_dashboard_engine())
+[now8, longTrig8, shortTrig8, entry8, tp_8, sl_8, pctTp8, riskPct8, rr8, levTpPct8, levRiskPct8, risk8, rsi8, rvolPct8, flow8, status8, action8, score8, signal8, tick8] = request.security(tk8, tf, f_dashboard_engine())
+[now9, longTrig9, shortTrig9, entry9, tp_9, sl_9, pctTp9, riskPct9, rr9, levTpPct9, levRiskPct9, risk9, rsi9, rvolPct9, flow9, status9, action9, score9, signal9, tick9] = request.security(tk9, tf, f_dashboard_engine())
+[now10, longTrig10, shortTrig10, entry10, tp_10, sl_10, pctTp10, riskPct10, rr10, levTpPct10, levRiskPct10, risk10, rsi10, rvolPct10, flow10, status10, action10, score10, signal10, tick10] = request.security(tk10, tf, f_dashboard_engine())
 
 // ============================================================================
 // ALERT LOGIC
@@ -310,9 +328,15 @@ longSlHit1 = activeSide1 == "LONG" and low <= activeSl1
 shortTpHit1 = activeSide1 == "SHORT" and low <= activeTp1
 shortSlHit1 = activeSide1 == "SHORT" and high >= activeSl1
 
-event1 = longSlHit1 or shortSlHit1 ? "SL_HIT" : longTpHit1 or shortTpHit1 ? "TP_HIT" : action1 == "LONG" ? "LONG_ENTRY" : action1 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent1 = activeSide1 == "" and action1 == "LONG" ? "LONG_ENTRY" : activeSide1 == "" and action1 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event1 = (activeSide1 == "LONG" and longTpHit1) ? "LONG_TP_HIT" : (activeSide1 == "LONG" and longSlHit1) ? "LONG_SL_HIT" : (activeSide1 == "SHORT" and shortTpHit1) ? "SHORT_TP_HIT" : (activeSide1 == "SHORT" and shortSlHit1) ? "SHORT_SL_HIT" : entryEvent1
 
-if event1 == "SL_HIT" or event1 == "TP_HIT"
+alertSide1 = event1 == "LONG_ENTRY" ? "LONG" : event1 == "SHORT_ENTRY" ? "SHORT" : activeSide1
+alertEntry1 = event1 == "LONG_ENTRY" or event1 == "SHORT_ENTRY" ? entry1 : activeEntry1
+alertTp1 = event1 == "LONG_ENTRY" or event1 == "SHORT_ENTRY" ? tp_1 : activeTp1
+alertSl1 = event1 == "LONG_ENTRY" or event1 == "SHORT_ENTRY" ? sl_1 : activeSl1
+
+if event1 == "LONG_SL_HIT" or event1 == "LONG_TP_HIT" or event1 == "SHORT_SL_HIT" or event1 == "SHORT_TP_HIT"
     activeSide1 := ""
     activeEntry1 := na
     activeTp1 := na
@@ -328,11 +352,17 @@ else if event1 == "SHORT_ENTRY"
     activeTp1 := tp_1
     activeSl1 := sl_1
     
-sendAlert1 = event1 == "LONG_ENTRY" or event1 == "SHORT_ENTRY" or event1 == "TP_HIT" or event1 == "SL_HIT"
+sendAlert1 = event1 == "LONG_ENTRY" or event1 == "SHORT_ENTRY" or event1 == "LONG_TP_HIT" or event1 == "LONG_SL_HIT" or event1 == "SHORT_TP_HIT" or event1 == "SHORT_SL_HIT"
 canAlert1 = sendAlert1 and (event1 != lastEvent1 or na(lastBar1) or bar_index - lastBar1 >= cooldownBars)
 
+alertTpPct1 = na(pctTp1) ? 0.0 : pctTp1
+alertRiskPct1 = na(riskPct1) ? 0.0 : riskPct1
+alertRr1 = na(rr1) ? 0.0 : rr1
+alertLevTp1 = na(levTpPct1) ? 0.0 : levTpPct1
+alertLevRisk1 = na(levRiskPct1) ? 0.0 : levRiskPct1
+
 if barstate.isconfirmed and canAlert1
-    msg_1 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event1 + '", "side": "' + str.tostring(action1) + '", "symbol": "WLDUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry1) + ', "entry_text": "' + f_fmt_price(entry1, tick1) + '", "now": ' + str.tostring(now1) + ', "now_text": "' + f_fmt_price(now1, tick1) + '", "tp": ' + str.tostring(tp_1) + ', "tp_text": "' + f_fmt_price(tp_1, tick1) + '", "sl": ' + str.tostring(sl_1) + ', "sl_text": "' + f_fmt_price(sl_1, tick1) + '", "tp_pct": ' + str.tostring(pctTp1) + ', "risk_pct": ' + str.tostring(riskPct1) + ', "rr": ' + str.tostring(rr1) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct1) + ', "lev_risk_pct": ' + str.tostring(levRiskPct1) + ', "risk_label": "' + risk1 + '", "score": ' + str.tostring(score1) + ', "flow": "' + flow1 + '", "signal": "' + signal1 + '", "tick_size": ' + str.tostring(tick1) + ', "price_decimals": ' + str.tostring(dec1) + ', "time": ' + str.tostring(time) + '}'
+    msg_1 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event1 + '", "side": "' + str.tostring(alertSide1) + '", "symbol": "WLDUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now1) + ', "entry": ' + str.tostring(alertEntry1) + ', "tp": ' + str.tostring(alertTp1) + ', "sl": ' + str.tostring(alertSl1) + ', "tp_pct": ' + str.tostring(alertTpPct1) + ', "risk_pct": ' + str.tostring(alertRiskPct1) + ', "rr": ' + str.tostring(alertRr1) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp1) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk1) + ', "risk_label": "' + risk1 + '", "score": ' + str.tostring(score1) + ', "flow": "' + flow1 + '", "signal": "' + signal1 + '", "price_text": {"now": "' + f_fmt_price(now1, tick1) + '", "entry": "' + f_fmt_price(alertEntry1, tick1) + '", "tp": "' + f_fmt_price(alertTp1, tick1) + '", "sl": "' + f_fmt_price(alertSl1, tick1) + '"}, "tick_size": ' + str.tostring(tick1) + ', "price_decimals": ' + str.tostring(dec1) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_1, alert.freq_once_per_bar_close)
     lastEvent1 := event1
     lastBar1 := bar_index
@@ -349,9 +379,15 @@ longSlHit2 = activeSide2 == "LONG" and low <= activeSl2
 shortTpHit2 = activeSide2 == "SHORT" and low <= activeTp2
 shortSlHit2 = activeSide2 == "SHORT" and high >= activeSl2
 
-event2 = longSlHit2 or shortSlHit2 ? "SL_HIT" : longTpHit2 or shortTpHit2 ? "TP_HIT" : action2 == "LONG" ? "LONG_ENTRY" : action2 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent2 = activeSide2 == "" and action2 == "LONG" ? "LONG_ENTRY" : activeSide2 == "" and action2 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event2 = (activeSide2 == "LONG" and longTpHit2) ? "LONG_TP_HIT" : (activeSide2 == "LONG" and longSlHit2) ? "LONG_SL_HIT" : (activeSide2 == "SHORT" and shortTpHit2) ? "SHORT_TP_HIT" : (activeSide2 == "SHORT" and shortSlHit2) ? "SHORT_SL_HIT" : entryEvent2
 
-if event2 == "SL_HIT" or event2 == "TP_HIT"
+alertSide2 = event2 == "LONG_ENTRY" ? "LONG" : event2 == "SHORT_ENTRY" ? "SHORT" : activeSide2
+alertEntry2 = event2 == "LONG_ENTRY" or event2 == "SHORT_ENTRY" ? entry2 : activeEntry2
+alertTp2 = event2 == "LONG_ENTRY" or event2 == "SHORT_ENTRY" ? tp_2 : activeTp2
+alertSl2 = event2 == "LONG_ENTRY" or event2 == "SHORT_ENTRY" ? sl_2 : activeSl2
+
+if event2 == "LONG_SL_HIT" or event2 == "LONG_TP_HIT" or event2 == "SHORT_SL_HIT" or event2 == "SHORT_TP_HIT"
     activeSide2 := ""
     activeEntry2 := na
     activeTp2 := na
@@ -367,11 +403,17 @@ else if event2 == "SHORT_ENTRY"
     activeTp2 := tp_2
     activeSl2 := sl_2
     
-sendAlert2 = event2 == "LONG_ENTRY" or event2 == "SHORT_ENTRY" or event2 == "TP_HIT" or event2 == "SL_HIT"
+sendAlert2 = event2 == "LONG_ENTRY" or event2 == "SHORT_ENTRY" or event2 == "LONG_TP_HIT" or event2 == "LONG_SL_HIT" or event2 == "SHORT_TP_HIT" or event2 == "SHORT_SL_HIT"
 canAlert2 = sendAlert2 and (event2 != lastEvent2 or na(lastBar2) or bar_index - lastBar2 >= cooldownBars)
 
+alertTpPct2 = na(pctTp2) ? 0.0 : pctTp2
+alertRiskPct2 = na(riskPct2) ? 0.0 : riskPct2
+alertRr2 = na(rr2) ? 0.0 : rr2
+alertLevTp2 = na(levTpPct2) ? 0.0 : levTpPct2
+alertLevRisk2 = na(levRiskPct2) ? 0.0 : levRiskPct2
+
 if barstate.isconfirmed and canAlert2
-    msg_2 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event2 + '", "side": "' + str.tostring(action2) + '", "symbol": "TAOUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry2) + ', "entry_text": "' + f_fmt_price(entry2, tick2) + '", "now": ' + str.tostring(now2) + ', "now_text": "' + f_fmt_price(now2, tick2) + '", "tp": ' + str.tostring(tp_2) + ', "tp_text": "' + f_fmt_price(tp_2, tick2) + '", "sl": ' + str.tostring(sl_2) + ', "sl_text": "' + f_fmt_price(sl_2, tick2) + '", "tp_pct": ' + str.tostring(pctTp2) + ', "risk_pct": ' + str.tostring(riskPct2) + ', "rr": ' + str.tostring(rr2) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct2) + ', "lev_risk_pct": ' + str.tostring(levRiskPct2) + ', "risk_label": "' + risk2 + '", "score": ' + str.tostring(score2) + ', "flow": "' + flow2 + '", "signal": "' + signal2 + '", "tick_size": ' + str.tostring(tick2) + ', "price_decimals": ' + str.tostring(dec2) + ', "time": ' + str.tostring(time) + '}'
+    msg_2 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event2 + '", "side": "' + str.tostring(alertSide2) + '", "symbol": "TAOUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now2) + ', "entry": ' + str.tostring(alertEntry2) + ', "tp": ' + str.tostring(alertTp2) + ', "sl": ' + str.tostring(alertSl2) + ', "tp_pct": ' + str.tostring(alertTpPct2) + ', "risk_pct": ' + str.tostring(alertRiskPct2) + ', "rr": ' + str.tostring(alertRr2) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp2) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk2) + ', "risk_label": "' + risk2 + '", "score": ' + str.tostring(score2) + ', "flow": "' + flow2 + '", "signal": "' + signal2 + '", "price_text": {"now": "' + f_fmt_price(now2, tick2) + '", "entry": "' + f_fmt_price(alertEntry2, tick2) + '", "tp": "' + f_fmt_price(alertTp2, tick2) + '", "sl": "' + f_fmt_price(alertSl2, tick2) + '"}, "tick_size": ' + str.tostring(tick2) + ', "price_decimals": ' + str.tostring(dec2) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_2, alert.freq_once_per_bar_close)
     lastEvent2 := event2
     lastBar2 := bar_index
@@ -388,9 +430,15 @@ longSlHit3 = activeSide3 == "LONG" and low <= activeSl3
 shortTpHit3 = activeSide3 == "SHORT" and low <= activeTp3
 shortSlHit3 = activeSide3 == "SHORT" and high >= activeSl3
 
-event3 = longSlHit3 or shortSlHit3 ? "SL_HIT" : longTpHit3 or shortTpHit3 ? "TP_HIT" : action3 == "LONG" ? "LONG_ENTRY" : action3 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent3 = activeSide3 == "" and action3 == "LONG" ? "LONG_ENTRY" : activeSide3 == "" and action3 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event3 = (activeSide3 == "LONG" and longTpHit3) ? "LONG_TP_HIT" : (activeSide3 == "LONG" and longSlHit3) ? "LONG_SL_HIT" : (activeSide3 == "SHORT" and shortTpHit3) ? "SHORT_TP_HIT" : (activeSide3 == "SHORT" and shortSlHit3) ? "SHORT_SL_HIT" : entryEvent3
 
-if event3 == "SL_HIT" or event3 == "TP_HIT"
+alertSide3 = event3 == "LONG_ENTRY" ? "LONG" : event3 == "SHORT_ENTRY" ? "SHORT" : activeSide3
+alertEntry3 = event3 == "LONG_ENTRY" or event3 == "SHORT_ENTRY" ? entry3 : activeEntry3
+alertTp3 = event3 == "LONG_ENTRY" or event3 == "SHORT_ENTRY" ? tp_3 : activeTp3
+alertSl3 = event3 == "LONG_ENTRY" or event3 == "SHORT_ENTRY" ? sl_3 : activeSl3
+
+if event3 == "LONG_SL_HIT" or event3 == "LONG_TP_HIT" or event3 == "SHORT_SL_HIT" or event3 == "SHORT_TP_HIT"
     activeSide3 := ""
     activeEntry3 := na
     activeTp3 := na
@@ -406,11 +454,17 @@ else if event3 == "SHORT_ENTRY"
     activeTp3 := tp_3
     activeSl3 := sl_3
     
-sendAlert3 = event3 == "LONG_ENTRY" or event3 == "SHORT_ENTRY" or event3 == "TP_HIT" or event3 == "SL_HIT"
+sendAlert3 = event3 == "LONG_ENTRY" or event3 == "SHORT_ENTRY" or event3 == "LONG_TP_HIT" or event3 == "LONG_SL_HIT" or event3 == "SHORT_TP_HIT" or event3 == "SHORT_SL_HIT"
 canAlert3 = sendAlert3 and (event3 != lastEvent3 or na(lastBar3) or bar_index - lastBar3 >= cooldownBars)
 
+alertTpPct3 = na(pctTp3) ? 0.0 : pctTp3
+alertRiskPct3 = na(riskPct3) ? 0.0 : riskPct3
+alertRr3 = na(rr3) ? 0.0 : rr3
+alertLevTp3 = na(levTpPct3) ? 0.0 : levTpPct3
+alertLevRisk3 = na(levRiskPct3) ? 0.0 : levRiskPct3
+
 if barstate.isconfirmed and canAlert3
-    msg_3 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event3 + '", "side": "' + str.tostring(action3) + '", "symbol": "LINKUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry3) + ', "entry_text": "' + f_fmt_price(entry3, tick3) + '", "now": ' + str.tostring(now3) + ', "now_text": "' + f_fmt_price(now3, tick3) + '", "tp": ' + str.tostring(tp_3) + ', "tp_text": "' + f_fmt_price(tp_3, tick3) + '", "sl": ' + str.tostring(sl_3) + ', "sl_text": "' + f_fmt_price(sl_3, tick3) + '", "tp_pct": ' + str.tostring(pctTp3) + ', "risk_pct": ' + str.tostring(riskPct3) + ', "rr": ' + str.tostring(rr3) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct3) + ', "lev_risk_pct": ' + str.tostring(levRiskPct3) + ', "risk_label": "' + risk3 + '", "score": ' + str.tostring(score3) + ', "flow": "' + flow3 + '", "signal": "' + signal3 + '", "tick_size": ' + str.tostring(tick3) + ', "price_decimals": ' + str.tostring(dec3) + ', "time": ' + str.tostring(time) + '}'
+    msg_3 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event3 + '", "side": "' + str.tostring(alertSide3) + '", "symbol": "LINKUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now3) + ', "entry": ' + str.tostring(alertEntry3) + ', "tp": ' + str.tostring(alertTp3) + ', "sl": ' + str.tostring(alertSl3) + ', "tp_pct": ' + str.tostring(alertTpPct3) + ', "risk_pct": ' + str.tostring(alertRiskPct3) + ', "rr": ' + str.tostring(alertRr3) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp3) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk3) + ', "risk_label": "' + risk3 + '", "score": ' + str.tostring(score3) + ', "flow": "' + flow3 + '", "signal": "' + signal3 + '", "price_text": {"now": "' + f_fmt_price(now3, tick3) + '", "entry": "' + f_fmt_price(alertEntry3, tick3) + '", "tp": "' + f_fmt_price(alertTp3, tick3) + '", "sl": "' + f_fmt_price(alertSl3, tick3) + '"}, "tick_size": ' + str.tostring(tick3) + ', "price_decimals": ' + str.tostring(dec3) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_3, alert.freq_once_per_bar_close)
     lastEvent3 := event3
     lastBar3 := bar_index
@@ -427,9 +481,15 @@ longSlHit4 = activeSide4 == "LONG" and low <= activeSl4
 shortTpHit4 = activeSide4 == "SHORT" and low <= activeTp4
 shortSlHit4 = activeSide4 == "SHORT" and high >= activeSl4
 
-event4 = longSlHit4 or shortSlHit4 ? "SL_HIT" : longTpHit4 or shortTpHit4 ? "TP_HIT" : action4 == "LONG" ? "LONG_ENTRY" : action4 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent4 = activeSide4 == "" and action4 == "LONG" ? "LONG_ENTRY" : activeSide4 == "" and action4 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event4 = (activeSide4 == "LONG" and longTpHit4) ? "LONG_TP_HIT" : (activeSide4 == "LONG" and longSlHit4) ? "LONG_SL_HIT" : (activeSide4 == "SHORT" and shortTpHit4) ? "SHORT_TP_HIT" : (activeSide4 == "SHORT" and shortSlHit4) ? "SHORT_SL_HIT" : entryEvent4
 
-if event4 == "SL_HIT" or event4 == "TP_HIT"
+alertSide4 = event4 == "LONG_ENTRY" ? "LONG" : event4 == "SHORT_ENTRY" ? "SHORT" : activeSide4
+alertEntry4 = event4 == "LONG_ENTRY" or event4 == "SHORT_ENTRY" ? entry4 : activeEntry4
+alertTp4 = event4 == "LONG_ENTRY" or event4 == "SHORT_ENTRY" ? tp_4 : activeTp4
+alertSl4 = event4 == "LONG_ENTRY" or event4 == "SHORT_ENTRY" ? sl_4 : activeSl4
+
+if event4 == "LONG_SL_HIT" or event4 == "LONG_TP_HIT" or event4 == "SHORT_SL_HIT" or event4 == "SHORT_TP_HIT"
     activeSide4 := ""
     activeEntry4 := na
     activeTp4 := na
@@ -445,11 +505,17 @@ else if event4 == "SHORT_ENTRY"
     activeTp4 := tp_4
     activeSl4 := sl_4
     
-sendAlert4 = event4 == "LONG_ENTRY" or event4 == "SHORT_ENTRY" or event4 == "TP_HIT" or event4 == "SL_HIT"
+sendAlert4 = event4 == "LONG_ENTRY" or event4 == "SHORT_ENTRY" or event4 == "LONG_TP_HIT" or event4 == "LONG_SL_HIT" or event4 == "SHORT_TP_HIT" or event4 == "SHORT_SL_HIT"
 canAlert4 = sendAlert4 and (event4 != lastEvent4 or na(lastBar4) or bar_index - lastBar4 >= cooldownBars)
 
+alertTpPct4 = na(pctTp4) ? 0.0 : pctTp4
+alertRiskPct4 = na(riskPct4) ? 0.0 : riskPct4
+alertRr4 = na(rr4) ? 0.0 : rr4
+alertLevTp4 = na(levTpPct4) ? 0.0 : levTpPct4
+alertLevRisk4 = na(levRiskPct4) ? 0.0 : levRiskPct4
+
 if barstate.isconfirmed and canAlert4
-    msg_4 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event4 + '", "side": "' + str.tostring(action4) + '", "symbol": "TONUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry4) + ', "entry_text": "' + f_fmt_price(entry4, tick4) + '", "now": ' + str.tostring(now4) + ', "now_text": "' + f_fmt_price(now4, tick4) + '", "tp": ' + str.tostring(tp_4) + ', "tp_text": "' + f_fmt_price(tp_4, tick4) + '", "sl": ' + str.tostring(sl_4) + ', "sl_text": "' + f_fmt_price(sl_4, tick4) + '", "tp_pct": ' + str.tostring(pctTp4) + ', "risk_pct": ' + str.tostring(riskPct4) + ', "rr": ' + str.tostring(rr4) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct4) + ', "lev_risk_pct": ' + str.tostring(levRiskPct4) + ', "risk_label": "' + risk4 + '", "score": ' + str.tostring(score4) + ', "flow": "' + flow4 + '", "signal": "' + signal4 + '", "tick_size": ' + str.tostring(tick4) + ', "price_decimals": ' + str.tostring(dec4) + ', "time": ' + str.tostring(time) + '}'
+    msg_4 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event4 + '", "side": "' + str.tostring(alertSide4) + '", "symbol": "TONUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now4) + ', "entry": ' + str.tostring(alertEntry4) + ', "tp": ' + str.tostring(alertTp4) + ', "sl": ' + str.tostring(alertSl4) + ', "tp_pct": ' + str.tostring(alertTpPct4) + ', "risk_pct": ' + str.tostring(alertRiskPct4) + ', "rr": ' + str.tostring(alertRr4) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp4) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk4) + ', "risk_label": "' + risk4 + '", "score": ' + str.tostring(score4) + ', "flow": "' + flow4 + '", "signal": "' + signal4 + '", "price_text": {"now": "' + f_fmt_price(now4, tick4) + '", "entry": "' + f_fmt_price(alertEntry4, tick4) + '", "tp": "' + f_fmt_price(alertTp4, tick4) + '", "sl": "' + f_fmt_price(alertSl4, tick4) + '"}, "tick_size": ' + str.tostring(tick4) + ', "price_decimals": ' + str.tostring(dec4) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_4, alert.freq_once_per_bar_close)
     lastEvent4 := event4
     lastBar4 := bar_index
@@ -466,9 +532,15 @@ longSlHit5 = activeSide5 == "LONG" and low <= activeSl5
 shortTpHit5 = activeSide5 == "SHORT" and low <= activeTp5
 shortSlHit5 = activeSide5 == "SHORT" and high >= activeSl5
 
-event5 = longSlHit5 or shortSlHit5 ? "SL_HIT" : longTpHit5 or shortTpHit5 ? "TP_HIT" : action5 == "LONG" ? "LONG_ENTRY" : action5 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent5 = activeSide5 == "" and action5 == "LONG" ? "LONG_ENTRY" : activeSide5 == "" and action5 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event5 = (activeSide5 == "LONG" and longTpHit5) ? "LONG_TP_HIT" : (activeSide5 == "LONG" and longSlHit5) ? "LONG_SL_HIT" : (activeSide5 == "SHORT" and shortTpHit5) ? "SHORT_TP_HIT" : (activeSide5 == "SHORT" and shortSlHit5) ? "SHORT_SL_HIT" : entryEvent5
 
-if event5 == "SL_HIT" or event5 == "TP_HIT"
+alertSide5 = event5 == "LONG_ENTRY" ? "LONG" : event5 == "SHORT_ENTRY" ? "SHORT" : activeSide5
+alertEntry5 = event5 == "LONG_ENTRY" or event5 == "SHORT_ENTRY" ? entry5 : activeEntry5
+alertTp5 = event5 == "LONG_ENTRY" or event5 == "SHORT_ENTRY" ? tp_5 : activeTp5
+alertSl5 = event5 == "LONG_ENTRY" or event5 == "SHORT_ENTRY" ? sl_5 : activeSl5
+
+if event5 == "LONG_SL_HIT" or event5 == "LONG_TP_HIT" or event5 == "SHORT_SL_HIT" or event5 == "SHORT_TP_HIT"
     activeSide5 := ""
     activeEntry5 := na
     activeTp5 := na
@@ -484,11 +556,17 @@ else if event5 == "SHORT_ENTRY"
     activeTp5 := tp_5
     activeSl5 := sl_5
     
-sendAlert5 = event5 == "LONG_ENTRY" or event5 == "SHORT_ENTRY" or event5 == "TP_HIT" or event5 == "SL_HIT"
+sendAlert5 = event5 == "LONG_ENTRY" or event5 == "SHORT_ENTRY" or event5 == "LONG_TP_HIT" or event5 == "LONG_SL_HIT" or event5 == "SHORT_TP_HIT" or event5 == "SHORT_SL_HIT"
 canAlert5 = sendAlert5 and (event5 != lastEvent5 or na(lastBar5) or bar_index - lastBar5 >= cooldownBars)
 
+alertTpPct5 = na(pctTp5) ? 0.0 : pctTp5
+alertRiskPct5 = na(riskPct5) ? 0.0 : riskPct5
+alertRr5 = na(rr5) ? 0.0 : rr5
+alertLevTp5 = na(levTpPct5) ? 0.0 : levTpPct5
+alertLevRisk5 = na(levRiskPct5) ? 0.0 : levRiskPct5
+
 if barstate.isconfirmed and canAlert5
-    msg_5 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event5 + '", "side": "' + str.tostring(action5) + '", "symbol": "AVAXUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry5) + ', "entry_text": "' + f_fmt_price(entry5, tick5) + '", "now": ' + str.tostring(now5) + ', "now_text": "' + f_fmt_price(now5, tick5) + '", "tp": ' + str.tostring(tp_5) + ', "tp_text": "' + f_fmt_price(tp_5, tick5) + '", "sl": ' + str.tostring(sl_5) + ', "sl_text": "' + f_fmt_price(sl_5, tick5) + '", "tp_pct": ' + str.tostring(pctTp5) + ', "risk_pct": ' + str.tostring(riskPct5) + ', "rr": ' + str.tostring(rr5) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct5) + ', "lev_risk_pct": ' + str.tostring(levRiskPct5) + ', "risk_label": "' + risk5 + '", "score": ' + str.tostring(score5) + ', "flow": "' + flow5 + '", "signal": "' + signal5 + '", "tick_size": ' + str.tostring(tick5) + ', "price_decimals": ' + str.tostring(dec5) + ', "time": ' + str.tostring(time) + '}'
+    msg_5 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event5 + '", "side": "' + str.tostring(alertSide5) + '", "symbol": "AVAXUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now5) + ', "entry": ' + str.tostring(alertEntry5) + ', "tp": ' + str.tostring(alertTp5) + ', "sl": ' + str.tostring(alertSl5) + ', "tp_pct": ' + str.tostring(alertTpPct5) + ', "risk_pct": ' + str.tostring(alertRiskPct5) + ', "rr": ' + str.tostring(alertRr5) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp5) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk5) + ', "risk_label": "' + risk5 + '", "score": ' + str.tostring(score5) + ', "flow": "' + flow5 + '", "signal": "' + signal5 + '", "price_text": {"now": "' + f_fmt_price(now5, tick5) + '", "entry": "' + f_fmt_price(alertEntry5, tick5) + '", "tp": "' + f_fmt_price(alertTp5, tick5) + '", "sl": "' + f_fmt_price(alertSl5, tick5) + '"}, "tick_size": ' + str.tostring(tick5) + ', "price_decimals": ' + str.tostring(dec5) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_5, alert.freq_once_per_bar_close)
     lastEvent5 := event5
     lastBar5 := bar_index
@@ -505,9 +583,15 @@ longSlHit6 = activeSide6 == "LONG" and low <= activeSl6
 shortTpHit6 = activeSide6 == "SHORT" and low <= activeTp6
 shortSlHit6 = activeSide6 == "SHORT" and high >= activeSl6
 
-event6 = longSlHit6 or shortSlHit6 ? "SL_HIT" : longTpHit6 or shortTpHit6 ? "TP_HIT" : action6 == "LONG" ? "LONG_ENTRY" : action6 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent6 = activeSide6 == "" and action6 == "LONG" ? "LONG_ENTRY" : activeSide6 == "" and action6 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event6 = (activeSide6 == "LONG" and longTpHit6) ? "LONG_TP_HIT" : (activeSide6 == "LONG" and longSlHit6) ? "LONG_SL_HIT" : (activeSide6 == "SHORT" and shortTpHit6) ? "SHORT_TP_HIT" : (activeSide6 == "SHORT" and shortSlHit6) ? "SHORT_SL_HIT" : entryEvent6
 
-if event6 == "SL_HIT" or event6 == "TP_HIT"
+alertSide6 = event6 == "LONG_ENTRY" ? "LONG" : event6 == "SHORT_ENTRY" ? "SHORT" : activeSide6
+alertEntry6 = event6 == "LONG_ENTRY" or event6 == "SHORT_ENTRY" ? entry6 : activeEntry6
+alertTp6 = event6 == "LONG_ENTRY" or event6 == "SHORT_ENTRY" ? tp_6 : activeTp6
+alertSl6 = event6 == "LONG_ENTRY" or event6 == "SHORT_ENTRY" ? sl_6 : activeSl6
+
+if event6 == "LONG_SL_HIT" or event6 == "LONG_TP_HIT" or event6 == "SHORT_SL_HIT" or event6 == "SHORT_TP_HIT"
     activeSide6 := ""
     activeEntry6 := na
     activeTp6 := na
@@ -523,11 +607,17 @@ else if event6 == "SHORT_ENTRY"
     activeTp6 := tp_6
     activeSl6 := sl_6
     
-sendAlert6 = event6 == "LONG_ENTRY" or event6 == "SHORT_ENTRY" or event6 == "TP_HIT" or event6 == "SL_HIT"
+sendAlert6 = event6 == "LONG_ENTRY" or event6 == "SHORT_ENTRY" or event6 == "LONG_TP_HIT" or event6 == "LONG_SL_HIT" or event6 == "SHORT_TP_HIT" or event6 == "SHORT_SL_HIT"
 canAlert6 = sendAlert6 and (event6 != lastEvent6 or na(lastBar6) or bar_index - lastBar6 >= cooldownBars)
 
+alertTpPct6 = na(pctTp6) ? 0.0 : pctTp6
+alertRiskPct6 = na(riskPct6) ? 0.0 : riskPct6
+alertRr6 = na(rr6) ? 0.0 : rr6
+alertLevTp6 = na(levTpPct6) ? 0.0 : levTpPct6
+alertLevRisk6 = na(levRiskPct6) ? 0.0 : levRiskPct6
+
 if barstate.isconfirmed and canAlert6
-    msg_6 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event6 + '", "side": "' + str.tostring(action6) + '", "symbol": "DOTUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry6) + ', "entry_text": "' + f_fmt_price(entry6, tick6) + '", "now": ' + str.tostring(now6) + ', "now_text": "' + f_fmt_price(now6, tick6) + '", "tp": ' + str.tostring(tp_6) + ', "tp_text": "' + f_fmt_price(tp_6, tick6) + '", "sl": ' + str.tostring(sl_6) + ', "sl_text": "' + f_fmt_price(sl_6, tick6) + '", "tp_pct": ' + str.tostring(pctTp6) + ', "risk_pct": ' + str.tostring(riskPct6) + ', "rr": ' + str.tostring(rr6) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct6) + ', "lev_risk_pct": ' + str.tostring(levRiskPct6) + ', "risk_label": "' + risk6 + '", "score": ' + str.tostring(score6) + ', "flow": "' + flow6 + '", "signal": "' + signal6 + '", "tick_size": ' + str.tostring(tick6) + ', "price_decimals": ' + str.tostring(dec6) + ', "time": ' + str.tostring(time) + '}'
+    msg_6 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event6 + '", "side": "' + str.tostring(alertSide6) + '", "symbol": "DOTUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now6) + ', "entry": ' + str.tostring(alertEntry6) + ', "tp": ' + str.tostring(alertTp6) + ', "sl": ' + str.tostring(alertSl6) + ', "tp_pct": ' + str.tostring(alertTpPct6) + ', "risk_pct": ' + str.tostring(alertRiskPct6) + ', "rr": ' + str.tostring(alertRr6) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp6) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk6) + ', "risk_label": "' + risk6 + '", "score": ' + str.tostring(score6) + ', "flow": "' + flow6 + '", "signal": "' + signal6 + '", "price_text": {"now": "' + f_fmt_price(now6, tick6) + '", "entry": "' + f_fmt_price(alertEntry6, tick6) + '", "tp": "' + f_fmt_price(alertTp6, tick6) + '", "sl": "' + f_fmt_price(alertSl6, tick6) + '"}, "tick_size": ' + str.tostring(tick6) + ', "price_decimals": ' + str.tostring(dec6) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_6, alert.freq_once_per_bar_close)
     lastEvent6 := event6
     lastBar6 := bar_index
@@ -544,9 +634,15 @@ longSlHit7 = activeSide7 == "LONG" and low <= activeSl7
 shortTpHit7 = activeSide7 == "SHORT" and low <= activeTp7
 shortSlHit7 = activeSide7 == "SHORT" and high >= activeSl7
 
-event7 = longSlHit7 or shortSlHit7 ? "SL_HIT" : longTpHit7 or shortTpHit7 ? "TP_HIT" : action7 == "LONG" ? "LONG_ENTRY" : action7 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent7 = activeSide7 == "" and action7 == "LONG" ? "LONG_ENTRY" : activeSide7 == "" and action7 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event7 = (activeSide7 == "LONG" and longTpHit7) ? "LONG_TP_HIT" : (activeSide7 == "LONG" and longSlHit7) ? "LONG_SL_HIT" : (activeSide7 == "SHORT" and shortTpHit7) ? "SHORT_TP_HIT" : (activeSide7 == "SHORT" and shortSlHit7) ? "SHORT_SL_HIT" : entryEvent7
 
-if event7 == "SL_HIT" or event7 == "TP_HIT"
+alertSide7 = event7 == "LONG_ENTRY" ? "LONG" : event7 == "SHORT_ENTRY" ? "SHORT" : activeSide7
+alertEntry7 = event7 == "LONG_ENTRY" or event7 == "SHORT_ENTRY" ? entry7 : activeEntry7
+alertTp7 = event7 == "LONG_ENTRY" or event7 == "SHORT_ENTRY" ? tp_7 : activeTp7
+alertSl7 = event7 == "LONG_ENTRY" or event7 == "SHORT_ENTRY" ? sl_7 : activeSl7
+
+if event7 == "LONG_SL_HIT" or event7 == "LONG_TP_HIT" or event7 == "SHORT_SL_HIT" or event7 == "SHORT_TP_HIT"
     activeSide7 := ""
     activeEntry7 := na
     activeTp7 := na
@@ -562,11 +658,17 @@ else if event7 == "SHORT_ENTRY"
     activeTp7 := tp_7
     activeSl7 := sl_7
     
-sendAlert7 = event7 == "LONG_ENTRY" or event7 == "SHORT_ENTRY" or event7 == "TP_HIT" or event7 == "SL_HIT"
+sendAlert7 = event7 == "LONG_ENTRY" or event7 == "SHORT_ENTRY" or event7 == "LONG_TP_HIT" or event7 == "LONG_SL_HIT" or event7 == "SHORT_TP_HIT" or event7 == "SHORT_SL_HIT"
 canAlert7 = sendAlert7 and (event7 != lastEvent7 or na(lastBar7) or bar_index - lastBar7 >= cooldownBars)
 
+alertTpPct7 = na(pctTp7) ? 0.0 : pctTp7
+alertRiskPct7 = na(riskPct7) ? 0.0 : riskPct7
+alertRr7 = na(rr7) ? 0.0 : rr7
+alertLevTp7 = na(levTpPct7) ? 0.0 : levTpPct7
+alertLevRisk7 = na(levRiskPct7) ? 0.0 : levRiskPct7
+
 if barstate.isconfirmed and canAlert7
-    msg_7 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event7 + '", "side": "' + str.tostring(action7) + '", "symbol": "LTCUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry7) + ', "entry_text": "' + f_fmt_price(entry7, tick7) + '", "now": ' + str.tostring(now7) + ', "now_text": "' + f_fmt_price(now7, tick7) + '", "tp": ' + str.tostring(tp_7) + ', "tp_text": "' + f_fmt_price(tp_7, tick7) + '", "sl": ' + str.tostring(sl_7) + ', "sl_text": "' + f_fmt_price(sl_7, tick7) + '", "tp_pct": ' + str.tostring(pctTp7) + ', "risk_pct": ' + str.tostring(riskPct7) + ', "rr": ' + str.tostring(rr7) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct7) + ', "lev_risk_pct": ' + str.tostring(levRiskPct7) + ', "risk_label": "' + risk7 + '", "score": ' + str.tostring(score7) + ', "flow": "' + flow7 + '", "signal": "' + signal7 + '", "tick_size": ' + str.tostring(tick7) + ', "price_decimals": ' + str.tostring(dec7) + ', "time": ' + str.tostring(time) + '}'
+    msg_7 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event7 + '", "side": "' + str.tostring(alertSide7) + '", "symbol": "LTCUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now7) + ', "entry": ' + str.tostring(alertEntry7) + ', "tp": ' + str.tostring(alertTp7) + ', "sl": ' + str.tostring(alertSl7) + ', "tp_pct": ' + str.tostring(alertTpPct7) + ', "risk_pct": ' + str.tostring(alertRiskPct7) + ', "rr": ' + str.tostring(alertRr7) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp7) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk7) + ', "risk_label": "' + risk7 + '", "score": ' + str.tostring(score7) + ', "flow": "' + flow7 + '", "signal": "' + signal7 + '", "price_text": {"now": "' + f_fmt_price(now7, tick7) + '", "entry": "' + f_fmt_price(alertEntry7, tick7) + '", "tp": "' + f_fmt_price(alertTp7, tick7) + '", "sl": "' + f_fmt_price(alertSl7, tick7) + '"}, "tick_size": ' + str.tostring(tick7) + ', "price_decimals": ' + str.tostring(dec7) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_7, alert.freq_once_per_bar_close)
     lastEvent7 := event7
     lastBar7 := bar_index
@@ -583,9 +685,15 @@ longSlHit8 = activeSide8 == "LONG" and low <= activeSl8
 shortTpHit8 = activeSide8 == "SHORT" and low <= activeTp8
 shortSlHit8 = activeSide8 == "SHORT" and high >= activeSl8
 
-event8 = longSlHit8 or shortSlHit8 ? "SL_HIT" : longTpHit8 or shortTpHit8 ? "TP_HIT" : action8 == "LONG" ? "LONG_ENTRY" : action8 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent8 = activeSide8 == "" and action8 == "LONG" ? "LONG_ENTRY" : activeSide8 == "" and action8 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event8 = (activeSide8 == "LONG" and longTpHit8) ? "LONG_TP_HIT" : (activeSide8 == "LONG" and longSlHit8) ? "LONG_SL_HIT" : (activeSide8 == "SHORT" and shortTpHit8) ? "SHORT_TP_HIT" : (activeSide8 == "SHORT" and shortSlHit8) ? "SHORT_SL_HIT" : entryEvent8
 
-if event8 == "SL_HIT" or event8 == "TP_HIT"
+alertSide8 = event8 == "LONG_ENTRY" ? "LONG" : event8 == "SHORT_ENTRY" ? "SHORT" : activeSide8
+alertEntry8 = event8 == "LONG_ENTRY" or event8 == "SHORT_ENTRY" ? entry8 : activeEntry8
+alertTp8 = event8 == "LONG_ENTRY" or event8 == "SHORT_ENTRY" ? tp_8 : activeTp8
+alertSl8 = event8 == "LONG_ENTRY" or event8 == "SHORT_ENTRY" ? sl_8 : activeSl8
+
+if event8 == "LONG_SL_HIT" or event8 == "LONG_TP_HIT" or event8 == "SHORT_SL_HIT" or event8 == "SHORT_TP_HIT"
     activeSide8 := ""
     activeEntry8 := na
     activeTp8 := na
@@ -601,11 +709,17 @@ else if event8 == "SHORT_ENTRY"
     activeTp8 := tp_8
     activeSl8 := sl_8
     
-sendAlert8 = event8 == "LONG_ENTRY" or event8 == "SHORT_ENTRY" or event8 == "TP_HIT" or event8 == "SL_HIT"
+sendAlert8 = event8 == "LONG_ENTRY" or event8 == "SHORT_ENTRY" or event8 == "LONG_TP_HIT" or event8 == "LONG_SL_HIT" or event8 == "SHORT_TP_HIT" or event8 == "SHORT_SL_HIT"
 canAlert8 = sendAlert8 and (event8 != lastEvent8 or na(lastBar8) or bar_index - lastBar8 >= cooldownBars)
 
+alertTpPct8 = na(pctTp8) ? 0.0 : pctTp8
+alertRiskPct8 = na(riskPct8) ? 0.0 : riskPct8
+alertRr8 = na(rr8) ? 0.0 : rr8
+alertLevTp8 = na(levTpPct8) ? 0.0 : levTpPct8
+alertLevRisk8 = na(levRiskPct8) ? 0.0 : levRiskPct8
+
 if barstate.isconfirmed and canAlert8
-    msg_8 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event8 + '", "side": "' + str.tostring(action8) + '", "symbol": "FILUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry8) + ', "entry_text": "' + f_fmt_price(entry8, tick8) + '", "now": ' + str.tostring(now8) + ', "now_text": "' + f_fmt_price(now8, tick8) + '", "tp": ' + str.tostring(tp_8) + ', "tp_text": "' + f_fmt_price(tp_8, tick8) + '", "sl": ' + str.tostring(sl_8) + ', "sl_text": "' + f_fmt_price(sl_8, tick8) + '", "tp_pct": ' + str.tostring(pctTp8) + ', "risk_pct": ' + str.tostring(riskPct8) + ', "rr": ' + str.tostring(rr8) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct8) + ', "lev_risk_pct": ' + str.tostring(levRiskPct8) + ', "risk_label": "' + risk8 + '", "score": ' + str.tostring(score8) + ', "flow": "' + flow8 + '", "signal": "' + signal8 + '", "tick_size": ' + str.tostring(tick8) + ', "price_decimals": ' + str.tostring(dec8) + ', "time": ' + str.tostring(time) + '}'
+    msg_8 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event8 + '", "side": "' + str.tostring(alertSide8) + '", "symbol": "FILUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now8) + ', "entry": ' + str.tostring(alertEntry8) + ', "tp": ' + str.tostring(alertTp8) + ', "sl": ' + str.tostring(alertSl8) + ', "tp_pct": ' + str.tostring(alertTpPct8) + ', "risk_pct": ' + str.tostring(alertRiskPct8) + ', "rr": ' + str.tostring(alertRr8) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp8) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk8) + ', "risk_label": "' + risk8 + '", "score": ' + str.tostring(score8) + ', "flow": "' + flow8 + '", "signal": "' + signal8 + '", "price_text": {"now": "' + f_fmt_price(now8, tick8) + '", "entry": "' + f_fmt_price(alertEntry8, tick8) + '", "tp": "' + f_fmt_price(alertTp8, tick8) + '", "sl": "' + f_fmt_price(alertSl8, tick8) + '"}, "tick_size": ' + str.tostring(tick8) + ', "price_decimals": ' + str.tostring(dec8) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_8, alert.freq_once_per_bar_close)
     lastEvent8 := event8
     lastBar8 := bar_index
@@ -622,9 +736,15 @@ longSlHit9 = activeSide9 == "LONG" and low <= activeSl9
 shortTpHit9 = activeSide9 == "SHORT" and low <= activeTp9
 shortSlHit9 = activeSide9 == "SHORT" and high >= activeSl9
 
-event9 = longSlHit9 or shortSlHit9 ? "SL_HIT" : longTpHit9 or shortTpHit9 ? "TP_HIT" : action9 == "LONG" ? "LONG_ENTRY" : action9 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent9 = activeSide9 == "" and action9 == "LONG" ? "LONG_ENTRY" : activeSide9 == "" and action9 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event9 = (activeSide9 == "LONG" and longTpHit9) ? "LONG_TP_HIT" : (activeSide9 == "LONG" and longSlHit9) ? "LONG_SL_HIT" : (activeSide9 == "SHORT" and shortTpHit9) ? "SHORT_TP_HIT" : (activeSide9 == "SHORT" and shortSlHit9) ? "SHORT_SL_HIT" : entryEvent9
 
-if event9 == "SL_HIT" or event9 == "TP_HIT"
+alertSide9 = event9 == "LONG_ENTRY" ? "LONG" : event9 == "SHORT_ENTRY" ? "SHORT" : activeSide9
+alertEntry9 = event9 == "LONG_ENTRY" or event9 == "SHORT_ENTRY" ? entry9 : activeEntry9
+alertTp9 = event9 == "LONG_ENTRY" or event9 == "SHORT_ENTRY" ? tp_9 : activeTp9
+alertSl9 = event9 == "LONG_ENTRY" or event9 == "SHORT_ENTRY" ? sl_9 : activeSl9
+
+if event9 == "LONG_SL_HIT" or event9 == "LONG_TP_HIT" or event9 == "SHORT_SL_HIT" or event9 == "SHORT_TP_HIT"
     activeSide9 := ""
     activeEntry9 := na
     activeTp9 := na
@@ -640,11 +760,17 @@ else if event9 == "SHORT_ENTRY"
     activeTp9 := tp_9
     activeSl9 := sl_9
     
-sendAlert9 = event9 == "LONG_ENTRY" or event9 == "SHORT_ENTRY" or event9 == "TP_HIT" or event9 == "SL_HIT"
+sendAlert9 = event9 == "LONG_ENTRY" or event9 == "SHORT_ENTRY" or event9 == "LONG_TP_HIT" or event9 == "LONG_SL_HIT" or event9 == "SHORT_TP_HIT" or event9 == "SHORT_SL_HIT"
 canAlert9 = sendAlert9 and (event9 != lastEvent9 or na(lastBar9) or bar_index - lastBar9 >= cooldownBars)
 
+alertTpPct9 = na(pctTp9) ? 0.0 : pctTp9
+alertRiskPct9 = na(riskPct9) ? 0.0 : riskPct9
+alertRr9 = na(rr9) ? 0.0 : rr9
+alertLevTp9 = na(levTpPct9) ? 0.0 : levTpPct9
+alertLevRisk9 = na(levRiskPct9) ? 0.0 : levRiskPct9
+
 if barstate.isconfirmed and canAlert9
-    msg_9 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event9 + '", "side": "' + str.tostring(action9) + '", "symbol": "INJUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry9) + ', "entry_text": "' + f_fmt_price(entry9, tick9) + '", "now": ' + str.tostring(now9) + ', "now_text": "' + f_fmt_price(now9, tick9) + '", "tp": ' + str.tostring(tp_9) + ', "tp_text": "' + f_fmt_price(tp_9, tick9) + '", "sl": ' + str.tostring(sl_9) + ', "sl_text": "' + f_fmt_price(sl_9, tick9) + '", "tp_pct": ' + str.tostring(pctTp9) + ', "risk_pct": ' + str.tostring(riskPct9) + ', "rr": ' + str.tostring(rr9) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct9) + ', "lev_risk_pct": ' + str.tostring(levRiskPct9) + ', "risk_label": "' + risk9 + '", "score": ' + str.tostring(score9) + ', "flow": "' + flow9 + '", "signal": "' + signal9 + '", "tick_size": ' + str.tostring(tick9) + ', "price_decimals": ' + str.tostring(dec9) + ', "time": ' + str.tostring(time) + '}'
+    msg_9 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event9 + '", "side": "' + str.tostring(alertSide9) + '", "symbol": "INJUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now9) + ', "entry": ' + str.tostring(alertEntry9) + ', "tp": ' + str.tostring(alertTp9) + ', "sl": ' + str.tostring(alertSl9) + ', "tp_pct": ' + str.tostring(alertTpPct9) + ', "risk_pct": ' + str.tostring(alertRiskPct9) + ', "rr": ' + str.tostring(alertRr9) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp9) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk9) + ', "risk_label": "' + risk9 + '", "score": ' + str.tostring(score9) + ', "flow": "' + flow9 + '", "signal": "' + signal9 + '", "price_text": {"now": "' + f_fmt_price(now9, tick9) + '", "entry": "' + f_fmt_price(alertEntry9, tick9) + '", "tp": "' + f_fmt_price(alertTp9, tick9) + '", "sl": "' + f_fmt_price(alertSl9, tick9) + '"}, "tick_size": ' + str.tostring(tick9) + ', "price_decimals": ' + str.tostring(dec9) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_9, alert.freq_once_per_bar_close)
     lastEvent9 := event9
     lastBar9 := bar_index
@@ -661,9 +787,15 @@ longSlHit10 = activeSide10 == "LONG" and low <= activeSl10
 shortTpHit10 = activeSide10 == "SHORT" and low <= activeTp10
 shortSlHit10 = activeSide10 == "SHORT" and high >= activeSl10
 
-event10 = longSlHit10 or shortSlHit10 ? "SL_HIT" : longTpHit10 or shortTpHit10 ? "TP_HIT" : action10 == "LONG" ? "LONG_ENTRY" : action10 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+entryEvent10 = activeSide10 == "" and action10 == "LONG" ? "LONG_ENTRY" : activeSide10 == "" and action10 == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event10 = (activeSide10 == "LONG" and longTpHit10) ? "LONG_TP_HIT" : (activeSide10 == "LONG" and longSlHit10) ? "LONG_SL_HIT" : (activeSide10 == "SHORT" and shortTpHit10) ? "SHORT_TP_HIT" : (activeSide10 == "SHORT" and shortSlHit10) ? "SHORT_SL_HIT" : entryEvent10
 
-if event10 == "SL_HIT" or event10 == "TP_HIT"
+alertSide10 = event10 == "LONG_ENTRY" ? "LONG" : event10 == "SHORT_ENTRY" ? "SHORT" : activeSide10
+alertEntry10 = event10 == "LONG_ENTRY" or event10 == "SHORT_ENTRY" ? entry10 : activeEntry10
+alertTp10 = event10 == "LONG_ENTRY" or event10 == "SHORT_ENTRY" ? tp_10 : activeTp10
+alertSl10 = event10 == "LONG_ENTRY" or event10 == "SHORT_ENTRY" ? sl_10 : activeSl10
+
+if event10 == "LONG_SL_HIT" or event10 == "LONG_TP_HIT" or event10 == "SHORT_SL_HIT" or event10 == "SHORT_TP_HIT"
     activeSide10 := ""
     activeEntry10 := na
     activeTp10 := na
@@ -679,11 +811,17 @@ else if event10 == "SHORT_ENTRY"
     activeTp10 := tp_10
     activeSl10 := sl_10
     
-sendAlert10 = event10 == "LONG_ENTRY" or event10 == "SHORT_ENTRY" or event10 == "TP_HIT" or event10 == "SL_HIT"
+sendAlert10 = event10 == "LONG_ENTRY" or event10 == "SHORT_ENTRY" or event10 == "LONG_TP_HIT" or event10 == "LONG_SL_HIT" or event10 == "SHORT_TP_HIT" or event10 == "SHORT_SL_HIT"
 canAlert10 = sendAlert10 and (event10 != lastEvent10 or na(lastBar10) or bar_index - lastBar10 >= cooldownBars)
 
+alertTpPct10 = na(pctTp10) ? 0.0 : pctTp10
+alertRiskPct10 = na(riskPct10) ? 0.0 : riskPct10
+alertRr10 = na(rr10) ? 0.0 : rr10
+alertLevTp10 = na(levTpPct10) ? 0.0 : levTpPct10
+alertLevRisk10 = na(levRiskPct10) ? 0.0 : levRiskPct10
+
 if barstate.isconfirmed and canAlert10
-    msg_10 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event10 + '", "side": "' + str.tostring(action10) + '", "symbol": "ENAUSDT", "tf": "' + tf + '", "entry": ' + str.tostring(entry10) + ', "entry_text": "' + f_fmt_price(entry10, tick10) + '", "now": ' + str.tostring(now10) + ', "now_text": "' + f_fmt_price(now10, tick10) + '", "tp": ' + str.tostring(tp_10) + ', "tp_text": "' + f_fmt_price(tp_10, tick10) + '", "sl": ' + str.tostring(sl_10) + ', "sl_text": "' + f_fmt_price(sl_10, tick10) + '", "tp_pct": ' + str.tostring(pctTp10) + ', "risk_pct": ' + str.tostring(riskPct10) + ', "rr": ' + str.tostring(rr10) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(levTpPct10) + ', "lev_risk_pct": ' + str.tostring(levRiskPct10) + ', "risk_label": "' + risk10 + '", "score": ' + str.tostring(score10) + ', "flow": "' + flow10 + '", "signal": "' + signal10 + '", "tick_size": ' + str.tostring(tick10) + ', "price_decimals": ' + str.tostring(dec10) + ', "time": ' + str.tostring(time) + '}'
+    msg_10 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event10 + '", "side": "' + str.tostring(alertSide10) + '", "symbol": "ENAUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now10) + ', "entry": ' + str.tostring(alertEntry10) + ', "tp": ' + str.tostring(alertTp10) + ', "sl": ' + str.tostring(alertSl10) + ', "tp_pct": ' + str.tostring(alertTpPct10) + ', "risk_pct": ' + str.tostring(alertRiskPct10) + ', "rr": ' + str.tostring(alertRr10) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp10) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk10) + ', "risk_label": "' + risk10 + '", "score": ' + str.tostring(score10) + ', "flow": "' + flow10 + '", "signal": "' + signal10 + '", "price_text": {"now": "' + f_fmt_price(now10, tick10) + '", "entry": "' + f_fmt_price(alertEntry10, tick10) + '", "tp": "' + f_fmt_price(alertTp10, tick10) + '", "sl": "' + f_fmt_price(alertSl10, tick10) + '"}, "tick_size": ' + str.tostring(tick10) + ', "price_decimals": ' + str.tostring(dec10) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_10, alert.freq_once_per_bar_close)
     lastEvent10 := event10
     lastBar10 := bar_index
@@ -693,206 +831,358 @@ if barstate.isconfirmed and canAlert10
 // UI TABLE
 // ============================================================================
 tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_right : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
-var tbl = table.new(tbl_pos, 17, 11, border_width=1, border_color=#333333)
+var tbl = table.new(tbl_pos, 19, 11, border_width=1, border_color=#333333)
 
 if barstate.islast
     f_header(tbl, 0, "PAIR")
     f_header(tbl, 1, "TF")
-    f_header(tbl, 2, "ENTRY")
-    f_header(tbl, 3, "NOW")
-    f_header(tbl, 4, "TP")
-    f_header(tbl, 5, "SL")
-    f_header(tbl, 6, "TP%")
-    f_header(tbl, 7, "RISK%")
-    f_header(tbl, 8, "RR")
-    f_header(tbl, 9, "LEV")
-    f_header(tbl, 10, "RISK")
-    f_header(tbl, 11, "RSI")
-    f_header(tbl, 12, "RVOL")
-    f_header(tbl, 13, "FLOW")
-    f_header(tbl, 14, "ACTION")
-    f_header(tbl, 15, "SCORE")
-    f_header(tbl, 16, "SIGNAL")
+    f_header(tbl, 2, "NOW")
+    f_header(tbl, 3, "TRIG")
+    f_header(tbl, 4, "ENTRY")
+    f_header(tbl, 5, "TP")
+    f_header(tbl, 6, "SL")
+    f_header(tbl, 7, "TP%")
+    f_header(tbl, 8, "RISK%")
+    f_header(tbl, 9, "RR")
+    f_header(tbl, 10, "LEV")
+    f_header(tbl, 11, "RISK")
+    f_header(tbl, 12, "RSI")
+    f_header(tbl, 13, "RVOL")
+    f_header(tbl, 14, "FLOW")
+    f_header(tbl, 15, "STATUS")
+    f_header(tbl, 16, "ACTION")
+    f_header(tbl, 17, "SCORE")
+    f_header(tbl, 18, "SIGNAL")
 
     // Row 1
     f_cell(tbl, 0, 1, "WLDUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 1, tf, cDark, color.white)
-    f_cell(tbl, 2, 1, f_fmt_price(entry1, tick1), cDark, color.white)
-    f_cell(tbl, 3, 1, f_fmt_price(now1, tick1), cDark, color.white)
-    f_cell(tbl, 4, 1, f_fmt_price(tp_1, tick1), cDark, color.lime)
-    f_cell(tbl, 5, 1, f_fmt_price(sl_1, tick1), cDark, color.orange)
-    f_cell(tbl, 6, 1, str.tostring(pctTp1, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 1, str.tostring(riskPct1, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 1, str.tostring(rr1, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 1, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 1, risk1, f_risk_color(risk1), color.white)
-    f_cell(tbl, 11, 1, str.tostring(rsi1, "#.0"), rsi1 < 30 ? cRed : rsi1 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 1, str.tostring(rvolPct1, "#.0") + "%", rvolPct1 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 1, flow1, cDark, color.white)
-    f_cell(tbl, 14, 1, action1, f_action_color(action1), color.white)
-    f_cell(tbl, 15, 1, str.tostring(score1, "#"), f_score_color(score1), color.white)
-    f_cell(tbl, 16, 1, signal1, f_signal_color(signal1), color.white)
+    f_cell(tbl, 2, 1, f_fmt_price(now1, tick1), cDark, color.white)
+    
+    // TRIG
+    trigDisp1 = f_fmt_price(longTrig1, tick1) + " / " + f_fmt_price(shortTrig1, tick1)
+    f_cell(tbl, 3, 1, trigDisp1, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp1 = na(entry1) ? "-" : f_fmt_price(entry1, tick1)
+    tpDisp1 = na(tp_1) ? "-" : f_fmt_price(tp_1, tick1)
+    slDisp1 = na(sl_1) ? "-" : f_fmt_price(sl_1, tick1)
+    pctTpDisp1 = na(pctTp1) ? "-" : str.tostring(pctTp1, "#.##") + "%"
+    riskPctDisp1 = na(riskPct1) ? "-" : str.tostring(riskPct1, "#.##") + "%"
+    rrDisp1 = na(rr1) ? "-" : str.tostring(rr1, "#.##")
+    
+    f_cell(tbl, 4, 1, entryDisp1, cDark, color.white)
+    f_cell(tbl, 5, 1, tpDisp1, cDark, color.lime)
+    f_cell(tbl, 6, 1, slDisp1, cDark, color.orange)
+    f_cell(tbl, 7, 1, pctTpDisp1, cDark, color.white)
+    f_cell(tbl, 8, 1, riskPctDisp1, cDark, color.white)
+    f_cell(tbl, 9, 1, rrDisp1, cDark, color.white)
+    
+    f_cell(tbl, 10, 1, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 1, risk1, f_risk_color(risk1), color.white)
+    f_cell(tbl, 12, 1, str.tostring(rsi1, "#.0"), rsi1 < 30 ? cRed : rsi1 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 1, str.tostring(rvolPct1, "#.0") + "%", rvolPct1 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 1, flow1, cDark, color.white)
+    f_cell(tbl, 15, 1, status1, cDark, color.yellow)
+    f_cell(tbl, 16, 1, action1, f_action_color(action1), color.white)
+    f_cell(tbl, 17, 1, str.tostring(score1, "#"), f_score_color(score1), color.white)
+    f_cell(tbl, 18, 1, signal1, f_signal_color(signal1), color.white)
     // Row 2
     f_cell(tbl, 0, 2, "TAOUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 2, tf, cDark, color.white)
-    f_cell(tbl, 2, 2, f_fmt_price(entry2, tick2), cDark, color.white)
-    f_cell(tbl, 3, 2, f_fmt_price(now2, tick2), cDark, color.white)
-    f_cell(tbl, 4, 2, f_fmt_price(tp_2, tick2), cDark, color.lime)
-    f_cell(tbl, 5, 2, f_fmt_price(sl_2, tick2), cDark, color.orange)
-    f_cell(tbl, 6, 2, str.tostring(pctTp2, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 2, str.tostring(riskPct2, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 2, str.tostring(rr2, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 2, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 2, risk2, f_risk_color(risk2), color.white)
-    f_cell(tbl, 11, 2, str.tostring(rsi2, "#.0"), rsi2 < 30 ? cRed : rsi2 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 2, str.tostring(rvolPct2, "#.0") + "%", rvolPct2 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 2, flow2, cDark, color.white)
-    f_cell(tbl, 14, 2, action2, f_action_color(action2), color.white)
-    f_cell(tbl, 15, 2, str.tostring(score2, "#"), f_score_color(score2), color.white)
-    f_cell(tbl, 16, 2, signal2, f_signal_color(signal2), color.white)
+    f_cell(tbl, 2, 2, f_fmt_price(now2, tick2), cDark, color.white)
+    
+    // TRIG
+    trigDisp2 = f_fmt_price(longTrig2, tick2) + " / " + f_fmt_price(shortTrig2, tick2)
+    f_cell(tbl, 3, 2, trigDisp2, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp2 = na(entry2) ? "-" : f_fmt_price(entry2, tick2)
+    tpDisp2 = na(tp_2) ? "-" : f_fmt_price(tp_2, tick2)
+    slDisp2 = na(sl_2) ? "-" : f_fmt_price(sl_2, tick2)
+    pctTpDisp2 = na(pctTp2) ? "-" : str.tostring(pctTp2, "#.##") + "%"
+    riskPctDisp2 = na(riskPct2) ? "-" : str.tostring(riskPct2, "#.##") + "%"
+    rrDisp2 = na(rr2) ? "-" : str.tostring(rr2, "#.##")
+    
+    f_cell(tbl, 4, 2, entryDisp2, cDark, color.white)
+    f_cell(tbl, 5, 2, tpDisp2, cDark, color.lime)
+    f_cell(tbl, 6, 2, slDisp2, cDark, color.orange)
+    f_cell(tbl, 7, 2, pctTpDisp2, cDark, color.white)
+    f_cell(tbl, 8, 2, riskPctDisp2, cDark, color.white)
+    f_cell(tbl, 9, 2, rrDisp2, cDark, color.white)
+    
+    f_cell(tbl, 10, 2, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 2, risk2, f_risk_color(risk2), color.white)
+    f_cell(tbl, 12, 2, str.tostring(rsi2, "#.0"), rsi2 < 30 ? cRed : rsi2 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 2, str.tostring(rvolPct2, "#.0") + "%", rvolPct2 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 2, flow2, cDark, color.white)
+    f_cell(tbl, 15, 2, status2, cDark, color.yellow)
+    f_cell(tbl, 16, 2, action2, f_action_color(action2), color.white)
+    f_cell(tbl, 17, 2, str.tostring(score2, "#"), f_score_color(score2), color.white)
+    f_cell(tbl, 18, 2, signal2, f_signal_color(signal2), color.white)
     // Row 3
     f_cell(tbl, 0, 3, "LINKUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 3, tf, cDark, color.white)
-    f_cell(tbl, 2, 3, f_fmt_price(entry3, tick3), cDark, color.white)
-    f_cell(tbl, 3, 3, f_fmt_price(now3, tick3), cDark, color.white)
-    f_cell(tbl, 4, 3, f_fmt_price(tp_3, tick3), cDark, color.lime)
-    f_cell(tbl, 5, 3, f_fmt_price(sl_3, tick3), cDark, color.orange)
-    f_cell(tbl, 6, 3, str.tostring(pctTp3, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 3, str.tostring(riskPct3, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 3, str.tostring(rr3, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 3, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 3, risk3, f_risk_color(risk3), color.white)
-    f_cell(tbl, 11, 3, str.tostring(rsi3, "#.0"), rsi3 < 30 ? cRed : rsi3 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 3, str.tostring(rvolPct3, "#.0") + "%", rvolPct3 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 3, flow3, cDark, color.white)
-    f_cell(tbl, 14, 3, action3, f_action_color(action3), color.white)
-    f_cell(tbl, 15, 3, str.tostring(score3, "#"), f_score_color(score3), color.white)
-    f_cell(tbl, 16, 3, signal3, f_signal_color(signal3), color.white)
+    f_cell(tbl, 2, 3, f_fmt_price(now3, tick3), cDark, color.white)
+    
+    // TRIG
+    trigDisp3 = f_fmt_price(longTrig3, tick3) + " / " + f_fmt_price(shortTrig3, tick3)
+    f_cell(tbl, 3, 3, trigDisp3, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp3 = na(entry3) ? "-" : f_fmt_price(entry3, tick3)
+    tpDisp3 = na(tp_3) ? "-" : f_fmt_price(tp_3, tick3)
+    slDisp3 = na(sl_3) ? "-" : f_fmt_price(sl_3, tick3)
+    pctTpDisp3 = na(pctTp3) ? "-" : str.tostring(pctTp3, "#.##") + "%"
+    riskPctDisp3 = na(riskPct3) ? "-" : str.tostring(riskPct3, "#.##") + "%"
+    rrDisp3 = na(rr3) ? "-" : str.tostring(rr3, "#.##")
+    
+    f_cell(tbl, 4, 3, entryDisp3, cDark, color.white)
+    f_cell(tbl, 5, 3, tpDisp3, cDark, color.lime)
+    f_cell(tbl, 6, 3, slDisp3, cDark, color.orange)
+    f_cell(tbl, 7, 3, pctTpDisp3, cDark, color.white)
+    f_cell(tbl, 8, 3, riskPctDisp3, cDark, color.white)
+    f_cell(tbl, 9, 3, rrDisp3, cDark, color.white)
+    
+    f_cell(tbl, 10, 3, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 3, risk3, f_risk_color(risk3), color.white)
+    f_cell(tbl, 12, 3, str.tostring(rsi3, "#.0"), rsi3 < 30 ? cRed : rsi3 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 3, str.tostring(rvolPct3, "#.0") + "%", rvolPct3 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 3, flow3, cDark, color.white)
+    f_cell(tbl, 15, 3, status3, cDark, color.yellow)
+    f_cell(tbl, 16, 3, action3, f_action_color(action3), color.white)
+    f_cell(tbl, 17, 3, str.tostring(score3, "#"), f_score_color(score3), color.white)
+    f_cell(tbl, 18, 3, signal3, f_signal_color(signal3), color.white)
     // Row 4
     f_cell(tbl, 0, 4, "TONUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 4, tf, cDark, color.white)
-    f_cell(tbl, 2, 4, f_fmt_price(entry4, tick4), cDark, color.white)
-    f_cell(tbl, 3, 4, f_fmt_price(now4, tick4), cDark, color.white)
-    f_cell(tbl, 4, 4, f_fmt_price(tp_4, tick4), cDark, color.lime)
-    f_cell(tbl, 5, 4, f_fmt_price(sl_4, tick4), cDark, color.orange)
-    f_cell(tbl, 6, 4, str.tostring(pctTp4, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 4, str.tostring(riskPct4, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 4, str.tostring(rr4, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 4, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 4, risk4, f_risk_color(risk4), color.white)
-    f_cell(tbl, 11, 4, str.tostring(rsi4, "#.0"), rsi4 < 30 ? cRed : rsi4 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 4, str.tostring(rvolPct4, "#.0") + "%", rvolPct4 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 4, flow4, cDark, color.white)
-    f_cell(tbl, 14, 4, action4, f_action_color(action4), color.white)
-    f_cell(tbl, 15, 4, str.tostring(score4, "#"), f_score_color(score4), color.white)
-    f_cell(tbl, 16, 4, signal4, f_signal_color(signal4), color.white)
+    f_cell(tbl, 2, 4, f_fmt_price(now4, tick4), cDark, color.white)
+    
+    // TRIG
+    trigDisp4 = f_fmt_price(longTrig4, tick4) + " / " + f_fmt_price(shortTrig4, tick4)
+    f_cell(tbl, 3, 4, trigDisp4, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp4 = na(entry4) ? "-" : f_fmt_price(entry4, tick4)
+    tpDisp4 = na(tp_4) ? "-" : f_fmt_price(tp_4, tick4)
+    slDisp4 = na(sl_4) ? "-" : f_fmt_price(sl_4, tick4)
+    pctTpDisp4 = na(pctTp4) ? "-" : str.tostring(pctTp4, "#.##") + "%"
+    riskPctDisp4 = na(riskPct4) ? "-" : str.tostring(riskPct4, "#.##") + "%"
+    rrDisp4 = na(rr4) ? "-" : str.tostring(rr4, "#.##")
+    
+    f_cell(tbl, 4, 4, entryDisp4, cDark, color.white)
+    f_cell(tbl, 5, 4, tpDisp4, cDark, color.lime)
+    f_cell(tbl, 6, 4, slDisp4, cDark, color.orange)
+    f_cell(tbl, 7, 4, pctTpDisp4, cDark, color.white)
+    f_cell(tbl, 8, 4, riskPctDisp4, cDark, color.white)
+    f_cell(tbl, 9, 4, rrDisp4, cDark, color.white)
+    
+    f_cell(tbl, 10, 4, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 4, risk4, f_risk_color(risk4), color.white)
+    f_cell(tbl, 12, 4, str.tostring(rsi4, "#.0"), rsi4 < 30 ? cRed : rsi4 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 4, str.tostring(rvolPct4, "#.0") + "%", rvolPct4 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 4, flow4, cDark, color.white)
+    f_cell(tbl, 15, 4, status4, cDark, color.yellow)
+    f_cell(tbl, 16, 4, action4, f_action_color(action4), color.white)
+    f_cell(tbl, 17, 4, str.tostring(score4, "#"), f_score_color(score4), color.white)
+    f_cell(tbl, 18, 4, signal4, f_signal_color(signal4), color.white)
     // Row 5
     f_cell(tbl, 0, 5, "AVAXUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 5, tf, cDark, color.white)
-    f_cell(tbl, 2, 5, f_fmt_price(entry5, tick5), cDark, color.white)
-    f_cell(tbl, 3, 5, f_fmt_price(now5, tick5), cDark, color.white)
-    f_cell(tbl, 4, 5, f_fmt_price(tp_5, tick5), cDark, color.lime)
-    f_cell(tbl, 5, 5, f_fmt_price(sl_5, tick5), cDark, color.orange)
-    f_cell(tbl, 6, 5, str.tostring(pctTp5, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 5, str.tostring(riskPct5, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 5, str.tostring(rr5, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 5, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 5, risk5, f_risk_color(risk5), color.white)
-    f_cell(tbl, 11, 5, str.tostring(rsi5, "#.0"), rsi5 < 30 ? cRed : rsi5 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 5, str.tostring(rvolPct5, "#.0") + "%", rvolPct5 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 5, flow5, cDark, color.white)
-    f_cell(tbl, 14, 5, action5, f_action_color(action5), color.white)
-    f_cell(tbl, 15, 5, str.tostring(score5, "#"), f_score_color(score5), color.white)
-    f_cell(tbl, 16, 5, signal5, f_signal_color(signal5), color.white)
+    f_cell(tbl, 2, 5, f_fmt_price(now5, tick5), cDark, color.white)
+    
+    // TRIG
+    trigDisp5 = f_fmt_price(longTrig5, tick5) + " / " + f_fmt_price(shortTrig5, tick5)
+    f_cell(tbl, 3, 5, trigDisp5, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp5 = na(entry5) ? "-" : f_fmt_price(entry5, tick5)
+    tpDisp5 = na(tp_5) ? "-" : f_fmt_price(tp_5, tick5)
+    slDisp5 = na(sl_5) ? "-" : f_fmt_price(sl_5, tick5)
+    pctTpDisp5 = na(pctTp5) ? "-" : str.tostring(pctTp5, "#.##") + "%"
+    riskPctDisp5 = na(riskPct5) ? "-" : str.tostring(riskPct5, "#.##") + "%"
+    rrDisp5 = na(rr5) ? "-" : str.tostring(rr5, "#.##")
+    
+    f_cell(tbl, 4, 5, entryDisp5, cDark, color.white)
+    f_cell(tbl, 5, 5, tpDisp5, cDark, color.lime)
+    f_cell(tbl, 6, 5, slDisp5, cDark, color.orange)
+    f_cell(tbl, 7, 5, pctTpDisp5, cDark, color.white)
+    f_cell(tbl, 8, 5, riskPctDisp5, cDark, color.white)
+    f_cell(tbl, 9, 5, rrDisp5, cDark, color.white)
+    
+    f_cell(tbl, 10, 5, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 5, risk5, f_risk_color(risk5), color.white)
+    f_cell(tbl, 12, 5, str.tostring(rsi5, "#.0"), rsi5 < 30 ? cRed : rsi5 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 5, str.tostring(rvolPct5, "#.0") + "%", rvolPct5 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 5, flow5, cDark, color.white)
+    f_cell(tbl, 15, 5, status5, cDark, color.yellow)
+    f_cell(tbl, 16, 5, action5, f_action_color(action5), color.white)
+    f_cell(tbl, 17, 5, str.tostring(score5, "#"), f_score_color(score5), color.white)
+    f_cell(tbl, 18, 5, signal5, f_signal_color(signal5), color.white)
     // Row 6
     f_cell(tbl, 0, 6, "DOTUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 6, tf, cDark, color.white)
-    f_cell(tbl, 2, 6, f_fmt_price(entry6, tick6), cDark, color.white)
-    f_cell(tbl, 3, 6, f_fmt_price(now6, tick6), cDark, color.white)
-    f_cell(tbl, 4, 6, f_fmt_price(tp_6, tick6), cDark, color.lime)
-    f_cell(tbl, 5, 6, f_fmt_price(sl_6, tick6), cDark, color.orange)
-    f_cell(tbl, 6, 6, str.tostring(pctTp6, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 6, str.tostring(riskPct6, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 6, str.tostring(rr6, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 6, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 6, risk6, f_risk_color(risk6), color.white)
-    f_cell(tbl, 11, 6, str.tostring(rsi6, "#.0"), rsi6 < 30 ? cRed : rsi6 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 6, str.tostring(rvolPct6, "#.0") + "%", rvolPct6 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 6, flow6, cDark, color.white)
-    f_cell(tbl, 14, 6, action6, f_action_color(action6), color.white)
-    f_cell(tbl, 15, 6, str.tostring(score6, "#"), f_score_color(score6), color.white)
-    f_cell(tbl, 16, 6, signal6, f_signal_color(signal6), color.white)
+    f_cell(tbl, 2, 6, f_fmt_price(now6, tick6), cDark, color.white)
+    
+    // TRIG
+    trigDisp6 = f_fmt_price(longTrig6, tick6) + " / " + f_fmt_price(shortTrig6, tick6)
+    f_cell(tbl, 3, 6, trigDisp6, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp6 = na(entry6) ? "-" : f_fmt_price(entry6, tick6)
+    tpDisp6 = na(tp_6) ? "-" : f_fmt_price(tp_6, tick6)
+    slDisp6 = na(sl_6) ? "-" : f_fmt_price(sl_6, tick6)
+    pctTpDisp6 = na(pctTp6) ? "-" : str.tostring(pctTp6, "#.##") + "%"
+    riskPctDisp6 = na(riskPct6) ? "-" : str.tostring(riskPct6, "#.##") + "%"
+    rrDisp6 = na(rr6) ? "-" : str.tostring(rr6, "#.##")
+    
+    f_cell(tbl, 4, 6, entryDisp6, cDark, color.white)
+    f_cell(tbl, 5, 6, tpDisp6, cDark, color.lime)
+    f_cell(tbl, 6, 6, slDisp6, cDark, color.orange)
+    f_cell(tbl, 7, 6, pctTpDisp6, cDark, color.white)
+    f_cell(tbl, 8, 6, riskPctDisp6, cDark, color.white)
+    f_cell(tbl, 9, 6, rrDisp6, cDark, color.white)
+    
+    f_cell(tbl, 10, 6, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 6, risk6, f_risk_color(risk6), color.white)
+    f_cell(tbl, 12, 6, str.tostring(rsi6, "#.0"), rsi6 < 30 ? cRed : rsi6 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 6, str.tostring(rvolPct6, "#.0") + "%", rvolPct6 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 6, flow6, cDark, color.white)
+    f_cell(tbl, 15, 6, status6, cDark, color.yellow)
+    f_cell(tbl, 16, 6, action6, f_action_color(action6), color.white)
+    f_cell(tbl, 17, 6, str.tostring(score6, "#"), f_score_color(score6), color.white)
+    f_cell(tbl, 18, 6, signal6, f_signal_color(signal6), color.white)
     // Row 7
     f_cell(tbl, 0, 7, "LTCUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 7, tf, cDark, color.white)
-    f_cell(tbl, 2, 7, f_fmt_price(entry7, tick7), cDark, color.white)
-    f_cell(tbl, 3, 7, f_fmt_price(now7, tick7), cDark, color.white)
-    f_cell(tbl, 4, 7, f_fmt_price(tp_7, tick7), cDark, color.lime)
-    f_cell(tbl, 5, 7, f_fmt_price(sl_7, tick7), cDark, color.orange)
-    f_cell(tbl, 6, 7, str.tostring(pctTp7, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 7, str.tostring(riskPct7, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 7, str.tostring(rr7, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 7, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 7, risk7, f_risk_color(risk7), color.white)
-    f_cell(tbl, 11, 7, str.tostring(rsi7, "#.0"), rsi7 < 30 ? cRed : rsi7 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 7, str.tostring(rvolPct7, "#.0") + "%", rvolPct7 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 7, flow7, cDark, color.white)
-    f_cell(tbl, 14, 7, action7, f_action_color(action7), color.white)
-    f_cell(tbl, 15, 7, str.tostring(score7, "#"), f_score_color(score7), color.white)
-    f_cell(tbl, 16, 7, signal7, f_signal_color(signal7), color.white)
+    f_cell(tbl, 2, 7, f_fmt_price(now7, tick7), cDark, color.white)
+    
+    // TRIG
+    trigDisp7 = f_fmt_price(longTrig7, tick7) + " / " + f_fmt_price(shortTrig7, tick7)
+    f_cell(tbl, 3, 7, trigDisp7, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp7 = na(entry7) ? "-" : f_fmt_price(entry7, tick7)
+    tpDisp7 = na(tp_7) ? "-" : f_fmt_price(tp_7, tick7)
+    slDisp7 = na(sl_7) ? "-" : f_fmt_price(sl_7, tick7)
+    pctTpDisp7 = na(pctTp7) ? "-" : str.tostring(pctTp7, "#.##") + "%"
+    riskPctDisp7 = na(riskPct7) ? "-" : str.tostring(riskPct7, "#.##") + "%"
+    rrDisp7 = na(rr7) ? "-" : str.tostring(rr7, "#.##")
+    
+    f_cell(tbl, 4, 7, entryDisp7, cDark, color.white)
+    f_cell(tbl, 5, 7, tpDisp7, cDark, color.lime)
+    f_cell(tbl, 6, 7, slDisp7, cDark, color.orange)
+    f_cell(tbl, 7, 7, pctTpDisp7, cDark, color.white)
+    f_cell(tbl, 8, 7, riskPctDisp7, cDark, color.white)
+    f_cell(tbl, 9, 7, rrDisp7, cDark, color.white)
+    
+    f_cell(tbl, 10, 7, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 7, risk7, f_risk_color(risk7), color.white)
+    f_cell(tbl, 12, 7, str.tostring(rsi7, "#.0"), rsi7 < 30 ? cRed : rsi7 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 7, str.tostring(rvolPct7, "#.0") + "%", rvolPct7 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 7, flow7, cDark, color.white)
+    f_cell(tbl, 15, 7, status7, cDark, color.yellow)
+    f_cell(tbl, 16, 7, action7, f_action_color(action7), color.white)
+    f_cell(tbl, 17, 7, str.tostring(score7, "#"), f_score_color(score7), color.white)
+    f_cell(tbl, 18, 7, signal7, f_signal_color(signal7), color.white)
     // Row 8
     f_cell(tbl, 0, 8, "FILUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 8, tf, cDark, color.white)
-    f_cell(tbl, 2, 8, f_fmt_price(entry8, tick8), cDark, color.white)
-    f_cell(tbl, 3, 8, f_fmt_price(now8, tick8), cDark, color.white)
-    f_cell(tbl, 4, 8, f_fmt_price(tp_8, tick8), cDark, color.lime)
-    f_cell(tbl, 5, 8, f_fmt_price(sl_8, tick8), cDark, color.orange)
-    f_cell(tbl, 6, 8, str.tostring(pctTp8, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 8, str.tostring(riskPct8, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 8, str.tostring(rr8, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 8, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 8, risk8, f_risk_color(risk8), color.white)
-    f_cell(tbl, 11, 8, str.tostring(rsi8, "#.0"), rsi8 < 30 ? cRed : rsi8 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 8, str.tostring(rvolPct8, "#.0") + "%", rvolPct8 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 8, flow8, cDark, color.white)
-    f_cell(tbl, 14, 8, action8, f_action_color(action8), color.white)
-    f_cell(tbl, 15, 8, str.tostring(score8, "#"), f_score_color(score8), color.white)
-    f_cell(tbl, 16, 8, signal8, f_signal_color(signal8), color.white)
+    f_cell(tbl, 2, 8, f_fmt_price(now8, tick8), cDark, color.white)
+    
+    // TRIG
+    trigDisp8 = f_fmt_price(longTrig8, tick8) + " / " + f_fmt_price(shortTrig8, tick8)
+    f_cell(tbl, 3, 8, trigDisp8, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp8 = na(entry8) ? "-" : f_fmt_price(entry8, tick8)
+    tpDisp8 = na(tp_8) ? "-" : f_fmt_price(tp_8, tick8)
+    slDisp8 = na(sl_8) ? "-" : f_fmt_price(sl_8, tick8)
+    pctTpDisp8 = na(pctTp8) ? "-" : str.tostring(pctTp8, "#.##") + "%"
+    riskPctDisp8 = na(riskPct8) ? "-" : str.tostring(riskPct8, "#.##") + "%"
+    rrDisp8 = na(rr8) ? "-" : str.tostring(rr8, "#.##")
+    
+    f_cell(tbl, 4, 8, entryDisp8, cDark, color.white)
+    f_cell(tbl, 5, 8, tpDisp8, cDark, color.lime)
+    f_cell(tbl, 6, 8, slDisp8, cDark, color.orange)
+    f_cell(tbl, 7, 8, pctTpDisp8, cDark, color.white)
+    f_cell(tbl, 8, 8, riskPctDisp8, cDark, color.white)
+    f_cell(tbl, 9, 8, rrDisp8, cDark, color.white)
+    
+    f_cell(tbl, 10, 8, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 8, risk8, f_risk_color(risk8), color.white)
+    f_cell(tbl, 12, 8, str.tostring(rsi8, "#.0"), rsi8 < 30 ? cRed : rsi8 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 8, str.tostring(rvolPct8, "#.0") + "%", rvolPct8 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 8, flow8, cDark, color.white)
+    f_cell(tbl, 15, 8, status8, cDark, color.yellow)
+    f_cell(tbl, 16, 8, action8, f_action_color(action8), color.white)
+    f_cell(tbl, 17, 8, str.tostring(score8, "#"), f_score_color(score8), color.white)
+    f_cell(tbl, 18, 8, signal8, f_signal_color(signal8), color.white)
     // Row 9
     f_cell(tbl, 0, 9, "INJUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 9, tf, cDark, color.white)
-    f_cell(tbl, 2, 9, f_fmt_price(entry9, tick9), cDark, color.white)
-    f_cell(tbl, 3, 9, f_fmt_price(now9, tick9), cDark, color.white)
-    f_cell(tbl, 4, 9, f_fmt_price(tp_9, tick9), cDark, color.lime)
-    f_cell(tbl, 5, 9, f_fmt_price(sl_9, tick9), cDark, color.orange)
-    f_cell(tbl, 6, 9, str.tostring(pctTp9, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 9, str.tostring(riskPct9, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 9, str.tostring(rr9, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 9, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 9, risk9, f_risk_color(risk9), color.white)
-    f_cell(tbl, 11, 9, str.tostring(rsi9, "#.0"), rsi9 < 30 ? cRed : rsi9 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 9, str.tostring(rvolPct9, "#.0") + "%", rvolPct9 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 9, flow9, cDark, color.white)
-    f_cell(tbl, 14, 9, action9, f_action_color(action9), color.white)
-    f_cell(tbl, 15, 9, str.tostring(score9, "#"), f_score_color(score9), color.white)
-    f_cell(tbl, 16, 9, signal9, f_signal_color(signal9), color.white)
+    f_cell(tbl, 2, 9, f_fmt_price(now9, tick9), cDark, color.white)
+    
+    // TRIG
+    trigDisp9 = f_fmt_price(longTrig9, tick9) + " / " + f_fmt_price(shortTrig9, tick9)
+    f_cell(tbl, 3, 9, trigDisp9, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp9 = na(entry9) ? "-" : f_fmt_price(entry9, tick9)
+    tpDisp9 = na(tp_9) ? "-" : f_fmt_price(tp_9, tick9)
+    slDisp9 = na(sl_9) ? "-" : f_fmt_price(sl_9, tick9)
+    pctTpDisp9 = na(pctTp9) ? "-" : str.tostring(pctTp9, "#.##") + "%"
+    riskPctDisp9 = na(riskPct9) ? "-" : str.tostring(riskPct9, "#.##") + "%"
+    rrDisp9 = na(rr9) ? "-" : str.tostring(rr9, "#.##")
+    
+    f_cell(tbl, 4, 9, entryDisp9, cDark, color.white)
+    f_cell(tbl, 5, 9, tpDisp9, cDark, color.lime)
+    f_cell(tbl, 6, 9, slDisp9, cDark, color.orange)
+    f_cell(tbl, 7, 9, pctTpDisp9, cDark, color.white)
+    f_cell(tbl, 8, 9, riskPctDisp9, cDark, color.white)
+    f_cell(tbl, 9, 9, rrDisp9, cDark, color.white)
+    
+    f_cell(tbl, 10, 9, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 9, risk9, f_risk_color(risk9), color.white)
+    f_cell(tbl, 12, 9, str.tostring(rsi9, "#.0"), rsi9 < 30 ? cRed : rsi9 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 9, str.tostring(rvolPct9, "#.0") + "%", rvolPct9 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 9, flow9, cDark, color.white)
+    f_cell(tbl, 15, 9, status9, cDark, color.yellow)
+    f_cell(tbl, 16, 9, action9, f_action_color(action9), color.white)
+    f_cell(tbl, 17, 9, str.tostring(score9, "#"), f_score_color(score9), color.white)
+    f_cell(tbl, 18, 9, signal9, f_signal_color(signal9), color.white)
     // Row 10
     f_cell(tbl, 0, 10, "ENAUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 10, tf, cDark, color.white)
-    f_cell(tbl, 2, 10, f_fmt_price(entry10, tick10), cDark, color.white)
-    f_cell(tbl, 3, 10, f_fmt_price(now10, tick10), cDark, color.white)
-    f_cell(tbl, 4, 10, f_fmt_price(tp_10, tick10), cDark, color.lime)
-    f_cell(tbl, 5, 10, f_fmt_price(sl_10, tick10), cDark, color.orange)
-    f_cell(tbl, 6, 10, str.tostring(pctTp10, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 7, 10, str.tostring(riskPct10, "#.##") + "%", cDark, color.white)
-    f_cell(tbl, 8, 10, str.tostring(rr10, "#.##"), cDark, color.white)
-    f_cell(tbl, 9, 10, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 10, 10, risk10, f_risk_color(risk10), color.white)
-    f_cell(tbl, 11, 10, str.tostring(rsi10, "#.0"), rsi10 < 30 ? cRed : rsi10 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 12, 10, str.tostring(rvolPct10, "#.0") + "%", rvolPct10 >= 120 ? cGreen : cDark, color.white)
-    f_cell(tbl, 13, 10, flow10, cDark, color.white)
-    f_cell(tbl, 14, 10, action10, f_action_color(action10), color.white)
-    f_cell(tbl, 15, 10, str.tostring(score10, "#"), f_score_color(score10), color.white)
-    f_cell(tbl, 16, 10, signal10, f_signal_color(signal10), color.white)
+    f_cell(tbl, 2, 10, f_fmt_price(now10, tick10), cDark, color.white)
+    
+    // TRIG
+    trigDisp10 = f_fmt_price(longTrig10, tick10) + " / " + f_fmt_price(shortTrig10, tick10)
+    f_cell(tbl, 3, 10, trigDisp10, cDark, color.white)
+    
+    // ENTRY, TP, SL, TP%, RISK%, RR display rules
+    entryDisp10 = na(entry10) ? "-" : f_fmt_price(entry10, tick10)
+    tpDisp10 = na(tp_10) ? "-" : f_fmt_price(tp_10, tick10)
+    slDisp10 = na(sl_10) ? "-" : f_fmt_price(sl_10, tick10)
+    pctTpDisp10 = na(pctTp10) ? "-" : str.tostring(pctTp10, "#.##") + "%"
+    riskPctDisp10 = na(riskPct10) ? "-" : str.tostring(riskPct10, "#.##") + "%"
+    rrDisp10 = na(rr10) ? "-" : str.tostring(rr10, "#.##")
+    
+    f_cell(tbl, 4, 10, entryDisp10, cDark, color.white)
+    f_cell(tbl, 5, 10, tpDisp10, cDark, color.lime)
+    f_cell(tbl, 6, 10, slDisp10, cDark, color.orange)
+    f_cell(tbl, 7, 10, pctTpDisp10, cDark, color.white)
+    f_cell(tbl, 8, 10, riskPctDisp10, cDark, color.white)
+    f_cell(tbl, 9, 10, rrDisp10, cDark, color.white)
+    
+    f_cell(tbl, 10, 10, str.tostring(leverage) + "x", cDark, color.white)
+    f_cell(tbl, 11, 10, risk10, f_risk_color(risk10), color.white)
+    f_cell(tbl, 12, 10, str.tostring(rsi10, "#.0"), rsi10 < 30 ? cRed : rsi10 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 13, 10, str.tostring(rvolPct10, "#.0") + "%", rvolPct10 >= 120 ? cGreen : cDark, color.white)
+    f_cell(tbl, 14, 10, flow10, cDark, color.white)
+    f_cell(tbl, 15, 10, status10, cDark, color.yellow)
+    f_cell(tbl, 16, 10, action10, f_action_color(action10), color.white)
+    f_cell(tbl, 17, 10, str.tostring(score10, "#"), f_score_color(score10), color.white)
+    f_cell(tbl, 18, 10, signal10, f_signal_color(signal10), color.white)
 
 plot(close, display=display.none)
