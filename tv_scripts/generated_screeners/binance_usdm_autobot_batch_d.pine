@@ -16,12 +16,12 @@ leverage = input.int(10, "Leverage", minval=1, maxval=125)
 entryScore = input.int(70, "Entry Score")
 scoreGap = input.int(8, "Score Gap")
 
-slAtrMult = input.float(1.5, "SL ATR Mult", step=0.1)
-tpAtrMult = input.float(3.0, "TP ATR Mult", step=0.1)
-minRR = input.float(1.8, "Minimum RR", step=0.1)
+slAtrMult = input.float(2.0, "SL ATR Mult (Wider)", step=0.1)
+tpAtrMult = input.float(4.0, "TP ATR Mult (Wider)", step=0.1)
+minRR = input.float(2.0, "Minimum RR (Wider)", step=0.1)
 
-minSlRawPct = input.float(0.6, "Minimum SL Raw %", step=0.1)
-minTpRawPct = input.float(1.2, "Minimum TP Raw %", step=0.1)
+minSlRawPct = input.float(1.0, "Minimum SL Raw % (Wider)", step=0.1)
+minTpRawPct = input.float(2.0, "Minimum TP Raw % (Wider)", step=0.1)
 maxPlanRiskPct = input.float(5.0, "Max Raw Risk % For Action", step=0.5)
 maxLevRiskPct = input.float(65.0, "Max Leveraged Risk % For Action", step=5.0)
 
@@ -169,6 +169,11 @@ f_dashboard_engine() =>
     rvol = volMA > 0 ? volume / volMA : na
     volOk = not na(rvol) and rvol >= 1.0
     
+    // Bollinger Band Squeeze Filter
+    [bbMiddle, bbUpper, bbLower] = ta.bb(close, 20, 2)
+    bbWidth = bbMiddle > 0 ? (bbUpper - bbLower) / bbMiddle : 0.0
+    bbSqueeze = bbWidth < ta.sma(bbWidth, 50)
+    
     // Layer 3 — Candle Behavior
     body = math.abs(close - open)
     barRange = math.max(high - low, syminfo.mintick)
@@ -194,12 +199,12 @@ f_dashboard_engine() =>
     bullishImpulse = greenCandle and closeNearHigh and close > close[1]
     bearishImpulse = redCandle and closeNearLow and close < close[1]
     
-    // Layer 6 — Action Engine
+    // Layer 6 — Action Engine (Adding Bollinger Band squeeze guard to breakouts)
     longTrendAction = trendLong and momentumLong and volOk and greenCandle and closeNearHigh and not overheat
     shortTrendAction = trendShort and momentumShort and volOk and redCandle and closeNearLow and not oversold
     
-    longBreakoutAction = close > longTrigger and greenCandle and closeNearHigh and volOk
-    shortBreakdownAction = close < shortTrigger and redCandle and closeNearLow and volOk
+    longBreakoutAction = close > longTrigger and greenCandle and closeNearHigh and volOk and not bbSqueeze
+    shortBreakdownAction = close < shortTrigger and redCandle and closeNearLow and volOk and not bbSqueeze
     
     longReversalAction = oversold and lowerReject and greenCandle and closeNearHigh and rvol >= 1.2 and hist > hist[1]
     shortReversalAction = overheat and upperReject and redCandle and closeNearLow and rvol >= 1.2 and hist < hist[1]
@@ -274,7 +279,19 @@ f_dashboard_engine() =>
     status = overheat ? "OVERHEAT" : oversold ? "OVERSOLD" : flowConflict ? "CONFLICT" : riskLabel == "HIGH" ? "RISKY" : action != "WAIT" ? action + " SETUP" : "WATCH"
     signal = action == "LONG" ? "LONG" : action == "SHORT" ? "SHORT" : riskLabel == "HIGH" or riskLabel == "RISKY" ? "RISKY" : "NEUTRAL"
     
-    [close, longTrigger, shortTrigger, finalEntry, finalTP, finalSL, tpPct, riskPct, rr, levTpPct, levRiskPct, riskLabel, rsiVal, rvol * 100.0, flow, status, action, score, signal, syminfo.mintick]
+    // Liquidation Warning logic (safety threshold buffer at 90% of leverage capacity)
+    liqPriceLong = entryLong * (1 - 0.90 / leverage)
+    liqPriceShort = entryShort * (1 + 0.90 / leverage)
+    liqWarnLong = slLong <= liqPriceLong ? "HIGH RISK" : slLong <= liqPriceLong * 1.02 ? "WARNING" : "SAFE"
+    liqWarnShort = slShort >= liqPriceShort ? "HIGH RISK" : slShort >= liqPriceShort * 0.98 ? "WARNING" : "SAFE"
+    liqWarn = action == "LONG" ? liqWarnLong : action == "SHORT" ? liqWarnShort : "SAFE"
+    
+    // Max Safe Leverage recommendation based on raw Stop Loss percentage
+    maxSafeLeverageLong = riskPctLong > 0 ? math.floor(20.0 / riskPctLong) : 20
+    maxSafeLeverageShort = riskPctShort > 0 ? math.floor(20.0 / riskPctShort) : 20
+    maxSafeLev = action == "LONG" ? maxSafeLeverageLong : action == "SHORT" ? maxSafeLeverageShort : 20
+    
+    [close, longTrigger, shortTrigger, finalEntry, finalTP, finalSL, tpPct, riskPct, rr, levTpPct, levRiskPct, riskLabel, rsiVal, rvol * 100.0, flow, status, action, score, signal, syminfo.mintick, liqWarn, bbSqueeze ? "SQUEEZE" : "NORMAL", maxSafeLev]
 
 
 // ============================================================================
@@ -290,7 +307,6 @@ tk7 = "BINANCE:BCHUSDT.P"
 tk8 = "BINANCE:ARBUSDT.P"
 tk9 = "BINANCE:TIAUSDT.P"
 tk10 = "BINANCE:VIRTUALUSDT.P"
-
 dec1 = 3
 dec2 = 3
 dec3 = 3
@@ -302,16 +318,16 @@ dec8 = 3
 dec9 = 3
 dec10 = 3
 
-[now1, longTrig1, shortTrig1, entry1, tp_1, sl_1, pctTp1, riskPct1, rr1, levTpPct1, levRiskPct1, risk1, rsi1, rvolPct1, flow1, status1, action1, score1, signal1, tick1] = request.security(tk1, tf, f_dashboard_engine())
-[now2, longTrig2, shortTrig2, entry2, tp_2, sl_2, pctTp2, riskPct2, rr2, levTpPct2, levRiskPct2, risk2, rsi2, rvolPct2, flow2, status2, action2, score2, signal2, tick2] = request.security(tk2, tf, f_dashboard_engine())
-[now3, longTrig3, shortTrig3, entry3, tp_3, sl_3, pctTp3, riskPct3, rr3, levTpPct3, levRiskPct3, risk3, rsi3, rvolPct3, flow3, status3, action3, score3, signal3, tick3] = request.security(tk3, tf, f_dashboard_engine())
-[now4, longTrig4, shortTrig4, entry4, tp_4, sl_4, pctTp4, riskPct4, rr4, levTpPct4, levRiskPct4, risk4, rsi4, rvolPct4, flow4, status4, action4, score4, signal4, tick4] = request.security(tk4, tf, f_dashboard_engine())
-[now5, longTrig5, shortTrig5, entry5, tp_5, sl_5, pctTp5, riskPct5, rr5, levTpPct5, levRiskPct5, risk5, rsi5, rvolPct5, flow5, status5, action5, score5, signal5, tick5] = request.security(tk5, tf, f_dashboard_engine())
-[now6, longTrig6, shortTrig6, entry6, tp_6, sl_6, pctTp6, riskPct6, rr6, levTpPct6, levRiskPct6, risk6, rsi6, rvolPct6, flow6, status6, action6, score6, signal6, tick6] = request.security(tk6, tf, f_dashboard_engine())
-[now7, longTrig7, shortTrig7, entry7, tp_7, sl_7, pctTp7, riskPct7, rr7, levTpPct7, levRiskPct7, risk7, rsi7, rvolPct7, flow7, status7, action7, score7, signal7, tick7] = request.security(tk7, tf, f_dashboard_engine())
-[now8, longTrig8, shortTrig8, entry8, tp_8, sl_8, pctTp8, riskPct8, rr8, levTpPct8, levRiskPct8, risk8, rsi8, rvolPct8, flow8, status8, action8, score8, signal8, tick8] = request.security(tk8, tf, f_dashboard_engine())
-[now9, longTrig9, shortTrig9, entry9, tp_9, sl_9, pctTp9, riskPct9, rr9, levTpPct9, levRiskPct9, risk9, rsi9, rvolPct9, flow9, status9, action9, score9, signal9, tick9] = request.security(tk9, tf, f_dashboard_engine())
-[now10, longTrig10, shortTrig10, entry10, tp_10, sl_10, pctTp10, riskPct10, rr10, levTpPct10, levRiskPct10, risk10, rsi10, rvolPct10, flow10, status10, action10, score10, signal10, tick10] = request.security(tk10, tf, f_dashboard_engine())
+[now1, longTrig1, shortTrig1, entry1, tp_1, sl_1, pctTp1, riskPct1, rr1, levTpPct1, levRiskPct1, risk1, rsi1, rvolPct1, flow1, status1, action1, score1, signal1, tick1, liqWarn1, bbSqz1, maxSafeLev1] = request.security(tk1, tf, f_dashboard_engine())
+[now2, longTrig2, shortTrig2, entry2, tp_2, sl_2, pctTp2, riskPct2, rr2, levTpPct2, levRiskPct2, risk2, rsi2, rvolPct2, flow2, status2, action2, score2, signal2, tick2, liqWarn2, bbSqz2, maxSafeLev2] = request.security(tk2, tf, f_dashboard_engine())
+[now3, longTrig3, shortTrig3, entry3, tp_3, sl_3, pctTp3, riskPct3, rr3, levTpPct3, levRiskPct3, risk3, rsi3, rvolPct3, flow3, status3, action3, score3, signal3, tick3, liqWarn3, bbSqz3, maxSafeLev3] = request.security(tk3, tf, f_dashboard_engine())
+[now4, longTrig4, shortTrig4, entry4, tp_4, sl_4, pctTp4, riskPct4, rr4, levTpPct4, levRiskPct4, risk4, rsi4, rvolPct4, flow4, status4, action4, score4, signal4, tick4, liqWarn4, bbSqz4, maxSafeLev4] = request.security(tk4, tf, f_dashboard_engine())
+[now5, longTrig5, shortTrig5, entry5, tp_5, sl_5, pctTp5, riskPct5, rr5, levTpPct5, levRiskPct5, risk5, rsi5, rvolPct5, flow5, status5, action5, score5, signal5, tick5, liqWarn5, bbSqz5, maxSafeLev5] = request.security(tk5, tf, f_dashboard_engine())
+[now6, longTrig6, shortTrig6, entry6, tp_6, sl_6, pctTp6, riskPct6, rr6, levTpPct6, levRiskPct6, risk6, rsi6, rvolPct6, flow6, status6, action6, score6, signal6, tick6, liqWarn6, bbSqz6, maxSafeLev6] = request.security(tk6, tf, f_dashboard_engine())
+[now7, longTrig7, shortTrig7, entry7, tp_7, sl_7, pctTp7, riskPct7, rr7, levTpPct7, levRiskPct7, risk7, rsi7, rvolPct7, flow7, status7, action7, score7, signal7, tick7, liqWarn7, bbSqz7, maxSafeLev7] = request.security(tk7, tf, f_dashboard_engine())
+[now8, longTrig8, shortTrig8, entry8, tp_8, sl_8, pctTp8, riskPct8, rr8, levTpPct8, levRiskPct8, risk8, rsi8, rvolPct8, flow8, status8, action8, score8, signal8, tick8, liqWarn8, bbSqz8, maxSafeLev8] = request.security(tk8, tf, f_dashboard_engine())
+[now9, longTrig9, shortTrig9, entry9, tp_9, sl_9, pctTp9, riskPct9, rr9, levTpPct9, levRiskPct9, risk9, rsi9, rvolPct9, flow9, status9, action9, score9, signal9, tick9, liqWarn9, bbSqz9, maxSafeLev9] = request.security(tk9, tf, f_dashboard_engine())
+[now10, longTrig10, shortTrig10, entry10, tp_10, sl_10, pctTp10, riskPct10, rr10, levTpPct10, levRiskPct10, risk10, rsi10, rvolPct10, flow10, status10, action10, score10, signal10, tick10, liqWarn10, bbSqz10, maxSafeLev10] = request.security(tk10, tf, f_dashboard_engine())
 
 // ============================================================================
 // ALERT LOGIC
@@ -362,7 +378,7 @@ alertLevTp1 = na(levTpPct1) ? 0.0 : levTpPct1
 alertLevRisk1 = na(levRiskPct1) ? 0.0 : levRiskPct1
 
 if barstate.isconfirmed and canAlert1
-    msg_1 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event1 + '", "side": "' + str.tostring(alertSide1) + '", "symbol": "TRUMPUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now1) + ', "entry": ' + str.tostring(alertEntry1) + ', "tp": ' + str.tostring(alertTp1) + ', "sl": ' + str.tostring(alertSl1) + ', "tp_pct": ' + str.tostring(alertTpPct1) + ', "risk_pct": ' + str.tostring(alertRiskPct1) + ', "rr": ' + str.tostring(alertRr1) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp1) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk1) + ', "risk_label": "' + risk1 + '", "score": ' + str.tostring(score1) + ', "flow": "' + flow1 + '", "signal": "' + signal1 + '", "price_text": {"now": "' + f_fmt_price(now1, tick1) + '", "entry": "' + f_fmt_price(alertEntry1, tick1) + '", "tp": "' + f_fmt_price(alertTp1, tick1) + '", "sl": "' + f_fmt_price(alertSl1, tick1) + '"}, "tick_size": ' + str.tostring(tick1) + ', "price_decimals": ' + str.tostring(dec1) + ', "time": ' + str.tostring(time) + '}'
+    msg_1 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event1 + '", "side": "' + str.tostring(alertSide1) + '", "symbol": "TRUMPUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now1) + ', "entry": ' + str.tostring(alertEntry1) + ', "tp": ' + str.tostring(alertTp1) + ', "sl": ' + str.tostring(alertSl1) + ', "tp_pct": ' + str.tostring(alertTpPct1) + ', "risk_pct": ' + str.tostring(alertRiskPct1) + ', "rr": ' + str.tostring(alertRr1) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp1) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk1) + ', "risk_label": "' + risk1 + '", "liq_warn": "' + liqWarn1 + '", "bb_squeeze": "' + bbSqz1 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev1) + ', "score": ' + str.tostring(score1) + ', "flow": "' + flow1 + '", "signal": "' + signal1 + '", "price_text": {"now": "' + f_fmt_price(now1, tick1) + '", "entry": "' + f_fmt_price(alertEntry1, tick1) + '", "tp": "' + f_fmt_price(alertTp1, tick1) + '", "sl": "' + f_fmt_price(alertSl1, tick1) + '"}, "tick_size": ' + str.tostring(tick1) + ', "price_decimals": ' + str.tostring(dec1) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_1, alert.freq_once_per_bar_close)
     lastEvent1 := event1
     lastBar1 := bar_index
@@ -413,7 +429,7 @@ alertLevTp2 = na(levTpPct2) ? 0.0 : levTpPct2
 alertLevRisk2 = na(levRiskPct2) ? 0.0 : levRiskPct2
 
 if barstate.isconfirmed and canAlert2
-    msg_2 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event2 + '", "side": "' + str.tostring(alertSide2) + '", "symbol": "FETUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now2) + ', "entry": ' + str.tostring(alertEntry2) + ', "tp": ' + str.tostring(alertTp2) + ', "sl": ' + str.tostring(alertSl2) + ', "tp_pct": ' + str.tostring(alertTpPct2) + ', "risk_pct": ' + str.tostring(alertRiskPct2) + ', "rr": ' + str.tostring(alertRr2) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp2) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk2) + ', "risk_label": "' + risk2 + '", "score": ' + str.tostring(score2) + ', "flow": "' + flow2 + '", "signal": "' + signal2 + '", "price_text": {"now": "' + f_fmt_price(now2, tick2) + '", "entry": "' + f_fmt_price(alertEntry2, tick2) + '", "tp": "' + f_fmt_price(alertTp2, tick2) + '", "sl": "' + f_fmt_price(alertSl2, tick2) + '"}, "tick_size": ' + str.tostring(tick2) + ', "price_decimals": ' + str.tostring(dec2) + ', "time": ' + str.tostring(time) + '}'
+    msg_2 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event2 + '", "side": "' + str.tostring(alertSide2) + '", "symbol": "FETUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now2) + ', "entry": ' + str.tostring(alertEntry2) + ', "tp": ' + str.tostring(alertTp2) + ', "sl": ' + str.tostring(alertSl2) + ', "tp_pct": ' + str.tostring(alertTpPct2) + ', "risk_pct": ' + str.tostring(alertRiskPct2) + ', "rr": ' + str.tostring(alertRr2) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp2) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk2) + ', "risk_label": "' + risk2 + '", "liq_warn": "' + liqWarn2 + '", "bb_squeeze": "' + bbSqz2 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev2) + ', "score": ' + str.tostring(score2) + ', "flow": "' + flow2 + '", "signal": "' + signal2 + '", "price_text": {"now": "' + f_fmt_price(now2, tick2) + '", "entry": "' + f_fmt_price(alertEntry2, tick2) + '", "tp": "' + f_fmt_price(alertTp2, tick2) + '", "sl": "' + f_fmt_price(alertSl2, tick2) + '"}, "tick_size": ' + str.tostring(tick2) + ', "price_decimals": ' + str.tostring(dec2) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_2, alert.freq_once_per_bar_close)
     lastEvent2 := event2
     lastBar2 := bar_index
@@ -464,7 +480,7 @@ alertLevTp3 = na(levTpPct3) ? 0.0 : levTpPct3
 alertLevRisk3 = na(levRiskPct3) ? 0.0 : levRiskPct3
 
 if barstate.isconfirmed and canAlert3
-    msg_3 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event3 + '", "side": "' + str.tostring(alertSide3) + '", "symbol": "AAVEUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now3) + ', "entry": ' + str.tostring(alertEntry3) + ', "tp": ' + str.tostring(alertTp3) + ', "sl": ' + str.tostring(alertSl3) + ', "tp_pct": ' + str.tostring(alertTpPct3) + ', "risk_pct": ' + str.tostring(alertRiskPct3) + ', "rr": ' + str.tostring(alertRr3) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp3) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk3) + ', "risk_label": "' + risk3 + '", "score": ' + str.tostring(score3) + ', "flow": "' + flow3 + '", "signal": "' + signal3 + '", "price_text": {"now": "' + f_fmt_price(now3, tick3) + '", "entry": "' + f_fmt_price(alertEntry3, tick3) + '", "tp": "' + f_fmt_price(alertTp3, tick3) + '", "sl": "' + f_fmt_price(alertSl3, tick3) + '"}, "tick_size": ' + str.tostring(tick3) + ', "price_decimals": ' + str.tostring(dec3) + ', "time": ' + str.tostring(time) + '}'
+    msg_3 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event3 + '", "side": "' + str.tostring(alertSide3) + '", "symbol": "AAVEUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now3) + ', "entry": ' + str.tostring(alertEntry3) + ', "tp": ' + str.tostring(alertTp3) + ', "sl": ' + str.tostring(alertSl3) + ', "tp_pct": ' + str.tostring(alertTpPct3) + ', "risk_pct": ' + str.tostring(alertRiskPct3) + ', "rr": ' + str.tostring(alertRr3) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp3) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk3) + ', "risk_label": "' + risk3 + '", "liq_warn": "' + liqWarn3 + '", "bb_squeeze": "' + bbSqz3 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev3) + ', "score": ' + str.tostring(score3) + ', "flow": "' + flow3 + '", "signal": "' + signal3 + '", "price_text": {"now": "' + f_fmt_price(now3, tick3) + '", "entry": "' + f_fmt_price(alertEntry3, tick3) + '", "tp": "' + f_fmt_price(alertTp3, tick3) + '", "sl": "' + f_fmt_price(alertSl3, tick3) + '"}, "tick_size": ' + str.tostring(tick3) + ', "price_decimals": ' + str.tostring(dec3) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_3, alert.freq_once_per_bar_close)
     lastEvent3 := event3
     lastBar3 := bar_index
@@ -515,7 +531,7 @@ alertLevTp4 = na(levTpPct4) ? 0.0 : levTpPct4
 alertLevRisk4 = na(levRiskPct4) ? 0.0 : levRiskPct4
 
 if barstate.isconfirmed and canAlert4
-    msg_4 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event4 + '", "side": "' + str.tostring(alertSide4) + '", "symbol": "TRXUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now4) + ', "entry": ' + str.tostring(alertEntry4) + ', "tp": ' + str.tostring(alertTp4) + ', "sl": ' + str.tostring(alertSl4) + ', "tp_pct": ' + str.tostring(alertTpPct4) + ', "risk_pct": ' + str.tostring(alertRiskPct4) + ', "rr": ' + str.tostring(alertRr4) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp4) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk4) + ', "risk_label": "' + risk4 + '", "score": ' + str.tostring(score4) + ', "flow": "' + flow4 + '", "signal": "' + signal4 + '", "price_text": {"now": "' + f_fmt_price(now4, tick4) + '", "entry": "' + f_fmt_price(alertEntry4, tick4) + '", "tp": "' + f_fmt_price(alertTp4, tick4) + '", "sl": "' + f_fmt_price(alertSl4, tick4) + '"}, "tick_size": ' + str.tostring(tick4) + ', "price_decimals": ' + str.tostring(dec4) + ', "time": ' + str.tostring(time) + '}'
+    msg_4 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event4 + '", "side": "' + str.tostring(alertSide4) + '", "symbol": "TRXUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now4) + ', "entry": ' + str.tostring(alertEntry4) + ', "tp": ' + str.tostring(alertTp4) + ', "sl": ' + str.tostring(alertSl4) + ', "tp_pct": ' + str.tostring(alertTpPct4) + ', "risk_pct": ' + str.tostring(alertRiskPct4) + ', "rr": ' + str.tostring(alertRr4) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp4) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk4) + ', "risk_label": "' + risk4 + '", "liq_warn": "' + liqWarn4 + '", "bb_squeeze": "' + bbSqz4 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev4) + ', "score": ' + str.tostring(score4) + ', "flow": "' + flow4 + '", "signal": "' + signal4 + '", "price_text": {"now": "' + f_fmt_price(now4, tick4) + '", "entry": "' + f_fmt_price(alertEntry4, tick4) + '", "tp": "' + f_fmt_price(alertTp4, tick4) + '", "sl": "' + f_fmt_price(alertSl4, tick4) + '"}, "tick_size": ' + str.tostring(tick4) + ', "price_decimals": ' + str.tostring(dec4) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_4, alert.freq_once_per_bar_close)
     lastEvent4 := event4
     lastBar4 := bar_index
@@ -566,7 +582,7 @@ alertLevTp5 = na(levTpPct5) ? 0.0 : levTpPct5
 alertLevRisk5 = na(levRiskPct5) ? 0.0 : levRiskPct5
 
 if barstate.isconfirmed and canAlert5
-    msg_5 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event5 + '", "side": "' + str.tostring(alertSide5) + '", "symbol": "ICPUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now5) + ', "entry": ' + str.tostring(alertEntry5) + ', "tp": ' + str.tostring(alertTp5) + ', "sl": ' + str.tostring(alertSl5) + ', "tp_pct": ' + str.tostring(alertTpPct5) + ', "risk_pct": ' + str.tostring(alertRiskPct5) + ', "rr": ' + str.tostring(alertRr5) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp5) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk5) + ', "risk_label": "' + risk5 + '", "score": ' + str.tostring(score5) + ', "flow": "' + flow5 + '", "signal": "' + signal5 + '", "price_text": {"now": "' + f_fmt_price(now5, tick5) + '", "entry": "' + f_fmt_price(alertEntry5, tick5) + '", "tp": "' + f_fmt_price(alertTp5, tick5) + '", "sl": "' + f_fmt_price(alertSl5, tick5) + '"}, "tick_size": ' + str.tostring(tick5) + ', "price_decimals": ' + str.tostring(dec5) + ', "time": ' + str.tostring(time) + '}'
+    msg_5 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event5 + '", "side": "' + str.tostring(alertSide5) + '", "symbol": "ICPUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now5) + ', "entry": ' + str.tostring(alertEntry5) + ', "tp": ' + str.tostring(alertTp5) + ', "sl": ' + str.tostring(alertSl5) + ', "tp_pct": ' + str.tostring(alertTpPct5) + ', "risk_pct": ' + str.tostring(alertRiskPct5) + ', "rr": ' + str.tostring(alertRr5) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp5) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk5) + ', "risk_label": "' + risk5 + '", "liq_warn": "' + liqWarn5 + '", "bb_squeeze": "' + bbSqz5 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev5) + ', "score": ' + str.tostring(score5) + ', "flow": "' + flow5 + '", "signal": "' + signal5 + '", "price_text": {"now": "' + f_fmt_price(now5, tick5) + '", "entry": "' + f_fmt_price(alertEntry5, tick5) + '", "tp": "' + f_fmt_price(alertTp5, tick5) + '", "sl": "' + f_fmt_price(alertSl5, tick5) + '"}, "tick_size": ' + str.tostring(tick5) + ', "price_decimals": ' + str.tostring(dec5) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_5, alert.freq_once_per_bar_close)
     lastEvent5 := event5
     lastBar5 := bar_index
@@ -617,7 +633,7 @@ alertLevTp6 = na(levTpPct6) ? 0.0 : levTpPct6
 alertLevRisk6 = na(levRiskPct6) ? 0.0 : levRiskPct6
 
 if barstate.isconfirmed and canAlert6
-    msg_6 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event6 + '", "side": "' + str.tostring(alertSide6) + '", "symbol": "UNIUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now6) + ', "entry": ' + str.tostring(alertEntry6) + ', "tp": ' + str.tostring(alertTp6) + ', "sl": ' + str.tostring(alertSl6) + ', "tp_pct": ' + str.tostring(alertTpPct6) + ', "risk_pct": ' + str.tostring(alertRiskPct6) + ', "rr": ' + str.tostring(alertRr6) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp6) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk6) + ', "risk_label": "' + risk6 + '", "score": ' + str.tostring(score6) + ', "flow": "' + flow6 + '", "signal": "' + signal6 + '", "price_text": {"now": "' + f_fmt_price(now6, tick6) + '", "entry": "' + f_fmt_price(alertEntry6, tick6) + '", "tp": "' + f_fmt_price(alertTp6, tick6) + '", "sl": "' + f_fmt_price(alertSl6, tick6) + '"}, "tick_size": ' + str.tostring(tick6) + ', "price_decimals": ' + str.tostring(dec6) + ', "time": ' + str.tostring(time) + '}'
+    msg_6 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event6 + '", "side": "' + str.tostring(alertSide6) + '", "symbol": "UNIUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now6) + ', "entry": ' + str.tostring(alertEntry6) + ', "tp": ' + str.tostring(alertTp6) + ', "sl": ' + str.tostring(alertSl6) + ', "tp_pct": ' + str.tostring(alertTpPct6) + ', "risk_pct": ' + str.tostring(alertRiskPct6) + ', "rr": ' + str.tostring(alertRr6) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp6) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk6) + ', "risk_label": "' + risk6 + '", "liq_warn": "' + liqWarn6 + '", "bb_squeeze": "' + bbSqz6 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev6) + ', "score": ' + str.tostring(score6) + ', "flow": "' + flow6 + '", "signal": "' + signal6 + '", "price_text": {"now": "' + f_fmt_price(now6, tick6) + '", "entry": "' + f_fmt_price(alertEntry6, tick6) + '", "tp": "' + f_fmt_price(alertTp6, tick6) + '", "sl": "' + f_fmt_price(alertSl6, tick6) + '"}, "tick_size": ' + str.tostring(tick6) + ', "price_decimals": ' + str.tostring(dec6) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_6, alert.freq_once_per_bar_close)
     lastEvent6 := event6
     lastBar6 := bar_index
@@ -668,7 +684,7 @@ alertLevTp7 = na(levTpPct7) ? 0.0 : levTpPct7
 alertLevRisk7 = na(levRiskPct7) ? 0.0 : levRiskPct7
 
 if barstate.isconfirmed and canAlert7
-    msg_7 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event7 + '", "side": "' + str.tostring(alertSide7) + '", "symbol": "BCHUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now7) + ', "entry": ' + str.tostring(alertEntry7) + ', "tp": ' + str.tostring(alertTp7) + ', "sl": ' + str.tostring(alertSl7) + ', "tp_pct": ' + str.tostring(alertTpPct7) + ', "risk_pct": ' + str.tostring(alertRiskPct7) + ', "rr": ' + str.tostring(alertRr7) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp7) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk7) + ', "risk_label": "' + risk7 + '", "score": ' + str.tostring(score7) + ', "flow": "' + flow7 + '", "signal": "' + signal7 + '", "price_text": {"now": "' + f_fmt_price(now7, tick7) + '", "entry": "' + f_fmt_price(alertEntry7, tick7) + '", "tp": "' + f_fmt_price(alertTp7, tick7) + '", "sl": "' + f_fmt_price(alertSl7, tick7) + '"}, "tick_size": ' + str.tostring(tick7) + ', "price_decimals": ' + str.tostring(dec7) + ', "time": ' + str.tostring(time) + '}'
+    msg_7 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event7 + '", "side": "' + str.tostring(alertSide7) + '", "symbol": "BCHUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now7) + ', "entry": ' + str.tostring(alertEntry7) + ', "tp": ' + str.tostring(alertTp7) + ', "sl": ' + str.tostring(alertSl7) + ', "tp_pct": ' + str.tostring(alertTpPct7) + ', "risk_pct": ' + str.tostring(alertRiskPct7) + ', "rr": ' + str.tostring(alertRr7) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp7) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk7) + ', "risk_label": "' + risk7 + '", "liq_warn": "' + liqWarn7 + '", "bb_squeeze": "' + bbSqz7 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev7) + ', "score": ' + str.tostring(score7) + ', "flow": "' + flow7 + '", "signal": "' + signal7 + '", "price_text": {"now": "' + f_fmt_price(now7, tick7) + '", "entry": "' + f_fmt_price(alertEntry7, tick7) + '", "tp": "' + f_fmt_price(alertTp7, tick7) + '", "sl": "' + f_fmt_price(alertSl7, tick7) + '"}, "tick_size": ' + str.tostring(tick7) + ', "price_decimals": ' + str.tostring(dec7) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_7, alert.freq_once_per_bar_close)
     lastEvent7 := event7
     lastBar7 := bar_index
@@ -719,7 +735,7 @@ alertLevTp8 = na(levTpPct8) ? 0.0 : levTpPct8
 alertLevRisk8 = na(levRiskPct8) ? 0.0 : levRiskPct8
 
 if barstate.isconfirmed and canAlert8
-    msg_8 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event8 + '", "side": "' + str.tostring(alertSide8) + '", "symbol": "ARBUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now8) + ', "entry": ' + str.tostring(alertEntry8) + ', "tp": ' + str.tostring(alertTp8) + ', "sl": ' + str.tostring(alertSl8) + ', "tp_pct": ' + str.tostring(alertTpPct8) + ', "risk_pct": ' + str.tostring(alertRiskPct8) + ', "rr": ' + str.tostring(alertRr8) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp8) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk8) + ', "risk_label": "' + risk8 + '", "score": ' + str.tostring(score8) + ', "flow": "' + flow8 + '", "signal": "' + signal8 + '", "price_text": {"now": "' + f_fmt_price(now8, tick8) + '", "entry": "' + f_fmt_price(alertEntry8, tick8) + '", "tp": "' + f_fmt_price(alertTp8, tick8) + '", "sl": "' + f_fmt_price(alertSl8, tick8) + '"}, "tick_size": ' + str.tostring(tick8) + ', "price_decimals": ' + str.tostring(dec8) + ', "time": ' + str.tostring(time) + '}'
+    msg_8 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event8 + '", "side": "' + str.tostring(alertSide8) + '", "symbol": "ARBUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now8) + ', "entry": ' + str.tostring(alertEntry8) + ', "tp": ' + str.tostring(alertTp8) + ', "sl": ' + str.tostring(alertSl8) + ', "tp_pct": ' + str.tostring(alertTpPct8) + ', "risk_pct": ' + str.tostring(alertRiskPct8) + ', "rr": ' + str.tostring(alertRr8) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp8) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk8) + ', "risk_label": "' + risk8 + '", "liq_warn": "' + liqWarn8 + '", "bb_squeeze": "' + bbSqz8 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev8) + ', "score": ' + str.tostring(score8) + ', "flow": "' + flow8 + '", "signal": "' + signal8 + '", "price_text": {"now": "' + f_fmt_price(now8, tick8) + '", "entry": "' + f_fmt_price(alertEntry8, tick8) + '", "tp": "' + f_fmt_price(alertTp8, tick8) + '", "sl": "' + f_fmt_price(alertSl8, tick8) + '"}, "tick_size": ' + str.tostring(tick8) + ', "price_decimals": ' + str.tostring(dec8) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_8, alert.freq_once_per_bar_close)
     lastEvent8 := event8
     lastBar8 := bar_index
@@ -770,7 +786,7 @@ alertLevTp9 = na(levTpPct9) ? 0.0 : levTpPct9
 alertLevRisk9 = na(levRiskPct9) ? 0.0 : levRiskPct9
 
 if barstate.isconfirmed and canAlert9
-    msg_9 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event9 + '", "side": "' + str.tostring(alertSide9) + '", "symbol": "TIAUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now9) + ', "entry": ' + str.tostring(alertEntry9) + ', "tp": ' + str.tostring(alertTp9) + ', "sl": ' + str.tostring(alertSl9) + ', "tp_pct": ' + str.tostring(alertTpPct9) + ', "risk_pct": ' + str.tostring(alertRiskPct9) + ', "rr": ' + str.tostring(alertRr9) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp9) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk9) + ', "risk_label": "' + risk9 + '", "score": ' + str.tostring(score9) + ', "flow": "' + flow9 + '", "signal": "' + signal9 + '", "price_text": {"now": "' + f_fmt_price(now9, tick9) + '", "entry": "' + f_fmt_price(alertEntry9, tick9) + '", "tp": "' + f_fmt_price(alertTp9, tick9) + '", "sl": "' + f_fmt_price(alertSl9, tick9) + '"}, "tick_size": ' + str.tostring(tick9) + ', "price_decimals": ' + str.tostring(dec9) + ', "time": ' + str.tostring(time) + '}'
+    msg_9 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event9 + '", "side": "' + str.tostring(alertSide9) + '", "symbol": "TIAUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now9) + ', "entry": ' + str.tostring(alertEntry9) + ', "tp": ' + str.tostring(alertTp9) + ', "sl": ' + str.tostring(alertSl9) + ', "tp_pct": ' + str.tostring(alertTpPct9) + ', "risk_pct": ' + str.tostring(alertRiskPct9) + ', "rr": ' + str.tostring(alertRr9) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp9) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk9) + ', "risk_label": "' + risk9 + '", "liq_warn": "' + liqWarn9 + '", "bb_squeeze": "' + bbSqz9 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev9) + ', "score": ' + str.tostring(score9) + ', "flow": "' + flow9 + '", "signal": "' + signal9 + '", "price_text": {"now": "' + f_fmt_price(now9, tick9) + '", "entry": "' + f_fmt_price(alertEntry9, tick9) + '", "tp": "' + f_fmt_price(alertTp9, tick9) + '", "sl": "' + f_fmt_price(alertSl9, tick9) + '"}, "tick_size": ' + str.tostring(tick9) + ', "price_decimals": ' + str.tostring(dec9) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_9, alert.freq_once_per_bar_close)
     lastEvent9 := event9
     lastBar9 := bar_index
@@ -821,7 +837,7 @@ alertLevTp10 = na(levTpPct10) ? 0.0 : levTpPct10
 alertLevRisk10 = na(levRiskPct10) ? 0.0 : levRiskPct10
 
 if barstate.isconfirmed and canAlert10
-    msg_10 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event10 + '", "side": "' + str.tostring(alertSide10) + '", "symbol": "VIRTUALUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now10) + ', "entry": ' + str.tostring(alertEntry10) + ', "tp": ' + str.tostring(alertTp10) + ', "sl": ' + str.tostring(alertSl10) + ', "tp_pct": ' + str.tostring(alertTpPct10) + ', "risk_pct": ' + str.tostring(alertRiskPct10) + ', "rr": ' + str.tostring(alertRr10) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp10) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk10) + ', "risk_label": "' + risk10 + '", "score": ' + str.tostring(score10) + ', "flow": "' + flow10 + '", "signal": "' + signal10 + '", "price_text": {"now": "' + f_fmt_price(now10, tick10) + '", "entry": "' + f_fmt_price(alertEntry10, tick10) + '", "tp": "' + f_fmt_price(alertTp10, tick10) + '", "sl": "' + f_fmt_price(alertSl10, tick10) + '"}, "tick_size": ' + str.tostring(tick10) + ', "price_decimals": ' + str.tostring(dec10) + ', "time": ' + str.tostring(time) + '}'
+    msg_10 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event10 + '", "side": "' + str.tostring(alertSide10) + '", "symbol": "VIRTUALUSDT", "tf": "' + tf + '", "now": ' + str.tostring(now10) + ', "entry": ' + str.tostring(alertEntry10) + ', "tp": ' + str.tostring(alertTp10) + ', "sl": ' + str.tostring(alertSl10) + ', "tp_pct": ' + str.tostring(alertTpPct10) + ', "risk_pct": ' + str.tostring(alertRiskPct10) + ', "rr": ' + str.tostring(alertRr10) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp10) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk10) + ', "risk_label": "' + risk10 + '", "liq_warn": "' + liqWarn10 + '", "bb_squeeze": "' + bbSqz10 + '", "max_safe_leverage": ' + str.tostring(maxSafeLev10) + ', "score": ' + str.tostring(score10) + ', "flow": "' + flow10 + '", "signal": "' + signal10 + '", "price_text": {"now": "' + f_fmt_price(now10, tick10) + '", "entry": "' + f_fmt_price(alertEntry10, tick10) + '", "tp": "' + f_fmt_price(alertTp10, tick10) + '", "sl": "' + f_fmt_price(alertSl10, tick10) + '"}, "tick_size": ' + str.tostring(tick10) + ', "price_decimals": ' + str.tostring(dec10) + ', "time": ' + str.tostring(time) + '}'
     alert(msg_10, alert.freq_once_per_bar_close)
     lastEvent10 := event10
     lastBar10 := bar_index

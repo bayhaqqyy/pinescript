@@ -150,12 +150,12 @@ leverage = input.int(10, "Leverage", minval=1, maxval=125)
 entryScore = input.int(70, "Entry Score")
 scoreGap = input.int(8, "Score Gap")
 
-slAtrMult = input.float(1.5, "SL ATR Mult", step=0.1)
-tpAtrMult = input.float(3.0, "TP ATR Mult", step=0.1)
-minRR = input.float(1.8, "Minimum RR", step=0.1)
+slAtrMult = input.float(2.0, "SL ATR Mult (Wider)", step=0.1)
+tpAtrMult = input.float(4.0, "TP ATR Mult (Wider)", step=0.1)
+minRR = input.float(2.0, "Minimum RR (Wider)", step=0.1)
 
-minSlRawPct = input.float(0.6, "Minimum SL Raw %", step=0.1)
-minTpRawPct = input.float(1.2, "Minimum TP Raw %", step=0.1)
+minSlRawPct = input.float(1.0, "Minimum SL Raw % (Wider)", step=0.1)
+minTpRawPct = input.float(2.0, "Minimum TP Raw % (Wider)", step=0.1)
 maxPlanRiskPct = input.float(5.0, "Max Raw Risk % For Action", step=0.5)
 maxLevRiskPct = input.float(65.0, "Max Leveraged Risk % For Action", step=5.0)
 
@@ -303,6 +303,11 @@ f_dashboard_engine() =>
     rvol = volMA > 0 ? volume / volMA : na
     volOk = not na(rvol) and rvol >= 1.0
     
+    // Bollinger Band Squeeze Filter
+    [bbMiddle, bbUpper, bbLower] = ta.bb(close, 20, 2)
+    bbWidth = bbMiddle > 0 ? (bbUpper - bbLower) / bbMiddle : 0.0
+    bbSqueeze = bbWidth < ta.sma(bbWidth, 50)
+    
     // Layer 3 — Candle Behavior
     body = math.abs(close - open)
     barRange = math.max(high - low, syminfo.mintick)
@@ -328,12 +333,12 @@ f_dashboard_engine() =>
     bullishImpulse = greenCandle and closeNearHigh and close > close[1]
     bearishImpulse = redCandle and closeNearLow and close < close[1]
     
-    // Layer 6 — Action Engine
+    // Layer 6 — Action Engine (Adding Bollinger Band squeeze guard to breakouts)
     longTrendAction = trendLong and momentumLong and volOk and greenCandle and closeNearHigh and not overheat
     shortTrendAction = trendShort and momentumShort and volOk and redCandle and closeNearLow and not oversold
     
-    longBreakoutAction = close > longTrigger and greenCandle and closeNearHigh and volOk
-    shortBreakdownAction = close < shortTrigger and redCandle and closeNearLow and volOk
+    longBreakoutAction = close > longTrigger and greenCandle and closeNearHigh and volOk and not bbSqueeze
+    shortBreakdownAction = close < shortTrigger and redCandle and closeNearLow and volOk and not bbSqueeze
     
     longReversalAction = oversold and lowerReject and greenCandle and closeNearHigh and rvol >= 1.2 and hist > hist[1]
     shortReversalAction = overheat and upperReject and redCandle and closeNearLow and rvol >= 1.2 and hist < hist[1]
@@ -408,7 +413,19 @@ f_dashboard_engine() =>
     status = overheat ? "OVERHEAT" : oversold ? "OVERSOLD" : flowConflict ? "CONFLICT" : riskLabel == "HIGH" ? "RISKY" : action != "WAIT" ? action + " SETUP" : "WATCH"
     signal = action == "LONG" ? "LONG" : action == "SHORT" ? "SHORT" : riskLabel == "HIGH" or riskLabel == "RISKY" ? "RISKY" : "NEUTRAL"
     
-    [close, longTrigger, shortTrigger, finalEntry, finalTP, finalSL, tpPct, riskPct, rr, levTpPct, levRiskPct, riskLabel, rsiVal, rvol * 100.0, flow, status, action, score, signal, syminfo.mintick]
+    // Liquidation Warning logic (safety threshold buffer at 90% of leverage capacity)
+    liqPriceLong = entryLong * (1 - 0.90 / leverage)
+    liqPriceShort = entryShort * (1 + 0.90 / leverage)
+    liqWarnLong = slLong <= liqPriceLong ? "HIGH RISK" : slLong <= liqPriceLong * 1.02 ? "WARNING" : "SAFE"
+    liqWarnShort = slShort >= liqPriceShort ? "HIGH RISK" : slShort >= liqPriceShort * 0.98 ? "WARNING" : "SAFE"
+    liqWarn = action == "LONG" ? liqWarnLong : action == "SHORT" ? liqWarnShort : "SAFE"
+    
+    // Max Safe Leverage recommendation based on raw Stop Loss percentage
+    maxSafeLeverageLong = riskPctLong > 0 ? math.floor(20.0 / riskPctLong) : 20
+    maxSafeLeverageShort = riskPctShort > 0 ? math.floor(20.0 / riskPctShort) : 20
+    maxSafeLev = action == "LONG" ? maxSafeLeverageLong : action == "SHORT" ? maxSafeLeverageShort : 20
+    
+    [close, longTrigger, shortTrigger, finalEntry, finalTP, finalSL, tpPct, riskPct, rr, levTpPct, levRiskPct, riskLabel, rsiVal, rvol * 100.0, flow, status, action, score, signal, syminfo.mintick, liqWarn, bbSqueeze ? "SQUEEZE" : "NORMAL", maxSafeLev]
 """
 
 def generate_pine_script(symbols, batch_label):
@@ -425,7 +442,7 @@ def generate_pine_script(symbols, batch_label):
     for i in range(n):
         idx = i + 1
         security_lines.append(
-            f'[now{idx}, longTrig{idx}, shortTrig{idx}, entry{idx}, tp_{idx}, sl_{idx}, pctTp{idx}, riskPct{idx}, rr{idx}, levTpPct{idx}, levRiskPct{idx}, risk{idx}, rsi{idx}, rvolPct{idx}, flow{idx}, status{idx}, action{idx}, score{idx}, signal{idx}, tick{idx}] = request.security(tk{idx}, tf, f_dashboard_engine())'
+            f'[now{idx}, longTrig{idx}, shortTrig{idx}, entry{idx}, tp_{idx}, sl_{idx}, pctTp{idx}, riskPct{idx}, rr{idx}, levTpPct{idx}, levRiskPct{idx}, risk{idx}, rsi{idx}, rvolPct{idx}, flow{idx}, status{idx}, action{idx}, score{idx}, signal{idx}, tick{idx}, liqWarn{idx}, bbSqz{idx}, maxSafeLev{idx}] = request.security(tk{idx}, tf, f_dashboard_engine())'
         )
 
     row_chunks = []
@@ -539,7 +556,7 @@ alertLevTp{idx} = na(levTpPct{idx}) ? 0.0 : levTpPct{idx}
 alertLevRisk{idx} = na(levRiskPct{idx}) ? 0.0 : levRiskPct{idx}
 
 if barstate.isconfirmed and canAlert{idx}
-    msg_{idx} = '{{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event{idx} + '", "side": "' + str.tostring(alertSide{idx}) + '", "symbol": "{t}", "tf": "' + tf + '", "now": ' + str.tostring(now{idx}) + ', "entry": ' + str.tostring(alertEntry{idx}) + ', "tp": ' + str.tostring(alertTp{idx}) + ', "sl": ' + str.tostring(alertSl{idx}) + ', "tp_pct": ' + str.tostring(alertTpPct{idx}) + ', "risk_pct": ' + str.tostring(alertRiskPct{idx}) + ', "rr": ' + str.tostring(alertRr{idx}) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp{idx}) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk{idx}) + ', "risk_label": "' + risk{idx} + '", "score": ' + str.tostring(score{idx}) + ', "flow": "' + flow{idx} + '", "signal": "' + signal{idx} + '", "price_text": {{"now": "' + f_fmt_price(now{idx}, tick{idx}) + '", "entry": "' + f_fmt_price(alertEntry{idx}, tick{idx}) + '", "tp": "' + f_fmt_price(alertTp{idx}, tick{idx}) + '", "sl": "' + f_fmt_price(alertSl{idx}, tick{idx}) + '"}}, "tick_size": ' + str.tostring(tick{idx}) + ', "price_decimals": ' + str.tostring(dec{idx}) + ', "time": ' + str.tostring(time) + '}}'
+    msg_{idx} = '{{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event{idx} + '", "side": "' + str.tostring(alertSide{idx}) + '", "symbol": "{t}", "tf": "' + tf + '", "now": ' + str.tostring(now{idx}) + ', "entry": ' + str.tostring(alertEntry{idx}) + ', "tp": ' + str.tostring(alertTp{idx}) + ', "sl": ' + str.tostring(alertSl{idx}) + ', "tp_pct": ' + str.tostring(alertTpPct{idx}) + ', "risk_pct": ' + str.tostring(alertRiskPct{idx}) + ', "rr": ' + str.tostring(alertRr{idx}) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp{idx}) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk{idx}) + ', "risk_label": "' + risk{idx} + '", "liq_warn": "' + liqWarn{idx} + '", "bb_squeeze": "' + bbSqz{idx} + '", "max_safe_leverage": ' + str.tostring(maxSafeLev{idx}) + ', "score": ' + str.tostring(score{idx}) + ', "flow": "' + flow{idx} + '", "signal": "' + signal{idx} + '", "price_text": {{"now": "' + f_fmt_price(now{idx}, tick{idx}) + '", "entry": "' + f_fmt_price(alertEntry{idx}, tick{idx}) + '", "tp": "' + f_fmt_price(alertTp{idx}, tick{idx}) + '", "sl": "' + f_fmt_price(alertSl{idx}, tick{idx}) + '"}}, "tick_size": ' + str.tostring(tick{idx}) + ', "price_decimals": ' + str.tostring(dec{idx}) + ', "time": ' + str.tostring(time) + '}}'
     alert(msg_{idx}, alert.freq_once_per_bar_close)
     lastEvent{idx} := event{idx}
     lastBar{idx} := bar_index
@@ -556,7 +573,6 @@ indicator("Binance USD-M Autobot {batch_label}", overlay=true, max_bars_back=500
 // DATA FETCH
 // ============================================================================
 {chr(10).join(ticker_lines)}
-{chr(10).join(tick_lines)}
 {chr(10).join(decimals_lines)}
 
 {chr(10).join(security_lines)}
@@ -596,9 +612,9 @@ def main():
         batch_syms = symbols[i*BATCH_SIZE : (i+1)*BATCH_SIZE]
         batch_label = chr(65 + i)
         generate_pine_script(batch_syms, batch_label)
-        print(f"  [BINANCE V2] Batch {batch_label} -> {len(batch_syms)} tickers")
+        print(f"  [BINANCE V3] Batch {batch_label} -> {len(batch_syms)} tickers")
         
-    print(f"\\n[DONE] Generated Binance USD-M files")
+    print(f"\n[DONE] Generated Binance USD-M V3 files")
 
 if __name__ == "__main__":
     main()

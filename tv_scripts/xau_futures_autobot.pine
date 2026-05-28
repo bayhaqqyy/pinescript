@@ -1,0 +1,301 @@
+//@version=6
+indicator("Gold Futures Autobot V3 (XAUUSDT)", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// INPUTS & SETTINGS
+// ============================================================================
+tf = input.timeframe("15", "Timeframe")
+srLen = input.int(20, "S/R lookback length", minval=5)
+atrLen = input.int(14, "ATR Length", minval=5)
+leverage = input.int(20, "Leverage", minval=1, maxval=125)
+
+entryScore = input.int(70, "Minimum Entry Score", minval=10, maxval=100)
+scoreGap = input.int(8, "Long/Short Score Gap", minval=1, maxval=20)
+
+slAtrMult = input.float(2.5, "SL ATR Mult (Gold Optimized)", step=0.1)
+tpAtrMult = input.float(5.0, "TP ATR Mult (Gold Optimized)", step=0.1)
+minRR = input.float(2.0, "Minimum Risk:Reward Ratio", step=0.1)
+
+minSlRawPct = input.float(0.5, "Minimum SL %", step=0.05)
+minTpRawPct = input.float(1.0, "Minimum TP %", step=0.05)
+maxPlanRiskPct = input.float(4.0, "Max Raw Risk % Allowed", step=0.1)
+maxLevRiskPct = input.float(65.0, "Max Leveraged Risk % Allowed", step=5.0)
+
+breakoutBufferPct = input.float(0.04, "Breakout Buffer %", step=0.01)
+srAtrBuffer = input.float(0.15, "S/R ATR Buffer", step=0.05)
+useStructureSL = input.bool(true, "Use S/R Structure for SL")
+maxStructureRiskPct = input.float(5.0, "Max Structure Risk %", step=0.1)
+
+cooldownBars = input.int(5, "Alert Cooldown Bars", minval=1)
+
+// ============================================================================
+// CORE INDICATORS (7-LAYER ENGINE)
+// ============================================================================
+sup = ta.lowest(low[1], srLen)
+rst = ta.highest(high[1], srLen)
+atrVal = ta.atr(atrLen)
+rsiVal = ta.rsi(close, 14)
+[macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9)
+
+emaFast = ta.ema(close, 20)
+emaSlow = ta.ema(close, 50)
+emaTrend = ta.ema(close, 200)
+
+volMA = ta.sma(volume, 20)
+rvol = volMA > 0 ? volume / volMA : 1.0
+volOk = rvol >= 1.0
+
+// Bollinger Band Squeeze
+[bbMiddle, bbUpper, bbLower] = ta.bb(close, 20, 2)
+bbWidth = bbMiddle > 0 ? (bbUpper - bbLower) / bbMiddle : 0.0
+bbSqueeze = bbWidth < ta.sma(bbWidth, 50)
+
+// Candle Behavior & Wick Rejection
+body = math.abs(close - open)
+barRange = math.max(high - low, syminfo.mintick)
+greenCandle = close > open
+redCandle = close < open
+closeNearHigh = barRange > 0 and close >= low + barRange * 0.65
+closeNearLow  = barRange > 0 and close <= low + barRange * 0.35
+
+upperReject = body > 0 and (high - math.max(open, close)) >= body * 0.8
+lowerReject = body > 0 and (math.min(open, close) - low) >= body * 0.8
+
+// Trend & Momentum Bias
+trendLong = close > emaFast and emaFast > emaSlow
+trendShort = close < emaFast and emaFast < emaSlow
+momentumLong = rsiVal >= 50 and rsiVal <= 72 and hist > 0 and hist >= hist[1]
+momentumShort = rsiVal <= 50 and rsiVal >= 28 and hist < 0 and hist <= hist[1]
+
+overheat = rsiVal > 72 or close > emaFast + atrVal * 1.8
+oversold = rsiVal < 28 or close < emaFast - atrVal * 1.8
+
+bullishImpulse = greenCandle and closeNearHigh and close > close[1]
+bearishImpulse = redCandle and closeNearLow and close < close[1]
+
+// Triggers
+buf = breakoutBufferPct / 100.0
+longTrigger = rst * (1 + buf)
+shortTrigger = sup * (1 - buf)
+
+longBreak = close >= longTrigger
+shortBreak = close <= shortTrigger
+
+entryLong = longBreak ? close : longTrigger
+entryShort = shortBreak ? close : shortTrigger
+
+// ============================================================================
+// RISK & SYSTEMATIC TRADE PLANNING
+// ============================================================================
+// Stop Loss Long
+baseSlLongDist = math.max(atrVal * slAtrMult, entryLong * minSlRawPct / 100.0, syminfo.mintick)
+structSlLong = sup - atrVal * srAtrBuffer
+structSlLongDist = entryLong - structSlLong
+structRiskLongPct = entryLong > 0 ? (structSlLongDist / entryLong) * 100.0 : na
+useStructLong = useStructureSL and not na(structSlLongDist) and structSlLongDist > 0 and structRiskLongPct <= maxStructureRiskPct
+slLongDist = useStructLong ? math.max(baseSlLongDist, structSlLongDist) : baseSlLongDist
+slLong = entryLong - slLongDist
+
+// Stop Loss Short
+baseSlShortDist = math.max(atrVal * slAtrMult, entryShort * minSlRawPct / 100.0, syminfo.mintick)
+structSlShort = rst + atrVal * srAtrBuffer
+structSlShortDist = structSlShort - entryShort
+structRiskShortPct = entryShort > 0 ? (structSlShortDist / entryShort) * 100.0 : na
+useStructShort = useStructureSL and not na(structSlShortDist) and structSlShortDist > 0 and structRiskShortPct <= maxStructureRiskPct
+slShortDist = useStructShort ? math.max(baseSlShortDist, structSlShortDist) : baseSlShortDist
+slShort = entryShort + slShortDist
+
+// Take Profit Long
+tpLongByAtrDist = atrVal * tpAtrMult
+tpLongByMinPctDist = entryLong * minTpRawPct / 100.0
+tpLongByRRDist = slLongDist * minRR
+tpLongDist = math.max(tpLongByAtrDist, tpLongByMinPctDist, tpLongByRRDist)
+tpLong = entryLong + tpLongDist
+
+// Take Profit Short
+tpShortByAtrDist = atrVal * tpAtrMult
+tpShortByMinPctDist = entryShort * minTpRawPct / 100.0
+tpShortByRRDist = slShortDist * minRR
+tpShortDist = math.max(tpShortByAtrDist, tpShortByMinPctDist, tpShortByRRDist)
+tpShort = math.max(entryShort - tpShortDist, 0.00000001)
+
+// Direction and Risk Validation
+dirOkLong = tpLong > entryLong and slLong < entryLong
+dirOkShort = tpShort < entryShort and slShort > entryShort
+
+riskPctLong = entryLong > 0 ? (slLongDist / entryLong) * 100.0 : na
+tpPctLong = entryLong > 0 ? (tpLongDist / entryLong) * 100.0 : na
+rrLong = riskPctLong > 0 ? tpPctLong / riskPctLong : na
+
+riskPctShort = entryShort > 0 ? (slShortDist / entryShort) * 100.0 : na
+tpPctShort = entryShort > 0 ? (tpShortDist / entryShort) * 100.0 : na
+rrShort = riskPctShort > 0 ? tpPctShort / riskPctShort : na
+
+levRiskPctLong = riskPctLong * leverage
+levTpPctLong = tpPctLong * leverage
+levRiskPctShort = riskPctShort * leverage
+levTpPctShort = tpPctShort * leverage
+
+riskOkLong = riskPctLong <= maxPlanRiskPct and levRiskPctLong <= maxLevRiskPct and rrLong >= minRR
+riskOkShort = riskPctShort <= maxPlanRiskPct and levRiskPctShort <= maxLevRiskPct and rrShort >= minRR
+
+// Layer 6 - Actions
+longTrendAction = trendLong and momentumLong and volOk and greenCandle and closeNearHigh and not overheat
+shortTrendAction = trendShort and momentumShort and volOk and redCandle and closeNearLow and not oversold
+
+longBreakoutAction = longBreak and greenCandle and closeNearHigh and volOk and not bbSqueeze
+shortBreakdownAction = shortBreak and redCandle and closeNearLow and volOk and not bbSqueeze
+
+longReversalAction = oversold and lowerReject and greenCandle and closeNearHigh and rvol >= 1.2 and hist > hist[1]
+shortReversalAction = overheat and upperReject and redCandle and closeNearLow and rvol >= 1.2 and hist < hist[1]
+
+validLongAction = (longTrendAction or longBreakoutAction or longReversalAction) and riskOkLong and dirOkLong
+validShortAction = (shortTrendAction or shortBreakdownAction or shortReversalAction) and riskOkShort and dirOkShort
+
+if bullishImpulse
+    validShortAction := false
+if bearishImpulse
+    validLongAction := false
+
+// Layer 7 - Institutional Flow & Scoring
+lowerWick = math.min(open, close) - low
+upperWick = high - math.max(open, close)
+longAbsorb  = lowerWick > body * 1.2 and closeNearHigh and rvol >= 1.3
+shortAbsorb = upperWick > body * 1.2 and closeNearLow and rvol >= 1.3
+smallBodyHighVol = body <= atrVal * 0.30 and rvol >= 1.8
+
+flow = bullishImpulse and trendLong ? "LONG FLOW" : bearishImpulse and trendShort ? "SHORT FLOW" : longAbsorb ? "BUY ABSORB" : shortAbsorb ? "SELL ABSORB" : smallBodyHighVol ? "SQUEEZE" : rvol < 0.5 ? "SEPI" : "NORMAL"
+
+longFlow = flow == "LONG FLOW" or flow == "BUY ABSORB"
+shortFlow = flow == "SHORT FLOW" or flow == "SELL ABSORB"
+
+flowConflict = (validShortAction and longFlow) or (validLongAction and shortFlow)
+if flowConflict
+    validLongAction := false
+    validShortAction := false
+
+scoreLong = 0.0
+scoreLong += trendLong ? 20.0 : 0.0
+scoreLong += momentumLong ? 20.0 : 0.0
+scoreLong += volOk ? 15.0 : 0.0
+scoreLong += greenCandle ? 15.0 : 0.0
+scoreLong += closeNearHigh ? 10.0 : 0.0
+scoreLong += longFlow ? 10.0 : 0.0
+scoreLong += not overheat ? 10.0 : 0.0
+
+scoreShort = 0.0
+scoreShort += trendShort ? 20.0 : 0.0
+scoreShort += momentumShort ? 20.0 : 0.0
+scoreShort += volOk ? 15.0 : 0.0
+scoreShort += redCandle ? 15.0 : 0.0
+scoreShort += closeNearLow ? 10.0 : 0.0
+scoreShort += shortFlow ? 10.0 : 0.0
+scoreShort += not oversold ? 10.0 : 0.0
+
+longScoreOk = scoreLong >= entryScore and scoreLong > scoreShort + scoreGap
+shortScoreOk = scoreShort >= entryScore and scoreShort > scoreLong + scoreGap
+
+action = validLongAction and longScoreOk ? "LONG" : validShortAction and shortScoreOk ? "SHORT" : "WAIT"
+
+// Round values
+f_round_tick(x) => math.round(x / syminfo.mintick) * syminfo.mintick
+f_fmt_price(val) => str.tostring(val, "0.00")
+
+finalEntry = action == "LONG" ? close : action == "SHORT" ? close : na
+finalTP = action == "LONG" ? tpLong : action == "SHORT" ? tpShort : na
+finalSL = action == "LONG" ? slLong : action == "SHORT" ? slShort : na
+tpPct = action == "LONG" ? tpPctLong : action == "SHORT" ? tpPctShort : na
+riskPct = action == "LONG" ? riskPctLong : action == "SHORT" ? riskPctShort : na
+rr = action == "LONG" ? rrLong : action == "SHORT" ? rrShort : na
+levTpPct = action == "LONG" ? levTpPctLong : action == "SHORT" ? levTpPctShort : na
+levRiskPct = action == "LONG" ? levRiskPctLong : action == "SHORT" ? levRiskPctShort : na
+
+score = action == "LONG" ? scoreLong : action == "SHORT" ? scoreShort : math.max(scoreLong, scoreShort)
+riskLabel = na(levRiskPct) ? "NO_DATA" : levRiskPct <= 35 ? "SAFE" : levRiskPct <= 65 ? "RISKY" : "HIGH"
+
+// Max safe leverage
+maxSafeLeverage = action == "LONG" ? maxSafeLeverageLong : action == "SHORT" ? maxSafeLeverageShort : 20
+
+// Liq warn
+liqPriceLong = finalEntry * (1 - 0.90 / leverage)
+liqPriceShort = finalEntry * (1 + 0.90 / leverage)
+liqWarnLong = finalSL <= liqPriceLong ? "HIGH RISK" : finalSL <= liqPriceLong * 1.02 ? "WARNING" : "SAFE"
+liqWarnShort = finalSL >= liqPriceShort ? "HIGH RISK" : finalSL >= liqPriceShort * 0.98 ? "WARNING" : "SAFE"
+liqWarn = action == "LONG" ? liqWarnLong : action == "SHORT" ? liqWarnShort : "SAFE"
+
+// ============================================================================
+// DYNAMIC TRADE STATE MACHINE & WEBHOOK
+// ============================================================================
+var string activeSide = ""
+var float activeEntry = na
+var float activeTp = na
+var float activeSl = na
+var string lastEvent = ""
+var int lastBar = na
+
+longTpHit = activeSide == "LONG" and high >= activeTp
+longSlHit = activeSide == "LONG" and low <= activeSl
+shortTpHit = activeSide == "SHORT" and low <= activeTp
+shortSlHit = activeSide == "SHORT" and high >= activeSl
+
+entryEvent = activeSide == "" and action == "LONG" ? "LONG_ENTRY" : activeSide == "" and action == "SHORT" ? "SHORT_ENTRY" : "NONE"
+event = (activeSide == "LONG" and longTpHit) ? "LONG_TP_HIT" : (activeSide == "LONG" and longSlHit) ? "LONG_SL_HIT" : (activeSide == "SHORT" and shortTpHit) ? "SHORT_TP_HIT" : (activeSide == "SHORT" and shortSlHit) ? "SHORT_SL_HIT" : entryEvent
+
+alertSide = event == "LONG_ENTRY" ? "LONG" : event == "SHORT_ENTRY" ? "SHORT" : activeSide
+alertEntry = event == "LONG_ENTRY" or event == "SHORT_ENTRY" ? finalEntry : activeEntry
+alertTp = event == "LONG_ENTRY" or event == "SHORT_ENTRY" ? finalTP : activeTp
+alertSl = event == "LONG_ENTRY" or event == "SHORT_ENTRY" ? finalSL : activeSl
+
+if event == "LONG_SL_HIT" or event == "LONG_TP_HIT" or event == "SHORT_SL_HIT" or event == "SHORT_TP_HIT"
+    activeSide := ""
+    activeEntry := na
+    activeTp := na
+    activeSl := na
+else if event == "LONG_ENTRY"
+    activeSide := "LONG"
+    activeEntry := finalEntry
+    activeTp := finalTP
+    activeSl := finalSL
+else if event == "SHORT_ENTRY"
+    activeSide := "SHORT"
+    activeEntry := finalEntry
+    activeTp := finalTP
+    activeSl := finalSL
+
+sendAlert = event == "LONG_ENTRY" or event == "SHORT_ENTRY" or event == "LONG_TP_HIT" or event == "LONG_SL_HIT" or event == "SHORT_TP_HIT" or event == "SHORT_SL_HIT"
+canAlert = sendAlert and (event != lastEvent or na(lastBar) or bar_index - lastBar >= cooldownBars)
+
+alertTpPct = na(tpPct) ? 0.0 : tpPct
+alertRiskPct = na(riskPct) ? 0.0 : riskPct
+alertRr = na(rr) ? 0.0 : rr
+alertLevTp = na(levTpPct) ? 0.0 : levTpPct
+alertLevRisk = na(levRiskPct) ? 0.0 : levRiskPct
+
+if barstate.isconfirmed and canAlert
+    msg = '{{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event + '", "side": "' + str.tostring(alertSide) + '", "symbol": "XAUUSDT", "tf": "15", "now": ' + str.tostring(close) + ', "entry": ' + str.tostring(alertEntry) + ', "tp": ' + str.tostring(alertTp) + ', "sl": ' + str.tostring(alertSl) + ', "tp_pct": ' + str.tostring(alertTpPct) + ', "risk_pct": ' + str.tostring(alertRiskPct) + ', "rr": ' + str.tostring(alertRr) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk) + ', "risk_label": "' + riskLabel + '", "liq_warn": "' + liqWarn + '", "bb_squeeze": "' + (bbSqueeze ? "SQUEEZE" : "NORMAL") + '", "max_safe_leverage": ' + str.tostring(maxSafeLeverage) + ', "score": ' + str.tostring(score) + ', "flow": "' + flow + '", "signal": "' + action + '", "price_text": {{"now": "' + f_fmt_price(close) + '", "entry": "' + f_fmt_price(alertEntry) + '", "tp": "' + f_fmt_price(alertTp) + '", "sl": "' + f_fmt_price(alertSl) + '"}}, "tick_size": 0.01, "price_decimals": 2, "time": ' + str.tostring(time) + '}}'
+    alert(msg, alert.freq_once_per_bar_close)
+    lastEvent := event
+    lastBar := bar_index
+
+// ============================================================================
+// VISUAL PLOTTING & OVERLAYS
+// ============================================================================
+// EMAs
+plot(emaFast, "EMA 20 (Fast)", color=color.orange, linewidth=1)
+plot(emaSlow, "EMA 50 (Slow)", color=color.blue, linewidth=1)
+plot(emaTrend, "EMA 200 (Trend)", color=color.white, linewidth=2)
+
+// Active Trade levels
+plot(activeSide != "" ? activeEntry : na, "Active Entry", color=color.cyan, style=plot.style_linebr)
+plot(activeSide != "" ? activeTp : na, "Active TP", color=color.lime, style=plot.style_linebr)
+plot(activeSide != "" ? activeSl : na, "Active SL", color=color.red, style=plot.style_linebr)
+
+// Shapes on entry
+plotshape(event == "LONG_ENTRY", "LONG Entry Arrow", shape.arrowup, location.belowbar, color.lime, size=size.normal)
+plotshape(event == "SHORT_ENTRY", "SHORT Entry Arrow", shape.arrowdown, location.abovebar, color.red, size=size.normal)
+plotshape(event == "LONG_TP_HIT" or event == "SHORT_TP_HIT", "TP Hit Shape", shape.xcross, location.abovebar, color.yellow, size=size.normal)
+plotshape(event == "LONG_SL_HIT" or event == "SHORT_SL_HIT", "SL Hit Shape", shape.xcross, location.belowbar, color.orange, size=size.normal)
+
+// S/R levels
+plot(rst, "Resistance Level", color=color.rgb(255, 0, 0, 80), style=plot.style_stepline)
+plot(sup, "Support Level", color=color.rgb(0, 255, 0, 80), style=plot.style_stepline)

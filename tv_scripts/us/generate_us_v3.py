@@ -1,11 +1,19 @@
 import json
 import os
+import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Fix console encoding
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 def _exchange_prefix(exchange: str) -> str:
     return {"NASDAQ": "NASDAQ", "NYSE": "NYSE", "AMEX": "AMEX"}.get(exchange, "NASDAQ")
 
+# ============================================================================
+# PINE SCRIPT US V3 ENGINE TEMPLATE
+# ============================================================================
 ENGINE_TEMPLATE = """
 // ============================================================================
 // INPUTS
@@ -15,10 +23,10 @@ min_tv = input.float(1000000, "Min Volume ($)")
 
 srLen = input.int(20, "Support/Resistance Lookback", minval=5, maxval=200)
 atrLen = input.int(14, "ATR Length", minval=5, maxval=100)
-entryBufferPct = input.float(0.5, "Entry Buffer %", minval=0.0, step=0.1)
 slBufferPct = input.float(0.5, "SL Buffer %", minval=0.0, step=0.1)
-slAtrMult = input.float(1.0, "SL ATR Mult", minval=0.1, step=0.1)
-rr = input.float(2.0, "Risk Reward", minval=0.5, step=0.1)
+slAtrMult = input.float(1.5, "SL ATR Mult (Wider)", minval=0.1, step=0.1)
+rr1 = input.float(2.0, "Risk Reward 1 (TP1 - Wide)", minval=0.5, step=0.1)
+rr2 = input.float(3.5, "Risk Reward 2 (TP2 - Wider)", minval=0.5, step=0.1)
 pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
 
 // ============================================================================
@@ -57,14 +65,11 @@ f_signal_color(sig) =>
     sig == "BREAKOUT BUY" ? cLime :
       sig == "BULL ABSORB" ? cGreen :
       sig == "SNIPER BUY" ? cLime :
-      sig == "SNIPER SELL" ? cRed :
       sig == "AKUMULASI" ? cLime :
       sig == "BOW-SIAP" ? cGreen :
       sig == "SETUP-OK" ? cBlue :
       sig == "DIST-AWAL" ? cOrange :
       sig == "WEAK" ? cRed :
-      sig == "DISTRIBUTION" ? cRed :
-      sig == "BEAR ABSORB" ? cOrange :
       cGray
 
 f_score_color(score) =>
@@ -93,36 +98,66 @@ f_round_tick(x) => math.round(x / syminfo.mintick) * syminfo.mintick
 f_dashboard_engine(strategy_mode) =>
     support = ta.lowest(low[1], srLen)
     resistance = ta.highest(high[1], srLen)
-    entry = resistance * (1 + entryBufferPct / 100)
+    
     atrVal = ta.atr(atrLen)
-    slBySupport = support * (1 - slBufferPct / 100)
-    slByAtr = entry - atrVal * slAtrMult
-    slRaw = math.max(slBySupport, slByAtr)
-    sl = math.min(slRaw, entry - syminfo.mintick)
-    
-    risk = math.max(entry - sl, syminfo.mintick)
-    tp = entry + risk * rr
-    
-    entry := f_round_tick(entry)
-    tp := f_round_tick(tp)
-    sl := f_round_tick(sl)
-    
-    pctTp = close > 0 ? ((tp - close) / close) * 100 : na
-    profitPct = entry > 0 ? ((tp - entry) / entry) * 100 : na
-    
     rsiVal = ta.rsi(close, 14)
-    rsiBase = rsiVal
-    stochRsiRaw = ta.stoch(rsiBase, rsiBase, rsiBase, 14)
-    stochK = ta.sma(stochRsiRaw, 3)
-    stochD = ta.sma(stochK, 3)
-    srsiState = stochK > stochD and stochK > stochK[1] ? "UP+" : stochK > stochD ? "UP" : stochK < stochD and stochK < stochK[1] ? "D-" : "D"
-    
     [macdLine, macdSignal, macdHist] = ta.macd(close, 12, 26, 9)
-    macdState = macdLine > macdSignal and macdHist > macdHist[1] ? "UP" : macdLine < macdSignal and macdHist < macdHist[1] ? "DOWN" : "MID"
     
     volMA = ta.sma(volume, 20)
     rvol = volMA > 0 ? volume / volMA : 0.0
     rvolPct = rvol * 100
+    
+    ema20 = ta.ema(close, 20)
+    ema50 = ta.ema(close, 50)
+    ema200 = ta.ema(close, 200)
+    
+    body = math.abs(close - open)
+    candleRange = math.max(high - low, syminfo.mintick)
+    upperWick = high - math.max(open, close)
+    lowerWick = math.min(open, close) - low
+    
+    closeNearHigh = candleRange > 0 and close >= low + candleRange * 0.65
+    closeNearLow  = candleRange > 0 and close <= low + candleRange * 0.35
+    
+    // US SWING LOGIC
+    bullTrend = close > ema200 and ema20 > ema50
+    bearTrend = close < ema200 and ema20 < ema50
+    volSpike = rvol > 1.5
+    highest20 = ta.highest(high, 20)
+    swingBreakout = close > highest20[1] and volSpike
+    bullAbsorb = lowerWick > body * 1.5 and volSpike and close > open
+    bearAbsorb = upperWick > body * 1.5 and volSpike and close < open
+    
+    swingSignal = swingBreakout and bullTrend ? "BREAKOUT BUY" : bullAbsorb and bullTrend ? "BULL ABSORB" : "WAIT"
+    
+    // US BANDAR LOGIC
+    sniperBuy = (close > ema200) and volSpike and (close > open)
+    bBullAbsorb = lowerWick > body * 1.1 and rvol > 1.3 and close > low + (candleRange * 0.4)
+    bandarSignal = sniperBuy ? "SNIPER BUY" : bBullAbsorb ? "BULL ABSORB" : "WAIT"
+    
+    signal = strategy_mode == "SWING" ? swingSignal : bandarSignal
+    validBuy = signal != "WAIT"
+    
+    // Entry price
+    entryPrice = close
+    
+    // SL: Wider Stop Loss (at least 1.5 * ATR and at least 2% distance)
+    minSlDist = math.max(atrVal * slAtrMult, entryPrice * 0.02)
+    slRaw = entryPrice - minSlDist
+    sl = support < entryPrice and support > 0 ? math.min(support * (1 - slBufferPct / 100), slRaw) : slRaw
+    
+    // TP: Wider dual take profit levels
+    risk = math.max(entryPrice - sl, syminfo.mintick)
+    tp1 = entryPrice + risk * rr1
+    tp2 = entryPrice + risk * rr2
+    
+    entryPrice := f_round_tick(entryPrice)
+    tp1 := f_round_tick(tp1)
+    tp2 := f_round_tick(tp2)
+    sl := f_round_tick(sl)
+    
+    pctTp1 = close > 0 ? ((tp1 - close) / close) * 100 : na
+    pctTp2 = close > 0 ? ((tp2 - close) / close) * 100 : na
     
     valueBar = close * volume
     
@@ -130,22 +165,13 @@ f_dashboard_engine(strategy_mode) =>
     rangePos = (close - support) / rangeSr
     zona = rangePos <= 0.382 ? "MURAH" : rangePos <= 0.618 ? "MID" : "MAHAL"
     
-    ema20 = ta.ema(close, 20)
-    ema50 = ta.ema(close, 50)
-    ema200 = ta.ema(close, 200)
-    
     trendScore = (close > ema20 ? 10 : 0) + (close > ema50 ? 10 : 0) + (close > ema200 ? 10 : 0)
     zoneScore = zona == "MURAH" ? 20 : zona == "MID" ? 12 : 3
     macdBull = macdLine > macdSignal and macdHist > 0
     rsiHealthy = rsiVal >= 35 and rsiVal <= 65
     rsiHot = rsiVal > 65 and rsiVal <= 75
-    momentumScore = (rsiHealthy ? 8 : rsiHot ? 5 : 0) + (macdBull ? 7 : 0) + (close >= entry ? 5 : 0)
+    momentumScore = (rsiHealthy ? 8 : rsiHot ? 5 : 0) + (macdBull ? 7 : 0) + (validBuy ? 10 : 0)
     volumeScore = rvol >= 2.0 ? 15 : rvol >= 1.3 ? 10 : rvol >= 0.8 ? 5 : 0
-    
-    body = math.abs(close - open)
-    candleRange = math.max(high - low, syminfo.mintick)
-    upperWick = high - math.max(open, close)
-    lowerWick = math.min(open, close) - low
     
     bigAccum = lowerWick > body * 1.2 and rvol >= 2.0 and close >= open and close > low + candleRange * 0.5
     accum = rvol >= 1.3 and close > open and close > ema20
@@ -158,43 +184,18 @@ f_dashboard_engine(strategy_mode) =>
     scoreRaw = trendScore + zoneScore + momentumScore + volumeScore + flowScore
     score = math.min(100, scoreRaw)
     
-    breakout = close >= entry
-    nearSetup = close < entry and close >= support and score >= 60
-    aboveTrend = close > ema20
-    tpHit = close >= tp
+    tpHit = close >= tp1
     slBroken = close <= sl
     
-    status = slBroken ? "SL-BROKE" : tpHit ? "TP-HIT" : breakout ? "FLYING" : nearSetup ? "SETUP" : aboveTrend ? "RUNNING" : "WAIT"
+    status = slBroken ? "SL-BROKE" : tpHit ? "TP-HIT" : validBuy ? "FLYING" : score >= 60 ? "SETUP" : close > ema20 ? "RUNNING" : "WAIT"
     
-    // US SWING LOGIC
-    bullTrend = close > ema200 and ema20 > ema50
-    bearTrend = close < ema200 and ema20 < ema50
-    volSpike = rvol > 1.5
-    highest20 = ta.highest(high, 20)
-    swingBreakout = close > highest20[1] and volSpike
-    bullAbsorb = lowerWick > body * 1.5 and volSpike and close > open
-    bearAbsorb = upperWick > body * 1.5 and volSpike and close < open
-    
-    swingSignal = swingBreakout and bullTrend ? "BREAKOUT BUY" : bullAbsorb and bullTrend ? "BULL ABSORB" : bearAbsorb and bearTrend ? "BEAR ABSORB" : bearTrend and volSpike and close < open ? "DISTRIBUTION" : "WAIT"
-    
-    // US BANDAR LOGIC
-    sniperBuy = (close > ema200) and volSpike and (close > open)
-    sniperSell = (close < ema200) and volSpike and (close < open)
-    bBullAbsorb = lowerWick > body * 1.1 and rvol > 1.3 and close > low + (candleRange * 0.4)
-    bBearAbsorb = upperWick > body * 1.1 and rvol > 1.3 and close < high - (candleRange * 0.4)
-    bandarSignal = sniperBuy ? "SNIPER BUY" : sniperSell ? "SNIPER SELL" : bBullAbsorb ? "BULL ABSORB" : bBearAbsorb ? "BEAR ABSORB" : "WAIT"
-    
-    signal = strategy_mode == "SWING" ? swingSignal : strategy_mode == "BANDAR" ? bandarSignal : distAwal ? "DIST-AWAL" : score >= 85 and bigAccum ? "AKUMULASI" : score >= 75 and close < entry and zona != "MAHAL" ? "BOW-SIAP" : score >= 65 ? "SETUP-OK" : score >= 45 ? "NETRAL" : "WEAK"
-    
-    action = distAwal ? "WASPADA" : close >= entry ? "SL>" + str.tostring(sl, format.mintick) : score >= 75 ? "BUY>" + str.tostring(entry, format.mintick) : "WAIT"
-    
-    [close, support, resistance, entry, tp, sl, pctTp, profitPct, status, zona, rsiVal, srsiState, macdState, rvolPct, valueBar, bandarState, action, score, signal]
+    [close, support, resistance, entryPrice, tp1, tp2, sl, pctTp1, pctTp2, status, zona, rsiVal, macdLine > macdSignal ? "UP" : "DOWN", rvolPct, valueBar, bandarState, "BUY", score, signal]
 """
 
 def generate_us_script(strategy_type, tickers, batch_label, stocks_map, exchange_map, date_str):
     n = len(tickers)
     tf = "15" if strategy_type == "SWING" else "10"
-    title = f"US SWING v2" if strategy_type == "SWING" else f"US BANDAR v2"
+    title = f"US SWING V3" if strategy_type == "SWING" else f"US BANDAR V3"
     
     ticker_lines = []
     for i, t in enumerate(tickers):
@@ -206,7 +207,7 @@ def generate_us_script(strategy_type, tickers, batch_label, stocks_map, exchange
     for i in range(n):
         idx = i + 1
         security_lines.append(
-            f'[now{idx}, sup{idx}, rst{idx}, entry{idx}, tp_{idx}, sl_{idx}, pctTp{idx}, profit{idx}, status{idx}, zona{idx}, rsi{idx}, srsi{idx}, macd{idx}, rvolPct{idx}, valueBar{idx}, bandar{idx}, action{idx}, score{idx}, signal{idx}] = request.security(tk{idx}, tf, f_dashboard_engine("{strategy_type}"))'
+            f'[now{idx}, sup{idx}, rst{idx}, entry{idx}, tp1_{idx}, tp2_{idx}, sl_{idx}, pctTp1_{idx}, pctTp2_{idx}, status{idx}, zona{idx}, rsi{idx}, macd{idx}, rvolPct{idx}, valueBar{idx}, bandar{idx}, action{idx}, score{idx}, signal{idx}] = request.security(tk{idx}, tf, f_dashboard_engine("{strategy_type}"))'
         )
     
     row_chunks = []
@@ -222,14 +223,14 @@ def generate_us_script(strategy_type, tickers, batch_label, stocks_map, exchange
     f_cell(tbl, 3, {row}, str.tostring(rst{idx}, format.mintick), cDark, color.white)
     f_cell(tbl, 4, {row}, str.tostring(entry{idx}, format.mintick), cDark, color.white)
     f_cell(tbl, 5, {row}, str.tostring(now{idx}, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, {row}, str.tostring(tp_{idx}, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, {row}, str.tostring(sl_{idx}, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, {row}, str.tostring(pctTp{idx}, "#.##") + "%", pctTp{idx} >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, {row}, str.tostring(profit{idx}, "#.##") + "%", profit{idx} >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, {row}, status{idx}, f_status_color(status{idx}), color.white)
-    f_cell(tbl, 11, {row}, zona{idx}, f_zona_color(zona{idx}), color.white)
-    f_cell(tbl, 12, {row}, str.tostring(rsi{idx}, "#.0"), rsi{idx} < 30 ? cRed : rsi{idx} > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, {row}, srsi{idx}, srsi{idx} == "UP+" or srsi{idx} == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, {row}, str.tostring(tp1_{idx}, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, {row}, str.tostring(tp2_{idx}, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, {row}, str.tostring(sl_{idx}, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, {row}, str.tostring(pctTp1_{idx}, "#.##") + "%", pctTp1_{idx} >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, {row}, str.tostring(pctTp2_{idx}, "#.##") + "%", pctTp2_{idx} >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, {row}, status{idx}, f_status_color(status{idx}), color.white)
+    f_cell(tbl, 12, {row}, zona{idx}, f_zona_color(zona{idx}), color.white)
+    f_cell(tbl, 13, {row}, str.tostring(rsi{idx}, "#.0"), rsi{idx} < 30 ? cRed : rsi{idx} > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, {row}, macd{idx}, f_macd_color(macd{idx}), color.white)
     f_cell(tbl, 15, {row}, str.tostring(rvolPct{idx}, "#.0") + "%", rvolPct{idx} >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, {row}, f_value_idr(valueBar{idx}), valueBar{idx} >= min_tv ? cGreen : cDark, color.white)
@@ -245,14 +246,14 @@ def generate_us_script(strategy_type, tickers, batch_label, stocks_map, exchange
     f_header(tbl, 3, "RST")
     f_header(tbl, 4, "ENTRY")
     f_header(tbl, 5, "NOW")
-    f_header(tbl, 6, "TP")
-    f_header(tbl, 7, "SL")
-    f_header(tbl, 8, "%TP")
-    f_header(tbl, 9, "PROFIT")
-    f_header(tbl, 10, "STATUS")
-    f_header(tbl, 11, "ZONA")
-    f_header(tbl, 12, "RSI")
-    f_header(tbl, 13, "sRSI")
+    f_header(tbl, 6, "TP1")
+    f_header(tbl, 7, "TP2")
+    f_header(tbl, 8, "SL")
+    f_header(tbl, 9, "%TP1")
+    f_header(tbl, 10, "%TP2")
+    f_header(tbl, 11, "STATUS")
+    f_header(tbl, 12, "ZONA")
+    f_header(tbl, 13, "RSI")
     f_header(tbl, 14, "MACD")
     f_header(tbl, 15, "RVOL")
     f_header(tbl, 16, "VALUE")
@@ -266,14 +267,9 @@ def generate_us_script(strategy_type, tickers, batch_label, stocks_map, exchange
         idx = i + 1
         t = tickers[i]
         
-        if strategy_type == "SWING":
-            alert_lines.append(f'''    if signal{idx} != "WAIT" and valueBar{idx} >= min_tv
-        msg_{idx} = "🚨 US SWING HUNTER\\nTicker: {t}\\nPrice: $" + str.tostring(now{idx}, "#.##") + "\\nSignal: " + signal{idx} + "\\nRSI: " + str.tostring(rsi{idx}, "#.#")
-        alert(msg_{idx}, alert.freq_once_per_bar_close)''')
-        else:
-            alert_lines.append(f'''    if signal{idx} != "WAIT" and valueBar{idx} >= min_tv
-        msg_{idx} = "🔥 US BANDAR AI\\nTicker: {t}\\nPrice: $" + str.tostring(now{idx}, "#.##") + "\\nSignal: " + signal{idx} + "\\nFlow: " + bandar{idx} + "\\nStrength: " + str.tostring(score{idx}, "#.#") + "%"
-        alert(msg_{idx}, alert.freq_once_per_bar_close)''')
+        # Format JSON alert payload for US stocks
+        alert_lines.append(f'''    if signal{idx} != "WAIT" and valueBar{idx} >= min_tv
+        alert('{{"type":"US_{strategy_type}_V3","tier":"US_PENNY","ticker":"{t}","tf":"' + tf + '","signal":"' + signal{idx} + '","action":"' + action{idx} + '","entry":' + str.tostring(entry{idx}) + ',"tp1":' + str.tostring(tp1_{idx}) + ',"tp2":' + str.tostring(tp2_{idx}) + ',"sl":' + str.tostring(sl_{idx}) + ',"support":' + str.tostring(sup{idx}) + ',"resistance":' + str.tostring(rst{idx}) + ',"score":' + str.tostring(score{idx}) + ',"zona":"' + zona{idx} + '","bandar":"' + bandar{idx} + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar{idx}) + ',"time":' + str.tostring(time) + '}}', alert.freq_once_per_bar_close)''')
 
     script = f'''// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
 // Generated on {date_str} | Strategy: {title}
@@ -312,15 +308,20 @@ plot(close, display=display.none)
 '''
     return script
 
-if __name__ == "__main__":
-    with open(os.path.join(SCRIPT_DIR, "us_penny_stocks.json"), "r") as f:
+def main():
+    penny_stocks_path = os.path.join(SCRIPT_DIR, "us_penny_stocks.json")
+    if not os.path.exists(penny_stocks_path):
+        print(f"Error: {penny_stocks_path} not found.")
+        return
+        
+    with open(penny_stocks_path, "r") as f:
         data = json.load(f)
 
     stocks_map = {s["ticker"]: s["price"] for s in data["stocks"]}
     exchange_map = {s["ticker"]: _exchange_prefix(s["exchange"]) for s in data["stocks"]}
     date_str = data["date"]
 
-    print(f"=== US GOTRADE SCREENER GENERATOR v2 ===")
+    print(f"=== US GOTRADE SCREENER GENERATOR V3 ===")
 
     swing_count = 0
     for batch_key, tickers in data["batch_groups"].items():
@@ -331,7 +332,7 @@ if __name__ == "__main__":
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(script)
         swing_count += 1
-        print(f"  [US SWING v2]  Batch {label} -> {len(tickers)} tickers")
+        print(f"  [US SWING V3]  Batch {label} -> {len(tickers)} tickers")
 
     bandar_count = 0
     for batch_key, tickers in data["batch_groups"].items():
@@ -342,7 +343,10 @@ if __name__ == "__main__":
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(script)
         bandar_count += 1
-        print(f"  [US BANDAR v2] Batch {label} -> {len(tickers)} tickers")
+        print(f"  [US BANDAR V3] Batch {label} -> {len(tickers)} tickers")
 
     total = swing_count + bandar_count
-    print(f"\n[DONE] Generated {total} Pine Script files ({swing_count} Swing + {bandar_count} Bandar AI)")
+    print(f"\n[DONE] Generated {total} Pine Script V3 files ({swing_count} Swing + {bandar_count} Bandar AI)")
+
+if __name__ == "__main__":
+    main()

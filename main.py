@@ -541,6 +541,51 @@ def format_idx_scalp_v2_alert(data: dict) -> str:
 
 
 # ============================================================================
+# US SWING & BANDAR V3 — JSON Alert Parser
+# ============================================================================
+def format_us_v3_alert(data: dict) -> str:
+    type_val = data.get("type", "US_SWING_V3")
+    ticker = h(data.get("ticker", "UNKNOWN"))
+    signal = h(data.get("signal", "UNKNOWN"))
+    entry = data.get("entry", 0)
+    tp1 = data.get("tp1", 0)
+    tp2 = data.get("tp2", 0)
+    sl = data.get("sl", 0)
+    tv = data.get("transaction_value", 0)
+    hint = data.get("holding_hint", "swing 2-10 days")
+    score = data.get("score", 0)
+    sup = data.get("support", 0)
+    rst = data.get("resistance", 0)
+    action = data.get("action", "BUY")
+    flow = h(data.get("bandar", "-"))
+    zona = h(data.get("zona", "-"))
+    
+    strategy_name = "US SWING HUNTER V3" if "SWING" in type_val else "US BANDAR AI V3"
+    icon = "🚀" if "SWING" in type_val else "🎯"
+    
+    msg = f"{icon} <b>{strategy_name}</b> {icon}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🇺🇸 <b>Ticker</b>: <code>{ticker}</code> (US PENNY STOCK)\n"
+    msg += f"📊 <b>Score</b>: {score} | <b>{signal}</b>\n"
+    msg += f"⚡ <b>Action</b>: <b>{action}</b>\n"
+    msg += f"💵 <b>Vol/Bar</b>: ${tv:,.0f}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🎯 <b>Entry</b>: ${entry:.2f}\n"
+    msg += f"✅ <b>TP1</b>: ${tp1:.2f}\n"
+    msg += f"🚀 <b>TP2</b>: ${tp2:.2f}\n"
+    msg += f"🛑 <b>SL</b>: ${sl:.2f}\n"
+    msg += f"📍 <b>SUP/RST</b>: ${sup:.2f} / ${rst:.2f}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"💰 <b>Flow</b>: {flow}\n"
+    msg += f"🌡 <b>Zone</b>: {zona}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━\n"
+    msg += f"💡 <i>Premium institutional stock alert</i>\n"
+    msg += f"⏳ {hint}\n"
+    msg += f"#US_V3 #{ticker}"
+    return msg
+
+
+# ============================================================================
 # WEBHOOK VALIDATION HELPERS (Phase 5)
 # ============================================================================
 def validate_direction(data: dict) -> bool:
@@ -711,21 +756,23 @@ async def handle_webhook(request: Request):
         data = await request.json()
         if isinstance(data, dict):
             # Reject any SHORT signals for IDX/US equity/stocks
-            if data.get("type") in ("BANDAR_AI", "SCALP") or data.get("market") in ("IDX", "US"):
+            if data.get("type") in ("BANDAR_AI", "SCALP", "BANDAR_AI_V3", "SCALP_V3", "US_SWING_V3", "US_BANDAR_V3") or data.get("market") in ("IDX", "US"):
                 if data.get("side") == "SHORT" or "SHORT" in str(data.get("signal", "")) or "SHORT" in str(data.get("action", "")) or "SHORT" in str(data.get("event", "")):
                     print(f"[{ts}] ❌ Equity alert rejected: SHORT is not supported for stocks.")
                     return {"status": "ignored", "reason": "invalid_equity_event"}
                     
-            if data.get("type") == "BANDAR_AI":
+            if data.get("type") in ("BANDAR_AI", "BANDAR_AI_V3"):
                 if "tier" in data:
                     message_text = format_idx_bandar_v2_alert(data)
                 else:
-                    message_text = format_idx_bandar_alert(data) # Legacy not found, maybe handle or fallback
-            elif data.get("type") == "SCALP":
+                    message_text = format_idx_bandar_alert(data)
+            elif data.get("type") in ("SCALP", "SCALP_V3"):
                 if "tier" in data:
                     message_text = format_idx_scalp_v2_alert(data)
                 else:
-                    message_text = format_idx_scalp_alert(data) # Legacy not found
+                    message_text = format_idx_scalp_alert(data)
+            elif data.get("type") in ("US_SWING_V3", "US_BANDAR_V3"):
+                message_text = format_us_v3_alert(data)
             elif data.get("type") == "FUTURES_SIGNAL":
                 if FUTURES_FREEZE:
                     print(f"[{ts}] ❄️ Webhook ignored: FUTURES_SIGNAL is currently FROZEN.")
@@ -813,11 +860,11 @@ async def health_check():
         "supported_alerts": [
             "XAU Quantum Signal (plain text)",
             "BTC Quantum Signal (plain text)",
-            "US Swing Hunter v2 (plain text)",
-            "US Bandar AI v2 (plain text)",
-            "IDX Bandar AI V2 (JSON)",
-            "IDX Scalping V2 (JSON)",
-            "USD-M Autobot V12 (JSON)"
+            "US Swing Hunter V3 (JSON)",
+            "US Bandar AI V3 (JSON)",
+            "IDX Bandar AI V3 (JSON)",
+            "IDX Scalping V3 (JSON)",
+            "USD-M Autobot V3 (JSON)"
         ]
     }
 

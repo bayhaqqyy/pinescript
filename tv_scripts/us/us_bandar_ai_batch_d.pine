@@ -1,7 +1,7 @@
 // This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// Generated on 2026-05-15 | Strategy: US BANDAR v2
+// Generated on 2026-05-15 | Strategy: US BANDAR V3
 //@version=6
-indicator("US BANDAR v2 - BATCH D (10 Tickers)", overlay=true, max_bars_back=500)
+indicator("US BANDAR V3 - BATCH D (10 Tickers)", overlay=true, max_bars_back=500)
 
 
 // ============================================================================
@@ -12,10 +12,10 @@ min_tv = input.float(1000000, "Min Volume ($)")
 
 srLen = input.int(20, "Support/Resistance Lookback", minval=5, maxval=200)
 atrLen = input.int(14, "ATR Length", minval=5, maxval=100)
-entryBufferPct = input.float(0.5, "Entry Buffer %", minval=0.0, step=0.1)
 slBufferPct = input.float(0.5, "SL Buffer %", minval=0.0, step=0.1)
-slAtrMult = input.float(1.0, "SL ATR Mult", minval=0.1, step=0.1)
-rr = input.float(2.0, "Risk Reward", minval=0.5, step=0.1)
+slAtrMult = input.float(1.5, "SL ATR Mult (Wider)", minval=0.1, step=0.1)
+rr1 = input.float(2.0, "Risk Reward 1 (TP1 - Wide)", minval=0.5, step=0.1)
+rr2 = input.float(3.5, "Risk Reward 2 (TP2 - Wider)", minval=0.5, step=0.1)
 pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
 
 // ============================================================================
@@ -54,14 +54,11 @@ f_signal_color(sig) =>
     sig == "BREAKOUT BUY" ? cLime :
       sig == "BULL ABSORB" ? cGreen :
       sig == "SNIPER BUY" ? cLime :
-      sig == "SNIPER SELL" ? cRed :
       sig == "AKUMULASI" ? cLime :
       sig == "BOW-SIAP" ? cGreen :
       sig == "SETUP-OK" ? cBlue :
       sig == "DIST-AWAL" ? cOrange :
       sig == "WEAK" ? cRed :
-      sig == "DISTRIBUTION" ? cRed :
-      sig == "BEAR ABSORB" ? cOrange :
       cGray
 
 f_score_color(score) =>
@@ -90,36 +87,66 @@ f_round_tick(x) => math.round(x / syminfo.mintick) * syminfo.mintick
 f_dashboard_engine(strategy_mode) =>
     support = ta.lowest(low[1], srLen)
     resistance = ta.highest(high[1], srLen)
-    entry = resistance * (1 + entryBufferPct / 100)
+    
     atrVal = ta.atr(atrLen)
-    slBySupport = support * (1 - slBufferPct / 100)
-    slByAtr = entry - atrVal * slAtrMult
-    slRaw = math.max(slBySupport, slByAtr)
-    sl = math.min(slRaw, entry - syminfo.mintick)
-    
-    risk = math.max(entry - sl, syminfo.mintick)
-    tp = entry + risk * rr
-    
-    entry := f_round_tick(entry)
-    tp := f_round_tick(tp)
-    sl := f_round_tick(sl)
-    
-    pctTp = close > 0 ? ((tp - close) / close) * 100 : na
-    profitPct = entry > 0 ? ((tp - entry) / entry) * 100 : na
-    
     rsiVal = ta.rsi(close, 14)
-    rsiBase = rsiVal
-    stochRsiRaw = ta.stoch(rsiBase, rsiBase, rsiBase, 14)
-    stochK = ta.sma(stochRsiRaw, 3)
-    stochD = ta.sma(stochK, 3)
-    srsiState = stochK > stochD and stochK > stochK[1] ? "UP+" : stochK > stochD ? "UP" : stochK < stochD and stochK < stochK[1] ? "D-" : "D"
-    
     [macdLine, macdSignal, macdHist] = ta.macd(close, 12, 26, 9)
-    macdState = macdLine > macdSignal and macdHist > macdHist[1] ? "UP" : macdLine < macdSignal and macdHist < macdHist[1] ? "DOWN" : "MID"
     
     volMA = ta.sma(volume, 20)
     rvol = volMA > 0 ? volume / volMA : 0.0
     rvolPct = rvol * 100
+    
+    ema20 = ta.ema(close, 20)
+    ema50 = ta.ema(close, 50)
+    ema200 = ta.ema(close, 200)
+    
+    body = math.abs(close - open)
+    candleRange = math.max(high - low, syminfo.mintick)
+    upperWick = high - math.max(open, close)
+    lowerWick = math.min(open, close) - low
+    
+    closeNearHigh = candleRange > 0 and close >= low + candleRange * 0.65
+    closeNearLow  = candleRange > 0 and close <= low + candleRange * 0.35
+    
+    // US SWING LOGIC
+    bullTrend = close > ema200 and ema20 > ema50
+    bearTrend = close < ema200 and ema20 < ema50
+    volSpike = rvol > 1.5
+    highest20 = ta.highest(high, 20)
+    swingBreakout = close > highest20[1] and volSpike
+    bullAbsorb = lowerWick > body * 1.5 and volSpike and close > open
+    bearAbsorb = upperWick > body * 1.5 and volSpike and close < open
+    
+    swingSignal = swingBreakout and bullTrend ? "BREAKOUT BUY" : bullAbsorb and bullTrend ? "BULL ABSORB" : "WAIT"
+    
+    // US BANDAR LOGIC
+    sniperBuy = (close > ema200) and volSpike and (close > open)
+    bBullAbsorb = lowerWick > body * 1.1 and rvol > 1.3 and close > low + (candleRange * 0.4)
+    bandarSignal = sniperBuy ? "SNIPER BUY" : bBullAbsorb ? "BULL ABSORB" : "WAIT"
+    
+    signal = strategy_mode == "SWING" ? swingSignal : bandarSignal
+    validBuy = signal != "WAIT"
+    
+    // Entry price
+    entryPrice = close
+    
+    // SL: Wider Stop Loss (at least 1.5 * ATR and at least 2% distance)
+    minSlDist = math.max(atrVal * slAtrMult, entryPrice * 0.02)
+    slRaw = entryPrice - minSlDist
+    sl = support < entryPrice and support > 0 ? math.min(support * (1 - slBufferPct / 100), slRaw) : slRaw
+    
+    // TP: Wider dual take profit levels
+    risk = math.max(entryPrice - sl, syminfo.mintick)
+    tp1 = entryPrice + risk * rr1
+    tp2 = entryPrice + risk * rr2
+    
+    entryPrice := f_round_tick(entryPrice)
+    tp1 := f_round_tick(tp1)
+    tp2 := f_round_tick(tp2)
+    sl := f_round_tick(sl)
+    
+    pctTp1 = close > 0 ? ((tp1 - close) / close) * 100 : na
+    pctTp2 = close > 0 ? ((tp2 - close) / close) * 100 : na
     
     valueBar = close * volume
     
@@ -127,22 +154,13 @@ f_dashboard_engine(strategy_mode) =>
     rangePos = (close - support) / rangeSr
     zona = rangePos <= 0.382 ? "MURAH" : rangePos <= 0.618 ? "MID" : "MAHAL"
     
-    ema20 = ta.ema(close, 20)
-    ema50 = ta.ema(close, 50)
-    ema200 = ta.ema(close, 200)
-    
     trendScore = (close > ema20 ? 10 : 0) + (close > ema50 ? 10 : 0) + (close > ema200 ? 10 : 0)
     zoneScore = zona == "MURAH" ? 20 : zona == "MID" ? 12 : 3
     macdBull = macdLine > macdSignal and macdHist > 0
     rsiHealthy = rsiVal >= 35 and rsiVal <= 65
     rsiHot = rsiVal > 65 and rsiVal <= 75
-    momentumScore = (rsiHealthy ? 8 : rsiHot ? 5 : 0) + (macdBull ? 7 : 0) + (close >= entry ? 5 : 0)
+    momentumScore = (rsiHealthy ? 8 : rsiHot ? 5 : 0) + (macdBull ? 7 : 0) + (validBuy ? 10 : 0)
     volumeScore = rvol >= 2.0 ? 15 : rvol >= 1.3 ? 10 : rvol >= 0.8 ? 5 : 0
-    
-    body = math.abs(close - open)
-    candleRange = math.max(high - low, syminfo.mintick)
-    upperWick = high - math.max(open, close)
-    lowerWick = math.min(open, close) - low
     
     bigAccum = lowerWick > body * 1.2 and rvol >= 2.0 and close >= open and close > low + candleRange * 0.5
     accum = rvol >= 1.3 and close > open and close > ema20
@@ -155,37 +173,12 @@ f_dashboard_engine(strategy_mode) =>
     scoreRaw = trendScore + zoneScore + momentumScore + volumeScore + flowScore
     score = math.min(100, scoreRaw)
     
-    breakout = close >= entry
-    nearSetup = close < entry and close >= support and score >= 60
-    aboveTrend = close > ema20
-    tpHit = close >= tp
+    tpHit = close >= tp1
     slBroken = close <= sl
     
-    status = slBroken ? "SL-BROKE" : tpHit ? "TP-HIT" : breakout ? "FLYING" : nearSetup ? "SETUP" : aboveTrend ? "RUNNING" : "WAIT"
+    status = slBroken ? "SL-BROKE" : tpHit ? "TP-HIT" : validBuy ? "FLYING" : score >= 60 ? "SETUP" : close > ema20 ? "RUNNING" : "WAIT"
     
-    // US SWING LOGIC
-    bullTrend = close > ema200 and ema20 > ema50
-    bearTrend = close < ema200 and ema20 < ema50
-    volSpike = rvol > 1.5
-    highest20 = ta.highest(high, 20)
-    swingBreakout = close > highest20[1] and volSpike
-    bullAbsorb = lowerWick > body * 1.5 and volSpike and close > open
-    bearAbsorb = upperWick > body * 1.5 and volSpike and close < open
-    
-    swingSignal = swingBreakout and bullTrend ? "BREAKOUT BUY" : bullAbsorb and bullTrend ? "BULL ABSORB" : bearAbsorb and bearTrend ? "BEAR ABSORB" : bearTrend and volSpike and close < open ? "DISTRIBUTION" : "WAIT"
-    
-    // US BANDAR LOGIC
-    sniperBuy = (close > ema200) and volSpike and (close > open)
-    sniperSell = (close < ema200) and volSpike and (close < open)
-    bBullAbsorb = lowerWick > body * 1.1 and rvol > 1.3 and close > low + (candleRange * 0.4)
-    bBearAbsorb = upperWick > body * 1.1 and rvol > 1.3 and close < high - (candleRange * 0.4)
-    bandarSignal = sniperBuy ? "SNIPER BUY" : sniperSell ? "SNIPER SELL" : bBullAbsorb ? "BULL ABSORB" : bBearAbsorb ? "BEAR ABSORB" : "WAIT"
-    
-    signal = strategy_mode == "SWING" ? swingSignal : strategy_mode == "BANDAR" ? bandarSignal : distAwal ? "DIST-AWAL" : score >= 85 and bigAccum ? "AKUMULASI" : score >= 75 and close < entry and zona != "MAHAL" ? "BOW-SIAP" : score >= 65 ? "SETUP-OK" : score >= 45 ? "NETRAL" : "WEAK"
-    
-    action = distAwal ? "WASPADA" : close >= entry ? "SL>" + str.tostring(sl, format.mintick) : score >= 75 ? "BUY>" + str.tostring(entry, format.mintick) : "WAIT"
-    
-    [close, support, resistance, entry, tp, sl, pctTp, profitPct, status, zona, rsiVal, srsiState, macdState, rvolPct, valueBar, bandarState, action, score, signal]
+    [close, support, resistance, entryPrice, tp1, tp2, sl, pctTp1, pctTp2, status, zona, rsiVal, macdLine > macdSignal ? "UP" : "DOWN", rvolPct, valueBar, bandarState, "BUY", score, signal]
 
 
 // ============================================================================
@@ -205,16 +198,16 @@ tk10 = "NYSE:XYZ"  // ~$82.00
 // ============================================================================
 // DATA FETCH - request.security
 // ============================================================================
-[now1, sup1, rst1, entry1, tp_1, sl_1, pctTp1, profit1, status1, zona1, rsi1, srsi1, macd1, rvolPct1, valueBar1, bandar1, action1, score1, signal1] = request.security(tk1, tf, f_dashboard_engine("BANDAR"))
-[now2, sup2, rst2, entry2, tp_2, sl_2, pctTp2, profit2, status2, zona2, rsi2, srsi2, macd2, rvolPct2, valueBar2, bandar2, action2, score2, signal2] = request.security(tk2, tf, f_dashboard_engine("BANDAR"))
-[now3, sup3, rst3, entry3, tp_3, sl_3, pctTp3, profit3, status3, zona3, rsi3, srsi3, macd3, rvolPct3, valueBar3, bandar3, action3, score3, signal3] = request.security(tk3, tf, f_dashboard_engine("BANDAR"))
-[now4, sup4, rst4, entry4, tp_4, sl_4, pctTp4, profit4, status4, zona4, rsi4, srsi4, macd4, rvolPct4, valueBar4, bandar4, action4, score4, signal4] = request.security(tk4, tf, f_dashboard_engine("BANDAR"))
-[now5, sup5, rst5, entry5, tp_5, sl_5, pctTp5, profit5, status5, zona5, rsi5, srsi5, macd5, rvolPct5, valueBar5, bandar5, action5, score5, signal5] = request.security(tk5, tf, f_dashboard_engine("BANDAR"))
-[now6, sup6, rst6, entry6, tp_6, sl_6, pctTp6, profit6, status6, zona6, rsi6, srsi6, macd6, rvolPct6, valueBar6, bandar6, action6, score6, signal6] = request.security(tk6, tf, f_dashboard_engine("BANDAR"))
-[now7, sup7, rst7, entry7, tp_7, sl_7, pctTp7, profit7, status7, zona7, rsi7, srsi7, macd7, rvolPct7, valueBar7, bandar7, action7, score7, signal7] = request.security(tk7, tf, f_dashboard_engine("BANDAR"))
-[now8, sup8, rst8, entry8, tp_8, sl_8, pctTp8, profit8, status8, zona8, rsi8, srsi8, macd8, rvolPct8, valueBar8, bandar8, action8, score8, signal8] = request.security(tk8, tf, f_dashboard_engine("BANDAR"))
-[now9, sup9, rst9, entry9, tp_9, sl_9, pctTp9, profit9, status9, zona9, rsi9, srsi9, macd9, rvolPct9, valueBar9, bandar9, action9, score9, signal9] = request.security(tk9, tf, f_dashboard_engine("BANDAR"))
-[now10, sup10, rst10, entry10, tp_10, sl_10, pctTp10, profit10, status10, zona10, rsi10, srsi10, macd10, rvolPct10, valueBar10, bandar10, action10, score10, signal10] = request.security(tk10, tf, f_dashboard_engine("BANDAR"))
+[now1, sup1, rst1, entry1, tp1_1, tp2_1, sl_1, pctTp1_1, pctTp2_1, status1, zona1, rsi1, macd1, rvolPct1, valueBar1, bandar1, action1, score1, signal1] = request.security(tk1, tf, f_dashboard_engine("BANDAR"))
+[now2, sup2, rst2, entry2, tp1_2, tp2_2, sl_2, pctTp1_2, pctTp2_2, status2, zona2, rsi2, macd2, rvolPct2, valueBar2, bandar2, action2, score2, signal2] = request.security(tk2, tf, f_dashboard_engine("BANDAR"))
+[now3, sup3, rst3, entry3, tp1_3, tp2_3, sl_3, pctTp1_3, pctTp2_3, status3, zona3, rsi3, macd3, rvolPct3, valueBar3, bandar3, action3, score3, signal3] = request.security(tk3, tf, f_dashboard_engine("BANDAR"))
+[now4, sup4, rst4, entry4, tp1_4, tp2_4, sl_4, pctTp1_4, pctTp2_4, status4, zona4, rsi4, macd4, rvolPct4, valueBar4, bandar4, action4, score4, signal4] = request.security(tk4, tf, f_dashboard_engine("BANDAR"))
+[now5, sup5, rst5, entry5, tp1_5, tp2_5, sl_5, pctTp1_5, pctTp2_5, status5, zona5, rsi5, macd5, rvolPct5, valueBar5, bandar5, action5, score5, signal5] = request.security(tk5, tf, f_dashboard_engine("BANDAR"))
+[now6, sup6, rst6, entry6, tp1_6, tp2_6, sl_6, pctTp1_6, pctTp2_6, status6, zona6, rsi6, macd6, rvolPct6, valueBar6, bandar6, action6, score6, signal6] = request.security(tk6, tf, f_dashboard_engine("BANDAR"))
+[now7, sup7, rst7, entry7, tp1_7, tp2_7, sl_7, pctTp1_7, pctTp2_7, status7, zona7, rsi7, macd7, rvolPct7, valueBar7, bandar7, action7, score7, signal7] = request.security(tk7, tf, f_dashboard_engine("BANDAR"))
+[now8, sup8, rst8, entry8, tp1_8, tp2_8, sl_8, pctTp1_8, pctTp2_8, status8, zona8, rsi8, macd8, rvolPct8, valueBar8, bandar8, action8, score8, signal8] = request.security(tk8, tf, f_dashboard_engine("BANDAR"))
+[now9, sup9, rst9, entry9, tp1_9, tp2_9, sl_9, pctTp1_9, pctTp2_9, status9, zona9, rsi9, macd9, rvolPct9, valueBar9, bandar9, action9, score9, signal9] = request.security(tk9, tf, f_dashboard_engine("BANDAR"))
+[now10, sup10, rst10, entry10, tp1_10, tp2_10, sl_10, pctTp1_10, pctTp2_10, status10, zona10, rsi10, macd10, rvolPct10, valueBar10, bandar10, action10, score10, signal10] = request.security(tk10, tf, f_dashboard_engine("BANDAR"))
 
 // ============================================================================
 // TABLE DISPLAY
@@ -229,14 +222,14 @@ if barstate.islast
     f_header(tbl, 3, "RST")
     f_header(tbl, 4, "ENTRY")
     f_header(tbl, 5, "NOW")
-    f_header(tbl, 6, "TP")
-    f_header(tbl, 7, "SL")
-    f_header(tbl, 8, "%TP")
-    f_header(tbl, 9, "PROFIT")
-    f_header(tbl, 10, "STATUS")
-    f_header(tbl, 11, "ZONA")
-    f_header(tbl, 12, "RSI")
-    f_header(tbl, 13, "sRSI")
+    f_header(tbl, 6, "TP1")
+    f_header(tbl, 7, "TP2")
+    f_header(tbl, 8, "SL")
+    f_header(tbl, 9, "%TP1")
+    f_header(tbl, 10, "%TP2")
+    f_header(tbl, 11, "STATUS")
+    f_header(tbl, 12, "ZONA")
+    f_header(tbl, 13, "RSI")
     f_header(tbl, 14, "MACD")
     f_header(tbl, 15, "RVOL")
     f_header(tbl, 16, "VALUE")
@@ -251,14 +244,14 @@ if barstate.islast
     f_cell(tbl, 3, 1, str.tostring(rst1, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 1, str.tostring(entry1, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 1, str.tostring(now1, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 1, str.tostring(tp_1, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 1, str.tostring(sl_1, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 1, str.tostring(pctTp1, "#.##") + "%", pctTp1 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 1, str.tostring(profit1, "#.##") + "%", profit1 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 1, status1, f_status_color(status1), color.white)
-    f_cell(tbl, 11, 1, zona1, f_zona_color(zona1), color.white)
-    f_cell(tbl, 12, 1, str.tostring(rsi1, "#.0"), rsi1 < 30 ? cRed : rsi1 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 1, srsi1, srsi1 == "UP+" or srsi1 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 1, str.tostring(tp1_1, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 1, str.tostring(tp2_1, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 1, str.tostring(sl_1, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 1, str.tostring(pctTp1_1, "#.##") + "%", pctTp1_1 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 1, str.tostring(pctTp2_1, "#.##") + "%", pctTp2_1 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 1, status1, f_status_color(status1), color.white)
+    f_cell(tbl, 12, 1, zona1, f_zona_color(zona1), color.white)
+    f_cell(tbl, 13, 1, str.tostring(rsi1, "#.0"), rsi1 < 30 ? cRed : rsi1 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 1, macd1, f_macd_color(macd1), color.white)
     f_cell(tbl, 15, 1, str.tostring(rvolPct1, "#.0") + "%", rvolPct1 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 1, f_value_idr(valueBar1), valueBar1 >= min_tv ? cGreen : cDark, color.white)
@@ -273,14 +266,14 @@ if barstate.islast
     f_cell(tbl, 3, 2, str.tostring(rst2, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 2, str.tostring(entry2, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 2, str.tostring(now2, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 2, str.tostring(tp_2, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 2, str.tostring(sl_2, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 2, str.tostring(pctTp2, "#.##") + "%", pctTp2 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 2, str.tostring(profit2, "#.##") + "%", profit2 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 2, status2, f_status_color(status2), color.white)
-    f_cell(tbl, 11, 2, zona2, f_zona_color(zona2), color.white)
-    f_cell(tbl, 12, 2, str.tostring(rsi2, "#.0"), rsi2 < 30 ? cRed : rsi2 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 2, srsi2, srsi2 == "UP+" or srsi2 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 2, str.tostring(tp1_2, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 2, str.tostring(tp2_2, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 2, str.tostring(sl_2, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 2, str.tostring(pctTp1_2, "#.##") + "%", pctTp1_2 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 2, str.tostring(pctTp2_2, "#.##") + "%", pctTp2_2 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 2, status2, f_status_color(status2), color.white)
+    f_cell(tbl, 12, 2, zona2, f_zona_color(zona2), color.white)
+    f_cell(tbl, 13, 2, str.tostring(rsi2, "#.0"), rsi2 < 30 ? cRed : rsi2 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 2, macd2, f_macd_color(macd2), color.white)
     f_cell(tbl, 15, 2, str.tostring(rvolPct2, "#.0") + "%", rvolPct2 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 2, f_value_idr(valueBar2), valueBar2 >= min_tv ? cGreen : cDark, color.white)
@@ -295,14 +288,14 @@ if barstate.islast
     f_cell(tbl, 3, 3, str.tostring(rst3, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 3, str.tostring(entry3, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 3, str.tostring(now3, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 3, str.tostring(tp_3, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 3, str.tostring(sl_3, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 3, str.tostring(pctTp3, "#.##") + "%", pctTp3 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 3, str.tostring(profit3, "#.##") + "%", profit3 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 3, status3, f_status_color(status3), color.white)
-    f_cell(tbl, 11, 3, zona3, f_zona_color(zona3), color.white)
-    f_cell(tbl, 12, 3, str.tostring(rsi3, "#.0"), rsi3 < 30 ? cRed : rsi3 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 3, srsi3, srsi3 == "UP+" or srsi3 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 3, str.tostring(tp1_3, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 3, str.tostring(tp2_3, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 3, str.tostring(sl_3, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 3, str.tostring(pctTp1_3, "#.##") + "%", pctTp1_3 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 3, str.tostring(pctTp2_3, "#.##") + "%", pctTp2_3 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 3, status3, f_status_color(status3), color.white)
+    f_cell(tbl, 12, 3, zona3, f_zona_color(zona3), color.white)
+    f_cell(tbl, 13, 3, str.tostring(rsi3, "#.0"), rsi3 < 30 ? cRed : rsi3 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 3, macd3, f_macd_color(macd3), color.white)
     f_cell(tbl, 15, 3, str.tostring(rvolPct3, "#.0") + "%", rvolPct3 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 3, f_value_idr(valueBar3), valueBar3 >= min_tv ? cGreen : cDark, color.white)
@@ -317,14 +310,14 @@ if barstate.islast
     f_cell(tbl, 3, 4, str.tostring(rst4, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 4, str.tostring(entry4, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 4, str.tostring(now4, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 4, str.tostring(tp_4, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 4, str.tostring(sl_4, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 4, str.tostring(pctTp4, "#.##") + "%", pctTp4 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 4, str.tostring(profit4, "#.##") + "%", profit4 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 4, status4, f_status_color(status4), color.white)
-    f_cell(tbl, 11, 4, zona4, f_zona_color(zona4), color.white)
-    f_cell(tbl, 12, 4, str.tostring(rsi4, "#.0"), rsi4 < 30 ? cRed : rsi4 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 4, srsi4, srsi4 == "UP+" or srsi4 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 4, str.tostring(tp1_4, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 4, str.tostring(tp2_4, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 4, str.tostring(sl_4, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 4, str.tostring(pctTp1_4, "#.##") + "%", pctTp1_4 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 4, str.tostring(pctTp2_4, "#.##") + "%", pctTp2_4 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 4, status4, f_status_color(status4), color.white)
+    f_cell(tbl, 12, 4, zona4, f_zona_color(zona4), color.white)
+    f_cell(tbl, 13, 4, str.tostring(rsi4, "#.0"), rsi4 < 30 ? cRed : rsi4 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 4, macd4, f_macd_color(macd4), color.white)
     f_cell(tbl, 15, 4, str.tostring(rvolPct4, "#.0") + "%", rvolPct4 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 4, f_value_idr(valueBar4), valueBar4 >= min_tv ? cGreen : cDark, color.white)
@@ -339,14 +332,14 @@ if barstate.islast
     f_cell(tbl, 3, 5, str.tostring(rst5, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 5, str.tostring(entry5, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 5, str.tostring(now5, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 5, str.tostring(tp_5, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 5, str.tostring(sl_5, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 5, str.tostring(pctTp5, "#.##") + "%", pctTp5 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 5, str.tostring(profit5, "#.##") + "%", profit5 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 5, status5, f_status_color(status5), color.white)
-    f_cell(tbl, 11, 5, zona5, f_zona_color(zona5), color.white)
-    f_cell(tbl, 12, 5, str.tostring(rsi5, "#.0"), rsi5 < 30 ? cRed : rsi5 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 5, srsi5, srsi5 == "UP+" or srsi5 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 5, str.tostring(tp1_5, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 5, str.tostring(tp2_5, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 5, str.tostring(sl_5, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 5, str.tostring(pctTp1_5, "#.##") + "%", pctTp1_5 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 5, str.tostring(pctTp2_5, "#.##") + "%", pctTp2_5 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 5, status5, f_status_color(status5), color.white)
+    f_cell(tbl, 12, 5, zona5, f_zona_color(zona5), color.white)
+    f_cell(tbl, 13, 5, str.tostring(rsi5, "#.0"), rsi5 < 30 ? cRed : rsi5 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 5, macd5, f_macd_color(macd5), color.white)
     f_cell(tbl, 15, 5, str.tostring(rvolPct5, "#.0") + "%", rvolPct5 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 5, f_value_idr(valueBar5), valueBar5 >= min_tv ? cGreen : cDark, color.white)
@@ -361,14 +354,14 @@ if barstate.islast
     f_cell(tbl, 3, 6, str.tostring(rst6, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 6, str.tostring(entry6, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 6, str.tostring(now6, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 6, str.tostring(tp_6, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 6, str.tostring(sl_6, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 6, str.tostring(pctTp6, "#.##") + "%", pctTp6 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 6, str.tostring(profit6, "#.##") + "%", profit6 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 6, status6, f_status_color(status6), color.white)
-    f_cell(tbl, 11, 6, zona6, f_zona_color(zona6), color.white)
-    f_cell(tbl, 12, 6, str.tostring(rsi6, "#.0"), rsi6 < 30 ? cRed : rsi6 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 6, srsi6, srsi6 == "UP+" or srsi6 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 6, str.tostring(tp1_6, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 6, str.tostring(tp2_6, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 6, str.tostring(sl_6, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 6, str.tostring(pctTp1_6, "#.##") + "%", pctTp1_6 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 6, str.tostring(pctTp2_6, "#.##") + "%", pctTp2_6 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 6, status6, f_status_color(status6), color.white)
+    f_cell(tbl, 12, 6, zona6, f_zona_color(zona6), color.white)
+    f_cell(tbl, 13, 6, str.tostring(rsi6, "#.0"), rsi6 < 30 ? cRed : rsi6 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 6, macd6, f_macd_color(macd6), color.white)
     f_cell(tbl, 15, 6, str.tostring(rvolPct6, "#.0") + "%", rvolPct6 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 6, f_value_idr(valueBar6), valueBar6 >= min_tv ? cGreen : cDark, color.white)
@@ -383,14 +376,14 @@ if barstate.islast
     f_cell(tbl, 3, 7, str.tostring(rst7, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 7, str.tostring(entry7, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 7, str.tostring(now7, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 7, str.tostring(tp_7, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 7, str.tostring(sl_7, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 7, str.tostring(pctTp7, "#.##") + "%", pctTp7 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 7, str.tostring(profit7, "#.##") + "%", profit7 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 7, status7, f_status_color(status7), color.white)
-    f_cell(tbl, 11, 7, zona7, f_zona_color(zona7), color.white)
-    f_cell(tbl, 12, 7, str.tostring(rsi7, "#.0"), rsi7 < 30 ? cRed : rsi7 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 7, srsi7, srsi7 == "UP+" or srsi7 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 7, str.tostring(tp1_7, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 7, str.tostring(tp2_7, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 7, str.tostring(sl_7, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 7, str.tostring(pctTp1_7, "#.##") + "%", pctTp1_7 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 7, str.tostring(pctTp2_7, "#.##") + "%", pctTp2_7 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 7, status7, f_status_color(status7), color.white)
+    f_cell(tbl, 12, 7, zona7, f_zona_color(zona7), color.white)
+    f_cell(tbl, 13, 7, str.tostring(rsi7, "#.0"), rsi7 < 30 ? cRed : rsi7 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 7, macd7, f_macd_color(macd7), color.white)
     f_cell(tbl, 15, 7, str.tostring(rvolPct7, "#.0") + "%", rvolPct7 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 7, f_value_idr(valueBar7), valueBar7 >= min_tv ? cGreen : cDark, color.white)
@@ -405,14 +398,14 @@ if barstate.islast
     f_cell(tbl, 3, 8, str.tostring(rst8, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 8, str.tostring(entry8, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 8, str.tostring(now8, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 8, str.tostring(tp_8, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 8, str.tostring(sl_8, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 8, str.tostring(pctTp8, "#.##") + "%", pctTp8 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 8, str.tostring(profit8, "#.##") + "%", profit8 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 8, status8, f_status_color(status8), color.white)
-    f_cell(tbl, 11, 8, zona8, f_zona_color(zona8), color.white)
-    f_cell(tbl, 12, 8, str.tostring(rsi8, "#.0"), rsi8 < 30 ? cRed : rsi8 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 8, srsi8, srsi8 == "UP+" or srsi8 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 8, str.tostring(tp1_8, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 8, str.tostring(tp2_8, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 8, str.tostring(sl_8, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 8, str.tostring(pctTp1_8, "#.##") + "%", pctTp1_8 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 8, str.tostring(pctTp2_8, "#.##") + "%", pctTp2_8 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 8, status8, f_status_color(status8), color.white)
+    f_cell(tbl, 12, 8, zona8, f_zona_color(zona8), color.white)
+    f_cell(tbl, 13, 8, str.tostring(rsi8, "#.0"), rsi8 < 30 ? cRed : rsi8 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 8, macd8, f_macd_color(macd8), color.white)
     f_cell(tbl, 15, 8, str.tostring(rvolPct8, "#.0") + "%", rvolPct8 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 8, f_value_idr(valueBar8), valueBar8 >= min_tv ? cGreen : cDark, color.white)
@@ -427,14 +420,14 @@ if barstate.islast
     f_cell(tbl, 3, 9, str.tostring(rst9, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 9, str.tostring(entry9, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 9, str.tostring(now9, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 9, str.tostring(tp_9, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 9, str.tostring(sl_9, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 9, str.tostring(pctTp9, "#.##") + "%", pctTp9 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 9, str.tostring(profit9, "#.##") + "%", profit9 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 9, status9, f_status_color(status9), color.white)
-    f_cell(tbl, 11, 9, zona9, f_zona_color(zona9), color.white)
-    f_cell(tbl, 12, 9, str.tostring(rsi9, "#.0"), rsi9 < 30 ? cRed : rsi9 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 9, srsi9, srsi9 == "UP+" or srsi9 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 9, str.tostring(tp1_9, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 9, str.tostring(tp2_9, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 9, str.tostring(sl_9, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 9, str.tostring(pctTp1_9, "#.##") + "%", pctTp1_9 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 9, str.tostring(pctTp2_9, "#.##") + "%", pctTp2_9 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 9, status9, f_status_color(status9), color.white)
+    f_cell(tbl, 12, 9, zona9, f_zona_color(zona9), color.white)
+    f_cell(tbl, 13, 9, str.tostring(rsi9, "#.0"), rsi9 < 30 ? cRed : rsi9 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 9, macd9, f_macd_color(macd9), color.white)
     f_cell(tbl, 15, 9, str.tostring(rvolPct9, "#.0") + "%", rvolPct9 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 9, f_value_idr(valueBar9), valueBar9 >= min_tv ? cGreen : cDark, color.white)
@@ -449,14 +442,14 @@ if barstate.islast
     f_cell(tbl, 3, 10, str.tostring(rst10, format.mintick), cDark, color.white)
     f_cell(tbl, 4, 10, str.tostring(entry10, format.mintick), cDark, color.white)
     f_cell(tbl, 5, 10, str.tostring(now10, format.mintick), cDark, color.white)
-    f_cell(tbl, 6, 10, str.tostring(tp_10, format.mintick), cDark, color.lime)
-    f_cell(tbl, 7, 10, str.tostring(sl_10, format.mintick), cDark, color.orange)
-    f_cell(tbl, 8, 10, str.tostring(pctTp10, "#.##") + "%", pctTp10 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 9, 10, str.tostring(profit10, "#.##") + "%", profit10 >= 0 ? cGreen : cRed, color.white)
-    f_cell(tbl, 10, 10, status10, f_status_color(status10), color.white)
-    f_cell(tbl, 11, 10, zona10, f_zona_color(zona10), color.white)
-    f_cell(tbl, 12, 10, str.tostring(rsi10, "#.0"), rsi10 < 30 ? cRed : rsi10 > 70 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 10, srsi10, srsi10 == "UP+" or srsi10 == "UP" ? cGreen : cRed, color.white)
+    f_cell(tbl, 6, 10, str.tostring(tp1_10, format.mintick), cDark, color.lime)
+    f_cell(tbl, 7, 10, str.tostring(tp2_10, format.mintick), cDark, color.green)
+    f_cell(tbl, 8, 10, str.tostring(sl_10, format.mintick), cDark, color.orange)
+    f_cell(tbl, 9, 10, str.tostring(pctTp1_10, "#.##") + "%", pctTp1_10 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 10, 10, str.tostring(pctTp2_10, "#.##") + "%", pctTp2_10 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 10, status10, f_status_color(status10), color.white)
+    f_cell(tbl, 12, 10, zona10, f_zona_color(zona10), color.white)
+    f_cell(tbl, 13, 10, str.tostring(rsi10, "#.0"), rsi10 < 30 ? cRed : rsi10 > 70 ? cOrange : cBlue, color.white)
     f_cell(tbl, 14, 10, macd10, f_macd_color(macd10), color.white)
     f_cell(tbl, 15, 10, str.tostring(rvolPct10, "#.0") + "%", rvolPct10 >= 150 ? cGreen : cDark, color.white)
     f_cell(tbl, 16, 10, f_value_idr(valueBar10), valueBar10 >= min_tv ? cGreen : cDark, color.white)
@@ -470,34 +463,24 @@ if barstate.islast
 // ============================================================================
 if barstate.islast and barstate.isconfirmed
     if signal1 != "WAIT" and valueBar1 >= min_tv
-        msg_1 = "🔥 US BANDAR AI\nTicker: BBAI\nPrice: $" + str.tostring(now1, "#.##") + "\nSignal: " + signal1 + "\nFlow: " + bandar1 + "\nStrength: " + str.tostring(score1, "#.#") + "%"
-        alert(msg_1, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"BBAI","tf":"' + tf + '","signal":"' + signal1 + '","action":"' + action1 + '","entry":' + str.tostring(entry1) + ',"tp1":' + str.tostring(tp1_1) + ',"tp2":' + str.tostring(tp2_1) + ',"sl":' + str.tostring(sl_1) + ',"support":' + str.tostring(sup1) + ',"resistance":' + str.tostring(rst1) + ',"score":' + str.tostring(score1) + ',"zona":"' + zona1 + '","bandar":"' + bandar1 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar1) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if signal2 != "WAIT" and valueBar2 >= min_tv
-        msg_2 = "🔥 US BANDAR AI\nTicker: BKKT\nPrice: $" + str.tostring(now2, "#.##") + "\nSignal: " + signal2 + "\nFlow: " + bandar2 + "\nStrength: " + str.tostring(score2, "#.#") + "%"
-        alert(msg_2, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"BKKT","tf":"' + tf + '","signal":"' + signal2 + '","action":"' + action2 + '","entry":' + str.tostring(entry2) + ',"tp1":' + str.tostring(tp1_2) + ',"tp2":' + str.tostring(tp2_2) + ',"sl":' + str.tostring(sl_2) + ',"support":' + str.tostring(sup2) + ',"resistance":' + str.tostring(rst2) + ',"score":' + str.tostring(score2) + ',"zona":"' + zona2 + '","bandar":"' + bandar2 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar2) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if signal3 != "WAIT" and valueBar3 >= min_tv
-        msg_3 = "🔥 US BANDAR AI\nTicker: DNA\nPrice: $" + str.tostring(now3, "#.##") + "\nSignal: " + signal3 + "\nFlow: " + bandar3 + "\nStrength: " + str.tostring(score3, "#.#") + "%"
-        alert(msg_3, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"DNA","tf":"' + tf + '","signal":"' + signal3 + '","action":"' + action3 + '","entry":' + str.tostring(entry3) + ',"tp1":' + str.tostring(tp1_3) + ',"tp2":' + str.tostring(tp2_3) + ',"sl":' + str.tostring(sl_3) + ',"support":' + str.tostring(sup3) + ',"resistance":' + str.tostring(rst3) + ',"score":' + str.tostring(score3) + ',"zona":"' + zona3 + '","bandar":"' + bandar3 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar3) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if signal4 != "WAIT" and valueBar4 >= min_tv
-        msg_4 = "🔥 US BANDAR AI\nTicker: SKLZ\nPrice: $" + str.tostring(now4, "#.##") + "\nSignal: " + signal4 + "\nFlow: " + bandar4 + "\nStrength: " + str.tostring(score4, "#.#") + "%"
-        alert(msg_4, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"SKLZ","tf":"' + tf + '","signal":"' + signal4 + '","action":"' + action4 + '","entry":' + str.tostring(entry4) + ',"tp1":' + str.tostring(tp1_4) + ',"tp2":' + str.tostring(tp2_4) + ',"sl":' + str.tostring(sl_4) + ',"support":' + str.tostring(sup4) + ',"resistance":' + str.tostring(rst4) + ',"score":' + str.tostring(score4) + ',"zona":"' + zona4 + '","bandar":"' + bandar4 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar4) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if signal5 != "WAIT" and valueBar5 >= min_tv
-        msg_5 = "🔥 US BANDAR AI\nTicker: OPEN\nPrice: $" + str.tostring(now5, "#.##") + "\nSignal: " + signal5 + "\nFlow: " + bandar5 + "\nStrength: " + str.tostring(score5, "#.#") + "%"
-        alert(msg_5, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"OPEN","tf":"' + tf + '","signal":"' + signal5 + '","action":"' + action5 + '","entry":' + str.tostring(entry5) + ',"tp1":' + str.tostring(tp1_5) + ',"tp2":' + str.tostring(tp2_5) + ',"sl":' + str.tostring(sl_5) + ',"support":' + str.tostring(sup5) + ',"resistance":' + str.tostring(rst5) + ',"score":' + str.tostring(score5) + ',"zona":"' + zona5 + '","bandar":"' + bandar5 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar5) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if signal6 != "WAIT" and valueBar6 >= min_tv
-        msg_6 = "🔥 US BANDAR AI\nTicker: JOBY\nPrice: $" + str.tostring(now6, "#.##") + "\nSignal: " + signal6 + "\nFlow: " + bandar6 + "\nStrength: " + str.tostring(score6, "#.#") + "%"
-        alert(msg_6, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"JOBY","tf":"' + tf + '","signal":"' + signal6 + '","action":"' + action6 + '","entry":' + str.tostring(entry6) + ',"tp1":' + str.tostring(tp1_6) + ',"tp2":' + str.tostring(tp2_6) + ',"sl":' + str.tostring(sl_6) + ',"support":' + str.tostring(sup6) + ',"resistance":' + str.tostring(rst6) + ',"score":' + str.tostring(score6) + ',"zona":"' + zona6 + '","bandar":"' + bandar6 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar6) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if signal7 != "WAIT" and valueBar7 >= min_tv
-        msg_7 = "🔥 US BANDAR AI\nTicker: IQ\nPrice: $" + str.tostring(now7, "#.##") + "\nSignal: " + signal7 + "\nFlow: " + bandar7 + "\nStrength: " + str.tostring(score7, "#.#") + "%"
-        alert(msg_7, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"IQ","tf":"' + tf + '","signal":"' + signal7 + '","action":"' + action7 + '","entry":' + str.tostring(entry7) + ',"tp1":' + str.tostring(tp1_7) + ',"tp2":' + str.tostring(tp2_7) + ',"sl":' + str.tostring(sl_7) + ',"support":' + str.tostring(sup7) + ',"resistance":' + str.tostring(rst7) + ',"score":' + str.tostring(score7) + ',"zona":"' + zona7 + '","bandar":"' + bandar7 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar7) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if signal8 != "WAIT" and valueBar8 >= min_tv
-        msg_8 = "🔥 US BANDAR AI\nTicker: LYFT\nPrice: $" + str.tostring(now8, "#.##") + "\nSignal: " + signal8 + "\nFlow: " + bandar8 + "\nStrength: " + str.tostring(score8, "#.#") + "%"
-        alert(msg_8, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"LYFT","tf":"' + tf + '","signal":"' + signal8 + '","action":"' + action8 + '","entry":' + str.tostring(entry8) + ',"tp1":' + str.tostring(tp1_8) + ',"tp2":' + str.tostring(tp2_8) + ',"sl":' + str.tostring(sl_8) + ',"support":' + str.tostring(sup8) + ',"resistance":' + str.tostring(rst8) + ',"score":' + str.tostring(score8) + ',"zona":"' + zona8 + '","bandar":"' + bandar8 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar8) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if signal9 != "WAIT" and valueBar9 >= min_tv
-        msg_9 = "🔥 US BANDAR AI\nTicker: NU\nPrice: $" + str.tostring(now9, "#.##") + "\nSignal: " + signal9 + "\nFlow: " + bandar9 + "\nStrength: " + str.tostring(score9, "#.#") + "%"
-        alert(msg_9, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"NU","tf":"' + tf + '","signal":"' + signal9 + '","action":"' + action9 + '","entry":' + str.tostring(entry9) + ',"tp1":' + str.tostring(tp1_9) + ',"tp2":' + str.tostring(tp2_9) + ',"sl":' + str.tostring(sl_9) + ',"support":' + str.tostring(sup9) + ',"resistance":' + str.tostring(rst9) + ',"score":' + str.tostring(score9) + ',"zona":"' + zona9 + '","bandar":"' + bandar9 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar9) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
     if signal10 != "WAIT" and valueBar10 >= min_tv
-        msg_10 = "🔥 US BANDAR AI\nTicker: XYZ\nPrice: $" + str.tostring(now10, "#.##") + "\nSignal: " + signal10 + "\nFlow: " + bandar10 + "\nStrength: " + str.tostring(score10, "#.#") + "%"
-        alert(msg_10, alert.freq_once_per_bar_close)
+        alert('{"type":"US_BANDAR_V3","tier":"US_PENNY","ticker":"XYZ","tf":"' + tf + '","signal":"' + signal10 + '","action":"' + action10 + '","entry":' + str.tostring(entry10) + ',"tp1":' + str.tostring(tp1_10) + ',"tp2":' + str.tostring(tp2_10) + ',"sl":' + str.tostring(sl_10) + ',"support":' + str.tostring(sup10) + ',"resistance":' + str.tostring(rst10) + ',"score":' + str.tostring(score10) + ',"zona":"' + zona10 + '","bandar":"' + bandar10 + '","holding_hint":"swing 3-7 hari","transaction_value":' + str.tostring(valueBar10) + ',"time":' + str.tostring(time) + '}', alert.freq_once_per_bar_close)
 
 plot(close, display=display.none)
