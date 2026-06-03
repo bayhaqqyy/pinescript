@@ -1,32 +1,38 @@
 //@version=6
-indicator("Gold Futures Autobot V3 (XAUUSDT)", overlay=true, max_bars_back=500)
+indicator("Gold Futures Autobot V3 (XAUUSDT)", overlay=true, max_bars_back=200)
 
 // ============================================================================
 // INPUTS & SETTINGS
 // ============================================================================
 tf = input.timeframe("15", "Timeframe")
-srLen = input.int(20, "S/R lookback length", minval=5)
+srLen = input.int(14, "S/R lookback length", minval=5)
 atrLen = input.int(14, "ATR Length", minval=5)
 leverage = input.int(20, "Leverage", minval=1, maxval=125)
 
-entryScore = input.int(70, "Minimum Entry Score", minval=10, maxval=100)
-scoreGap = input.int(8, "Long/Short Score Gap", minval=1, maxval=20)
+entryScore = input.int(65, "Minimum Entry Score", minval=10, maxval=100)
+scoreGap = input.int(6, "Long/Short Score Gap", minval=1, maxval=20)
 
-slAtrMult = input.float(2.5, "SL ATR Mult (Gold Optimized)", step=0.1)
-tpAtrMult = input.float(5.0, "TP ATR Mult (Gold Optimized)", step=0.1)
-minRR = input.float(2.0, "Minimum Risk:Reward Ratio", step=0.1)
+slAtrMult = input.float(1.4, "SL ATR Mult (Gold Optimized)", step=0.1)
+tpAtrMult = input.float(2.4, "TP ATR Mult (Gold Optimized)", step=0.1)
+minRR = input.float(1.6, "Minimum Risk:Reward Ratio", step=0.1)
 
-minSlRawPct = input.float(0.5, "Minimum SL %", step=0.05)
+minSlRawPct = input.float(0.6, "Minimum SL %", step=0.05)
 minTpRawPct = input.float(1.0, "Minimum TP %", step=0.05)
-maxPlanRiskPct = input.float(4.0, "Max Raw Risk % Allowed", step=0.1)
-maxLevRiskPct = input.float(65.0, "Max Leveraged Risk % Allowed", step=5.0)
+maxPlanRiskPct = input.float(2.0, "Max Raw Risk % Allowed", step=0.1)
+maxLevRiskPct = input.float(25.0, "Max Leveraged Risk % Allowed", step=5.0)
 
 breakoutBufferPct = input.float(0.04, "Breakout Buffer %", step=0.01)
 srAtrBuffer = input.float(0.15, "S/R ATR Buffer", step=0.05)
 useStructureSL = input.bool(true, "Use S/R Structure for SL")
-maxStructureRiskPct = input.float(5.0, "Max Structure Risk %", step=0.1)
+maxStructureRiskPct = input.float(2.5, "Max Structure Risk %", step=0.1)
 
-cooldownBars = input.int(5, "Alert Cooldown Bars", minval=1)
+cooldownBars = input.int(3, "Alert Cooldown Bars", minval=1)
+
+sameBarRule = input.string("SL_FIRST", "Same Bar TP/SL Rule", options=["SL_FIRST", "TP_FIRST", "IGNORE"])
+useTrendEntry = input.bool(true, "Use Trend-Following Entry")
+usePullbackEntry = input.bool(true, "Use Pullback Entry")
+useBreakoutEntry = input.bool(false, "Use Breakout Entry")
+useReversalEntry = input.bool(true, "Use Reversal As Entry (Buy Bottom/Sell Top)")
 
 // ============================================================================
 // CORE INDICATORS (7-LAYER ENGINE)
@@ -39,16 +45,10 @@ rsiVal = ta.rsi(close, 14)
 
 emaFast = ta.ema(close, 20)
 emaSlow = ta.ema(close, 50)
-emaTrend = ta.ema(close, 200)
 
 volMA = ta.sma(volume, 20)
 rvol = volMA > 0 ? volume / volMA : 1.0
 volOk = rvol >= 1.0
-
-// Bollinger Band Squeeze
-[bbMiddle, bbUpper, bbLower] = ta.bb(close, 20, 2)
-bbWidth = bbMiddle > 0 ? (bbUpper - bbLower) / bbMiddle : 0.0
-bbSqueeze = bbWidth < ta.sma(bbWidth, 50)
 
 // Candle Behavior & Wick Rejection
 body = math.abs(close - open)
@@ -67,8 +67,8 @@ trendShort = close < emaFast and emaFast < emaSlow
 momentumLong = rsiVal >= 50 and rsiVal <= 72 and hist > 0 and hist >= hist[1]
 momentumShort = rsiVal <= 50 and rsiVal >= 28 and hist < 0 and hist <= hist[1]
 
-overheat = rsiVal > 72 or close > emaFast + atrVal * 1.8
-oversold = rsiVal < 28 or close < emaFast - atrVal * 1.8
+overheat = rsiVal > 68 or close > emaFast + atrVal * 1.8
+oversold = rsiVal < 32 or close < emaFast - atrVal * 1.8
 
 bullishImpulse = greenCandle and closeNearHigh and close > close[1]
 bearishImpulse = redCandle and closeNearLow and close < close[1]
@@ -81,8 +81,8 @@ shortTrigger = sup * (1 - buf)
 longBreak = close >= longTrigger
 shortBreak = close <= shortTrigger
 
-entryLong = longBreak ? close : longTrigger
-entryShort = shortBreak ? close : shortTrigger
+entryLong = close
+entryShort = close
 
 // ============================================================================
 // RISK & SYSTEMATIC TRADE PLANNING
@@ -124,33 +124,30 @@ dirOkLong = tpLong > entryLong and slLong < entryLong
 dirOkShort = tpShort < entryShort and slShort > entryShort
 
 riskPctLong = entryLong > 0 ? (slLongDist / entryLong) * 100.0 : na
-tpPctLong = entryLong > 0 ? (tpLongDist / entryLong) * 100.0 : na
-rrLong = riskPctLong > 0 ? tpPctLong / riskPctLong : na
-
 riskPctShort = entryShort > 0 ? (slShortDist / entryShort) * 100.0 : na
-tpPctShort = entryShort > 0 ? (tpShortDist / entryShort) * 100.0 : na
-rrShort = riskPctShort > 0 ? tpPctShort / riskPctShort : na
 
-levRiskPctLong = riskPctLong * leverage
-levTpPctLong = tpPctLong * leverage
-levRiskPctShort = riskPctShort * leverage
-levTpPctShort = tpPctShort * leverage
-
-riskOkLong = riskPctLong <= maxPlanRiskPct and levRiskPctLong <= maxLevRiskPct and rrLong >= minRR
-riskOkShort = riskPctShort <= maxPlanRiskPct and levRiskPctShort <= maxLevRiskPct and rrShort >= minRR
+riskOkLong = not na(riskPctLong) and riskPctLong <= maxPlanRiskPct and (riskPctLong * leverage) <= maxLevRiskPct and (slLongDist > 0 ? tpLongDist / slLongDist : 0) >= minRR
+riskOkShort = not na(riskPctShort) and riskPctShort <= maxPlanRiskPct and (riskPctShort * leverage) <= maxLevRiskPct and (slShortDist > 0 ? tpShortDist / slShortDist : 0) >= minRR
 
 // Layer 6 - Actions
+// Pullback Entry
+nearEmaLong = low <= emaFast + atrVal * 0.25 and close > emaFast
+nearEmaShort = high >= emaFast - atrVal * 0.25 and close < emaFast
+
+longPullbackAction = trendLong and nearEmaLong and greenCandle and closeNearHigh and hist > hist[1] and rsiVal > 43 and volOk
+shortPullbackAction = trendShort and nearEmaShort and redCandle and closeNearLow and hist < hist[1] and rsiVal < 57 and volOk
+
 longTrendAction = trendLong and momentumLong and volOk and greenCandle and closeNearHigh and not overheat
 shortTrendAction = trendShort and momentumShort and volOk and redCandle and closeNearLow and not oversold
 
-longBreakoutAction = longBreak and greenCandle and closeNearHigh and volOk and not bbSqueeze
-shortBreakdownAction = shortBreak and redCandle and closeNearLow and volOk and not bbSqueeze
+longBreakoutAction = longBreak and greenCandle and closeNearHigh and volOk
+shortBreakdownAction = shortBreak and redCandle and closeNearLow and volOk
 
-longReversalAction = oversold and lowerReject and greenCandle and closeNearHigh and rvol >= 1.2 and hist > hist[1]
-shortReversalAction = overheat and upperReject and redCandle and closeNearLow and rvol >= 1.2 and hist < hist[1]
+longReversalAction = useReversalEntry and oversold and lowerReject and greenCandle and closeNearHigh and rvol >= 1.2 and hist > hist[1] and close > emaFast
+shortReversalAction = useReversalEntry and overheat and upperReject and redCandle and closeNearLow and rvol >= 1.2 and hist < hist[1] and close < emaFast
 
-validLongAction = (longTrendAction or longBreakoutAction or longReversalAction) and riskOkLong and dirOkLong
-validShortAction = (shortTrendAction or shortBreakdownAction or shortReversalAction) and riskOkShort and dirOkShort
+validLongAction = ((useTrendEntry and longTrendAction) or (usePullbackEntry and longPullbackAction) or (useBreakoutEntry and longBreakoutAction) or (useReversalEntry and longReversalAction)) and riskOkLong and dirOkLong
+validShortAction = ((useTrendEntry and shortTrendAction) or (usePullbackEntry and shortPullbackAction) or (useBreakoutEntry and shortBreakdownAction) or (useReversalEntry and shortReversalAction)) and riskOkShort and dirOkShort
 
 if bullishImpulse
     validShortAction := false
@@ -197,31 +194,16 @@ shortScoreOk = scoreShort >= entryScore and scoreShort > scoreLong + scoreGap
 
 action = validLongAction and longScoreOk ? "LONG" : validShortAction and shortScoreOk ? "SHORT" : "WAIT"
 
+modeFlag = (longTrendAction or shortTrendAction) ? 1.0 : (longPullbackAction or shortPullbackAction) ? 2.0 : (longBreakoutAction or shortBreakdownAction) ? 3.0 : (longReversalAction or shortReversalAction) ? 4.0 : 0.0
+
 // Round values
 f_round_tick(x) => math.round(x / syminfo.mintick) * syminfo.mintick
-f_fmt_price(val) => str.tostring(val, "0.00")
+f_safe_fmt(val) => na(val) ? "null" : str.tostring(val, "0.00")
+f_safe_str(val) => na(val) ? "null" : str.tostring(val)
 
-finalEntry = action == "LONG" ? close : action == "SHORT" ? close : na
-finalTP = action == "LONG" ? tpLong : action == "SHORT" ? tpShort : na
-finalSL = action == "LONG" ? slLong : action == "SHORT" ? slShort : na
-tpPct = action == "LONG" ? tpPctLong : action == "SHORT" ? tpPctShort : na
-riskPct = action == "LONG" ? riskPctLong : action == "SHORT" ? riskPctShort : na
-rr = action == "LONG" ? rrLong : action == "SHORT" ? rrShort : na
-levTpPct = action == "LONG" ? levTpPctLong : action == "SHORT" ? levTpPctShort : na
-levRiskPct = action == "LONG" ? levRiskPctLong : action == "SHORT" ? levRiskPctShort : na
-
-score = action == "LONG" ? scoreLong : action == "SHORT" ? scoreShort : math.max(scoreLong, scoreShort)
-riskLabel = na(levRiskPct) ? "NO_DATA" : levRiskPct <= 35 ? "SAFE" : levRiskPct <= 65 ? "RISKY" : "HIGH"
-
-// Max safe leverage
-maxSafeLeverage = action == "LONG" ? maxSafeLeverageLong : action == "SHORT" ? maxSafeLeverageShort : 20
-
-// Liq warn
-liqPriceLong = finalEntry * (1 - 0.90 / leverage)
-liqPriceShort = finalEntry * (1 + 0.90 / leverage)
-liqWarnLong = finalSL <= liqPriceLong ? "HIGH RISK" : finalSL <= liqPriceLong * 1.02 ? "WARNING" : "SAFE"
-liqWarnShort = finalSL >= liqPriceShort ? "HIGH RISK" : finalSL >= liqPriceShort * 0.98 ? "WARNING" : "SAFE"
-liqWarn = action == "LONG" ? liqWarnLong : action == "SHORT" ? liqWarnShort : "SAFE"
+finalEntry = action == "LONG" ? f_round_tick(close) : action == "SHORT" ? f_round_tick(close) : na
+finalTP = action == "LONG" ? f_round_tick(tpLong) : action == "SHORT" ? f_round_tick(tpShort) : na
+finalSL = action == "LONG" ? f_round_tick(slLong) : action == "SHORT" ? f_round_tick(slShort) : na
 
 // ============================================================================
 // DYNAMIC TRADE STATE MACHINE & WEBHOOK
@@ -232,11 +214,33 @@ var float activeTp = na
 var float activeSl = na
 var string lastEvent = ""
 var int lastBar = na
+var float activeMode = na
 
 longTpHit = activeSide == "LONG" and high >= activeTp
 longSlHit = activeSide == "LONG" and low <= activeSl
 shortTpHit = activeSide == "SHORT" and low <= activeTp
 shortSlHit = activeSide == "SHORT" and high >= activeSl
+
+bothHitLong = longTpHit and longSlHit
+bothHitShort = shortTpHit and shortSlHit
+
+if bothHitLong
+    if sameBarRule == "SL_FIRST"
+        longTpHit := false
+    else if sameBarRule == "TP_FIRST"
+        longSlHit := false
+    else if sameBarRule == "IGNORE"
+        longTpHit := false
+        longSlHit := false
+
+if bothHitShort
+    if sameBarRule == "SL_FIRST"
+        shortTpHit := false
+    else if sameBarRule == "TP_FIRST"
+        shortSlHit := false
+    else if sameBarRule == "IGNORE"
+        shortTpHit := false
+        shortSlHit := false
 
 entryEvent = activeSide == "" and action == "LONG" ? "LONG_ENTRY" : activeSide == "" and action == "SHORT" ? "SHORT_ENTRY" : "NONE"
 event = (activeSide == "LONG" and longTpHit) ? "LONG_TP_HIT" : (activeSide == "LONG" and longSlHit) ? "LONG_SL_HIT" : (activeSide == "SHORT" and shortTpHit) ? "SHORT_TP_HIT" : (activeSide == "SHORT" and shortSlHit) ? "SHORT_SL_HIT" : entryEvent
@@ -246,24 +250,55 @@ alertEntry = event == "LONG_ENTRY" or event == "SHORT_ENTRY" ? finalEntry : acti
 alertTp = event == "LONG_ENTRY" or event == "SHORT_ENTRY" ? finalTP : activeTp
 alertSl = event == "LONG_ENTRY" or event == "SHORT_ENTRY" ? finalSL : activeSl
 
+// Compute derivative metrics from display/alert values
+dispEntry = not na(alertEntry) ? alertEntry : finalEntry
+dispTP = not na(alertTp) ? alertTp : finalTP
+dispSL = not na(alertSl) ? alertSl : finalSL
+
+riskPct = not na(dispEntry) and dispEntry > 0 ? math.abs(dispEntry - dispSL) / dispEntry * 100.0 : na
+tpPct = not na(dispEntry) and dispEntry > 0 ? math.abs(dispTP - dispEntry) / dispEntry * 100.0 : na
+rr = not na(riskPct) and riskPct > 0 ? tpPct / riskPct : na
+levRiskPct = riskPct * leverage
+levTpPct = tpPct * leverage
+
+score = action == "LONG" ? scoreLong : action == "SHORT" ? scoreShort : math.max(scoreLong, scoreShort)
+riskLabel = na(levRiskPct) ? "NO_DATA" : levRiskPct <= 35 ? "SAFE" : levRiskPct <= 65 ? "RISKY" : "HIGH"
+
+// Max safe leverage
+maxSafeLeverage = not na(riskPct) and riskPct > 0 ? math.floor(20.0 / riskPct) : 20
+
+// Liq warn
+liqPriceLong = dispEntry * (1 - 0.90 / leverage)
+liqPriceShort = dispEntry * (1 + 0.90 / leverage)
+liqWarnLong = dispSL <= liqPriceLong ? "HIGH RISK" : dispSL <= liqPriceLong * 1.02 ? "WARNING" : "SAFE"
+liqWarnShort = dispSL >= liqPriceShort ? "HIGH RISK" : dispSL >= liqPriceShort * 0.98 ? "WARNING" : "SAFE"
+sideForRisk = activeSide != "" ? activeSide : action
+liqWarn = sideForRisk == "LONG" ? liqWarnLong : sideForRisk == "SHORT" ? liqWarnShort : "SAFE"
+
 if event == "LONG_SL_HIT" or event == "LONG_TP_HIT" or event == "SHORT_SL_HIT" or event == "SHORT_TP_HIT"
     activeSide := ""
     activeEntry := na
     activeTp := na
     activeSl := na
+    activeMode := na
 else if event == "LONG_ENTRY"
     activeSide := "LONG"
     activeEntry := finalEntry
     activeTp := finalTP
     activeSl := finalSL
+    activeMode := modeFlag
 else if event == "SHORT_ENTRY"
     activeSide := "SHORT"
     activeEntry := finalEntry
     activeTp := finalTP
     activeSl := finalSL
+    activeMode := modeFlag
 
 sendAlert = event == "LONG_ENTRY" or event == "SHORT_ENTRY" or event == "LONG_TP_HIT" or event == "LONG_SL_HIT" or event == "SHORT_TP_HIT" or event == "SHORT_SL_HIT"
 canAlert = sendAlert and (event != lastEvent or na(lastBar) or bar_index - lastBar >= cooldownBars)
+
+alertModeRaw = event == "LONG_ENTRY" or event == "SHORT_ENTRY" ? modeFlag : activeMode
+alertMode = alertModeRaw == 1.0 ? "TREND_SCALP" : alertModeRaw == 2.0 ? "PULLBACK_SCALP" : alertModeRaw == 3.0 ? "BREAKOUT_SCALP" : alertModeRaw == 4.0 ? "REVERSAL_ENTRY" : "NONE"
 
 alertTpPct = na(tpPct) ? 0.0 : tpPct
 alertRiskPct = na(riskPct) ? 0.0 : riskPct
@@ -272,7 +307,7 @@ alertLevTp = na(levTpPct) ? 0.0 : levTpPct
 alertLevRisk = na(levRiskPct) ? 0.0 : levRiskPct
 
 if barstate.isconfirmed and canAlert
-    msg = '{{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event + '", "side": "' + str.tostring(alertSide) + '", "symbol": "XAUUSDT", "tf": "15", "now": ' + str.tostring(close) + ', "entry": ' + str.tostring(alertEntry) + ', "tp": ' + str.tostring(alertTp) + ', "sl": ' + str.tostring(alertSl) + ', "tp_pct": ' + str.tostring(alertTpPct) + ', "risk_pct": ' + str.tostring(alertRiskPct) + ', "rr": ' + str.tostring(alertRr) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk) + ', "risk_label": "' + riskLabel + '", "liq_warn": "' + liqWarn + '", "bb_squeeze": "' + (bbSqueeze ? "SQUEEZE" : "NORMAL") + '", "max_safe_leverage": ' + str.tostring(maxSafeLeverage) + ', "score": ' + str.tostring(score) + ', "flow": "' + flow + '", "signal": "' + action + '", "price_text": {{"now": "' + f_fmt_price(close) + '", "entry": "' + f_fmt_price(alertEntry) + '", "tp": "' + f_fmt_price(alertTp) + '", "sl": "' + f_fmt_price(alertSl) + '"}}, "tick_size": 0.01, "price_decimals": 2, "time": ' + str.tostring(time) + '}}'
+    msg = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "event": "' + event + '", "side": "' + str.tostring(alertSide) + '", "symbol": "XAUUSDT", "tf": "15", "now": ' + str.tostring(close) + ', "entry": ' + f_safe_str(alertEntry) + ', "tp": ' + f_safe_str(alertTp) + ', "sl": ' + f_safe_str(alertSl) + ', "tp_pct": ' + str.tostring(alertTpPct) + ', "risk_pct": ' + str.tostring(alertRiskPct) + ', "rr": ' + str.tostring(alertRr) + ', "leverage": ' + str.tostring(leverage) + ', "lev_tp_pct": ' + str.tostring(alertLevTp) + ', "lev_risk_pct": ' + str.tostring(alertLevRisk) + ', "risk_label": "' + riskLabel + '", "liq_warn": "' + liqWarn + '", "bb_squeeze": "NORMAL", "max_safe_leverage": ' + str.tostring(maxSafeLeverage) + ', "score": ' + str.tostring(score) + ', "flow": "' + flow + '", "signal": "' + action + '", "mode": "' + alertMode + '", "price_text": {"now": "' + f_safe_fmt(close) + '", "entry": "' + f_safe_fmt(alertEntry) + '", "tp": "' + f_safe_fmt(alertTp) + '", "sl": "' + f_safe_fmt(alertSl) + '"}, "tick_size": 0.01, "price_decimals": 2, "time": ' + str.tostring(time) + '}'
     alert(msg, alert.freq_once_per_bar_close)
     lastEvent := event
     lastBar := bar_index
@@ -283,10 +318,10 @@ if barstate.isconfirmed and canAlert
 // EMAs
 plot(emaFast, "EMA 20 (Fast)", color=color.orange, linewidth=1)
 plot(emaSlow, "EMA 50 (Slow)", color=color.blue, linewidth=1)
-plot(emaTrend, "EMA 200 (Trend)", color=color.white, linewidth=2)
+// EMA 200 removed to save memory
 
 // Active Trade levels
-plot(activeSide != "" ? activeEntry : na, "Active Entry", color=color.cyan, style=plot.style_linebr)
+plot(activeSide != "" ? activeEntry : na, "Active Entry", color=color.aqua, style=plot.style_linebr)
 plot(activeSide != "" ? activeTp : na, "Active TP", color=color.lime, style=plot.style_linebr)
 plot(activeSide != "" ? activeSl : na, "Active SL", color=color.red, style=plot.style_linebr)
 

@@ -3,7 +3,7 @@
   "strategy": "BANDAR_AI_V2",
   "description": "Saham IDX < Rp1000 mid-cap untuk swing trading. TF: 60 menit.",
   "total": 86,
-  "batches": 9,
+  "batches": 11,
   "stocks": [
     {
       "ticker": "PNBN",
@@ -961,37 +961,39 @@
       "MARK",
       "KLBF",
       "PBSA",
-      "BSIM",
-      "HRUM",
-      "BFIN"
+      "BSIM"
     ],
     "batch_b": [
+      "HRUM",
+      "BFIN",
       "DSSA",
       "JECC",
       "BJBR",
       "CMNT",
       "SMCB",
-      "ESSA",
+      "ESSA"
+    ],
+    "batch_c": [
       "HMSP",
       "BNBA",
       "BRMS",
-      "BSDE"
-    ],
-    "batch_c": [
+      "BSDE",
       "EMTK",
       "ASSA",
       "PRAY",
-      "DKFT",
+      "DKFT"
+    ],
+    "batch_d": [
       "ELSA",
       "TBLA",
       "LPGI",
       "RIGS",
       "CTRA",
-      "MSIN"
-    ],
-    "batch_d": [
+      "MSIN",
       "KAEF",
-      "SIMP",
+      "SIMP"
+    ],
+    "batch_e": [
       "ROTI",
       "STAR",
       "LPCK",
@@ -1001,7 +1003,7 @@
       "BJTM",
       "TOBA"
     ],
-    "batch_e": [
+    "batch_f": [
       "MBMA",
       "NRCA",
       "MTLA",
@@ -1009,37 +1011,39 @@
       "MTSM",
       "PDES",
       "BMAS",
-      "NOBU",
-      "ARNA",
-      "IRSX"
+      "NOBU"
     ],
-    "batch_f": [
+    "batch_g": [
+      "ARNA",
+      "IRSX",
       "BPII",
       "PSAB",
       "KDSI",
       "TOWR",
       "DEWA",
-      "BSML",
+      "BSML"
+    ],
+    "batch_h": [
       "BULL",
       "TRIO",
       "SIDO",
-      "BANK"
-    ],
-    "batch_g": [
+      "BANK",
       "LPIN",
       "CLEO",
       "ERAA",
-      "ACES",
+      "ACES"
+    ],
+    "batch_i": [
       "INDS",
       "AMOR",
       "SGER",
       "SAFE",
       "CFIN",
-      "MINA"
-    ],
-    "batch_h": [
+      "MINA",
       "MMLP",
-      "GOOD",
+      "GOOD"
+    ],
+    "batch_j": [
       "SAME",
       "KBLM",
       "KBLI",
@@ -1049,7 +1053,7 @@
       "SMRA",
       "PWON"
     ],
-    "batch_i": [
+    "batch_k": [
       "PEHA",
       "PYFA",
       "KKGI",

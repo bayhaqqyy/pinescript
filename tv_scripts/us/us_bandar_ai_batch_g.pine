@@ -1,0 +1,1014 @@
+// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
+// Generated on 2026-05-15 | Strategy: US BANDAR V3
+//@version=6
+indicator("US BANDAR V3 - BATCH G (6 Tickers)", overlay=true, max_bars_back=200)
+
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+tf = input.timeframe("10", "Timeframe Screener")
+min_tv = input.float(1000000, "Min Volume ($)")
+
+srLen = input.int(14, "Support/Resistance Lookback", minval=5, maxval=200)
+atrLen = input.int(14, "ATR Length", minval=5, maxval=100)
+leverage = input.int(1, "Leverage", minval=1, maxval=125)
+
+entryScore = input.int(65, "Entry Score")
+scoreGap = input.int(6, "Score Gap")
+
+slAtrMult = input.float(1.4, "SL ATR Mult", step=0.1)
+tpAtrMult = input.float(2.4, "TP ATR Mult (Unused)", step=0.1)
+rr1 = input.float(2.0, "Risk Reward 1 (TP1)", minval=0.5, step=0.1)
+rr2 = input.float(3.5, "Risk Reward 2 (TP2)", minval=0.5, step=0.1)
+
+minSlRawPct = input.float(0.6, "Minimum SL Raw %", step=0.1)
+minTpRawPct = input.float(1.0, "Minimum TP Raw %", step=0.1)
+maxPlanRiskPct = input.float(2.0, "Max Raw Risk % For Action", step=0.5)
+maxLevRiskPct = input.float(25.0, "Max Leveraged Risk % For Action", step=5.0)
+
+breakoutBufferPct = input.float(0.04, "Breakout Buffer %", step=0.01)
+srAtrBuffer = input.float(0.15, "S/R ATR Buffer", step=0.05)
+useStructureSL = input.bool(true, "Use Structure SL When Reasonable")
+maxStructureRiskPct = input.float(2.5, "Max Structure SL %", step=0.5)
+
+cooldownBars = input.int(3, "Alert Cooldown Bars", minval=1)
+useReversalEntry = input.bool(false, "Use Reversal As Entry")
+sameBarRule = input.string("SL_FIRST", "Same Bar TP/SL Rule", options=["SL_FIRST", "TP_FIRST", "IGNORE"])
+pos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+// ============================================================================
+// COLORS & HELPERS
+// ============================================================================
+cHeader = color.rgb(55, 62, 70)
+cDark = color.rgb(28, 33, 40)
+cText = color.white
+cGreen = color.rgb(0, 180, 90)
+cLime = color.rgb(70, 220, 90)
+cBlue = color.rgb(40, 130, 220)
+cYellow = color.rgb(220, 190, 40)
+cOrange = color.rgb(230, 120, 40)
+cRed = color.rgb(220, 60, 60)
+cGray = color.rgb(110, 110, 110)
+
+f_status_color(s) =>
+    s == "FLYING" ? cLime :
+      s == "RUNNING" ? cGreen :
+      s == "SETUP" ? cBlue :
+      s == "TP1-HIT" ? cLime :
+      s == "TP2-HIT" ? cLime :
+      s == "SL-BROKE" ? cRed :
+      cGray
+
+f_zona_color(z) =>
+    z == "MURAH" ? cBlue :
+      z == "MID" ? cYellow :
+      cRed
+
+f_macd_color(m) =>
+    m == "UP" ? cGreen :
+      m == "DOWN" ? cRed :
+      cYellow
+
+f_signal_color(sig) =>
+    sig == "BREAKOUT BUY" ? cLime :
+      sig == "BULL ABSORB" ? cGreen :
+      sig == "SNIPER BUY" ? cLime :
+      cGray
+
+f_score_color(score) =>
+    score >= 85 ? color.lime :
+      score >= 70 ? color.green :
+      score >= 55 ? color.yellow :
+      score >= 40 ? color.orange :
+      color.red
+
+f_cell(tbl, col, row, txt, bg, txtColor) =>
+    table.cell(tbl, col, row, txt, bgcolor=bg, text_color=txtColor, text_size=size.small)
+
+f_header(tbl, col, title) =>
+    table.cell(tbl, col, 0, title, bgcolor=cHeader, text_color=color.yellow, text_size=size.small)
+
+f_value_idr(v) =>
+    v >= 1000000000 ? "$" + str.tostring(v / 1000000000, "#.##") + "B" :
+      v >= 1000000 ? "$" + str.tostring(v / 1000000, "#.##") + "M" :
+      "$" + str.tostring(v, "#.##")
+
+// ============================================================================
+// CORE ENGINE FUNCTION (DASHBOARD)
+// ============================================================================
+f_round_tick(x) => math.round(x / syminfo.mintick) * syminfo.mintick
+
+f_dashboard_engine(strategy_mode) =>
+    support = ta.lowest(low[1], srLen)
+    resistance = ta.highest(high[1], srLen)
+    
+    atrVal = ta.atr(atrLen)
+    rsiVal = ta.rsi(close, 14)
+    [macdLine, macdSignal, macdHist] = ta.macd(close, 12, 26, 9)
+    
+    volMA = ta.sma(volume, 20)
+    rvol = volMA > 0 ? volume / volMA : 0.0
+    rvolPct = rvol * 100
+    
+    ema20 = ta.ema(close, 20)
+    ema50 = ta.ema(close, 50)
+    ema200 = ta.ema(close, 200)
+    
+    body = math.abs(close - open)
+    candleRange = math.max(high - low, syminfo.mintick)
+    upperWick = high - math.max(open, close)
+    lowerWick = math.min(open, close) - low
+    
+    closeNearHigh = candleRange > 0 and close >= low + candleRange * 0.65
+    closeNearLow  = candleRange > 0 and close <= low + candleRange * 0.35
+    
+    // US SWING LOGIC
+    bullTrend = close > ema200 and ema20 > ema50
+    volSpike = rvol > 1.5
+    highest20 = ta.highest(high, 20)
+    swingBreakout = close > highest20[1] and volSpike
+    bullAbsorb = lowerWick > body * 1.5 and volSpike and close > open
+    
+    swingSignal = swingBreakout and bullTrend ? "BREAKOUT BUY" : bullAbsorb and bullTrend ? "BULL ABSORB" : "WAIT"
+    
+    // US BANDAR LOGIC
+    sniperBuy = (close > ema200) and volSpike and (close > open)
+    bBullAbsorb = lowerWick > body * 1.1 and rvol > 1.3 and close > low + (candleRange * 0.4)
+    bandarSignal = sniperBuy ? "SNIPER BUY" : bBullAbsorb ? "BULL ABSORB" : "WAIT"
+    
+    signal = strategy_mode == "SWING" ? swingSignal : bandarSignal
+    validBuySetup = signal != "WAIT"
+    
+    // Entry price
+    entryPrice = not na(support) and support > 0 ? support : close
+    
+    // SL: Stop Loss calculation
+    baseSlDist = math.max(atrVal * slAtrMult, entryPrice * minSlRawPct / 100.0, syminfo.mintick)
+    structSl = support - atrVal * srAtrBuffer
+    structSlDist = entryPrice - structSl
+    structRiskPct = entryPrice > 0 ? (structSlDist / entryPrice * 100.0) : na
+    useStruct = useStructureSL and not na(structSlDist) and structSlDist > 0 and structRiskPct <= maxStructureRiskPct
+    slDist = useStruct ? math.max(baseSlDist, structSlDist) : baseSlDist
+    sl = entryPrice - slDist
+    
+    // TP: Dual take profit levels
+    risk = math.max(entryPrice - sl, syminfo.mintick)
+    tp1 = entryPrice + risk * rr1
+    tp2 = entryPrice + risk * rr2
+    
+    entryPrice := f_round_tick(entryPrice)
+    tp1 := f_round_tick(tp1)
+    tp2 := f_round_tick(tp2)
+    sl := f_round_tick(sl)
+    
+    // Risk checks
+    riskOk = entryPrice > 0 and (slDist / entryPrice * 100.0) <= maxPlanRiskPct and (slDist / entryPrice * 100.0 * leverage) <= maxLevRiskPct
+    validBuy = validBuySetup and riskOk
+    
+    valueBar = close * volume
+    
+    rangeSr = math.max(resistance - support, syminfo.mintick)
+    rangePos = (close - support) / rangeSr
+    zona = rangePos <= 0.382 ? "MURAH" : rangePos <= 0.618 ? "MID" : "MAHAL"
+    
+    trendScore = (close > ema20 ? 10 : 0) + (close > ema50 ? 10 : 0) + (close > ema200 ? 10 : 0)
+    zoneScore = zona == "MURAH" ? 20 : zona == "MID" ? 12 : 3
+    macdBull = macdLine > macdSignal and macdHist > 0
+    rsiHealthy = rsiVal >= 35 and rsiVal <= 65
+    rsiHot = rsiVal > 65 and rsiVal <= 75
+    momentumScore = (rsiHealthy ? 8 : rsiHot ? 5 : 0) + (macdBull ? 7 : 0) + (validBuy ? 10 : 0)
+    volumeScore = rvol >= 2.0 ? 15 : rvol >= 1.3 ? 10 : rvol >= 0.8 ? 5 : 0
+    
+    bigAccum = lowerWick > body * 1.2 and rvol >= 2.0 and close >= open and close > low + candleRange * 0.5
+    accum = rvol >= 1.3 and close > open and close > ema20
+    distAwal = upperWick > body * 1.2 and rvol >= 1.5 and close < open
+    sepi = rvol < 0.7
+    
+    bandarState = bigAccum ? "BIG ACCUM" : accum ? "ACCUM" : distAwal ? "DIST AWAL" : sepi ? "SEPI" : "NORMAL"
+    
+    flowScore = bigAccum ? 20 : accum ? 14 : distAwal ? 0 : sepi ? 2 : 8
+    scoreRaw = trendScore + zoneScore + momentumScore + volumeScore + flowScore
+    score = math.min(100, scoreRaw)
+    
+    tpHit = high >= tp1
+    slBroken = low <= sl
+    
+    statusFlag = slBroken ? 1.0 : tpHit ? 2.0 : validBuy ? 3.0 : score >= 60 ? 4.0 : close > ema20 ? 5.0 : 0.0
+    zonaFlag = zona == "MURAH" ? 1.0 : zona == "MID" ? 2.0 : 3.0
+    macdFlag = macdLine > macdSignal ? 1.0 : 0.0
+    bandarFlag = bigAccum ? 1.0 : accum ? 2.0 : distAwal ? 3.0 : sepi ? 4.0 : 0.0
+    actionFlag = distAwal ? 1.0 : validBuy ? 2.0 : 0.0
+    signalFlag = signal == "BREAKOUT BUY" ? 1.0 : signal == "BULL ABSORB" ? 2.0 : signal == "SNIPER BUY" ? 3.0 : 0.0
+    
+    // Pack 5 flags into a single float to reduce request.security tuple elements (19 -> 14)
+    packedFlags = signalFlag + actionFlag * 10.0 + bandarFlag * 100.0 + macdFlag * 1000.0 + statusFlag * 10000.0
+    
+    [close, high, low, support, resistance, entryPrice, tp1, tp2, sl, rsiVal, rvolPct, valueBar, score, packedFlags]
+
+
+// ============================================================================
+// TICKER DEFINITIONS
+// ============================================================================
+tk1 = "NASDAQ:IQ"  // ~$1.15
+tk2 = "NASDAQ:LYFT"  // ~$13.00
+tk3 = "NYSE:NU"  // ~$12.00
+tk4 = "NYSE:XYZ"  // ~$82.00
+tk5 = "NASDAQ:BITF"  // ~$2.00
+tk6 = "NASDAQ:CLSK"  // ~$9.00
+
+// ============================================================================
+// DATA FETCH - request.security
+// ============================================================================
+// --- Ticker 1 State Machine and Fetch ---
+var string activeSide1 = ""
+var float activeEntry1 = na
+var float activeTp1_1 = na
+var float activeTp2_1 = na
+var float activeSl1 = na
+var string lastEvent1 = ""
+var int lastBar1 = na
+var float activeMode1 = na
+
+[now1, hi1, lo1, sup1, rst1, entry1, tp1_1, tp2_1, sl_1, rsi1, rvolPct1, valueBar1, score1, packedFlags1] = request.security(tk1, tf, f_dashboard_engine("BANDAR"))
+
+// Unpack flags
+signalFlag1 = math.floor(packedFlags1 % 10)
+actionFlag1 = math.floor((packedFlags1 / 10) % 10)
+bandarFlag1 = math.floor((packedFlags1 / 100) % 10)
+macdFlag1   = math.floor((packedFlags1 / 1000) % 10)
+statusFlag1 = math.floor((packedFlags1 / 10000) % 10)
+
+// Decode flags locally
+statusRaw1 = statusFlag1 == 1.0 ? "SL-BROKE" : statusFlag1 == 2.0 ? "TP-HIT" : statusFlag1 == 3.0 ? "FLYING" : statusFlag1 == 4.0 ? "SETUP" : statusFlag1 == 5.0 ? "RUNNING" : "WAIT"
+macd1 = macdFlag1 == 1.0 ? "UP" : "DOWN"
+bandar1 = bandarFlag1 == 1.0 ? "BIG ACCUM" : bandarFlag1 == 2.0 ? "ACCUM" : bandarFlag1 == 3.0 ? "DIST AWAL" : bandarFlag1 == 4.0 ? "SEPI" : "NORMAL"
+action1 = actionFlag1 == 1.0 ? "WASPADA" : actionFlag1 == 2.0 ? "BUY" : "WAIT"
+signal1 = signalFlag1 == 1.0 ? "BREAKOUT BUY" : signalFlag1 == 2.0 ? "BULL ABSORB" : signalFlag1 == 3.0 ? "SNIPER BUY" : "WAIT"
+
+// Calculate zona locally on-chart to save memory
+rangeSr1 = math.max(rst1 - sup1, syminfo.mintick)
+rangePos1 = (now1 - sup1) / rangeSr1
+zona1 = rangePos1 <= 0.382 ? "MURAH" : rangePos1 <= 0.618 ? "MID" : "MAHAL"
+
+// State Machine logic
+longTpHit1 = activeSide1 == "BUY" and hi1 >= activeTp1_1
+longTp2Hit1 = activeSide1 == "BUY" and hi1 >= activeTp2_1
+longSlHit1 = activeSide1 == "BUY" and lo1 <= activeSl1
+
+bothHitLong1 = longTpHit1 and longSlHit1
+if bothHitLong1
+    if sameBarRule == "SL_FIRST"
+        longTpHit1 := false
+        longTp2Hit1 := false
+    else if sameBarRule == "TP_FIRST"
+        longSlHit1 := false
+    else if sameBarRule == "IGNORE"
+        longTpHit1 := false
+        longTp2Hit1 := false
+        longSlHit1 := false
+
+entryEvent1 = activeSide1 == "" and action1 == "BUY" ? "BUY_ENTRY" : "NONE"
+event1 = (activeSide1 == "BUY" and longSlHit1) ? "SL_HIT" : (activeSide1 == "BUY" and longTp2Hit1) ? "TP2_HIT" : (activeSide1 == "BUY" and longTpHit1) ? "TP1_HIT" : entryEvent1
+
+alertSide1 = event1 == "BUY_ENTRY" ? "BUY" : activeSide1
+alertEntry1 = event1 == "BUY_ENTRY" ? entry1 : activeEntry1
+alertTp1_1 = event1 == "BUY_ENTRY" ? tp1_1 : activeTp1_1
+alertTp2_1 = event1 == "BUY_ENTRY" ? tp2_1 : activeTp2_1
+alertSl1 = event1 == "BUY_ENTRY" ? sl_1 : activeSl1
+
+if event1 == "SL_HIT" or event1 == "TP1_HIT" or event1 == "TP2_HIT"
+    activeSide1 := ""
+    activeEntry1 := na
+    activeTp1_1 := na
+    activeTp2_1 := na
+    activeSl1 := na
+    activeMode1 := na
+else if event1 == "BUY_ENTRY"
+    activeSide1 := "BUY"
+    activeEntry1 := entry1
+    activeTp1_1 := tp1_1
+    activeTp2_1 := tp2_1
+    activeSl1 := sl_1
+    activeMode1 := signalFlag1
+
+sendAlert1 = event1 == "BUY_ENTRY" or event1 == "TP1_HIT" or event1 == "TP2_HIT" or event1 == "SL_HIT"
+canAlert1 = sendAlert1 and (event1 != lastEvent1 or na(lastBar1) or bar_index - lastBar1 >= cooldownBars)
+
+alertModeRaw1 = event1 == "BUY_ENTRY" ? signalFlag1 : activeMode1
+alertMode1 = alertModeRaw1 == 1.0 ? "BREAKOUT_BUY" : alertModeRaw1 == 2.0 ? "BULL_ABSORB" : alertModeRaw1 == 3.0 ? "SNIPER_BUY" : "NONE"
+
+// Display values - locked if position is active, else dynamic
+entryDisp1 = na(activeEntry1) ? entry1 : activeEntry1
+tp1Disp1 = na(activeTp1_1) ? tp1_1 : activeTp1_1
+tp2Disp1 = na(activeTp2_1) ? tp2_1 : activeTp2_1
+slDisp1 = na(activeSl1) ? sl_1 : activeSl1
+
+pctTp1_1 = entryDisp1 > 0 ? ((tp1Disp1 - entryDisp1) / entryDisp1) * 100.0 : na
+pctTp2_1 = entryDisp1 > 0 ? ((tp2Disp1 - entryDisp1) / entryDisp1) * 100.0 : na
+pnlPct1 = activeSide1 == "BUY" ? ((now1 - activeEntry1) / activeEntry1) * 100.0 : na
+
+// Override status for active trades
+status1 = activeSide1 == "BUY" ? "RUNNING" : (event1 == "TP1_HIT" or event1 == "TP2_HIT") ? "TP-HIT" : event1 == "SL_HIT" ? "SL-BROKE" : statusRaw1
+
+// --- Ticker 2 State Machine and Fetch ---
+var string activeSide2 = ""
+var float activeEntry2 = na
+var float activeTp1_2 = na
+var float activeTp2_2 = na
+var float activeSl2 = na
+var string lastEvent2 = ""
+var int lastBar2 = na
+var float activeMode2 = na
+
+[now2, hi2, lo2, sup2, rst2, entry2, tp1_2, tp2_2, sl_2, rsi2, rvolPct2, valueBar2, score2, packedFlags2] = request.security(tk2, tf, f_dashboard_engine("BANDAR"))
+
+// Unpack flags
+signalFlag2 = math.floor(packedFlags2 % 10)
+actionFlag2 = math.floor((packedFlags2 / 10) % 10)
+bandarFlag2 = math.floor((packedFlags2 / 100) % 10)
+macdFlag2   = math.floor((packedFlags2 / 1000) % 10)
+statusFlag2 = math.floor((packedFlags2 / 10000) % 10)
+
+// Decode flags locally
+statusRaw2 = statusFlag2 == 1.0 ? "SL-BROKE" : statusFlag2 == 2.0 ? "TP-HIT" : statusFlag2 == 3.0 ? "FLYING" : statusFlag2 == 4.0 ? "SETUP" : statusFlag2 == 5.0 ? "RUNNING" : "WAIT"
+macd2 = macdFlag2 == 1.0 ? "UP" : "DOWN"
+bandar2 = bandarFlag2 == 1.0 ? "BIG ACCUM" : bandarFlag2 == 2.0 ? "ACCUM" : bandarFlag2 == 3.0 ? "DIST AWAL" : bandarFlag2 == 4.0 ? "SEPI" : "NORMAL"
+action2 = actionFlag2 == 1.0 ? "WASPADA" : actionFlag2 == 2.0 ? "BUY" : "WAIT"
+signal2 = signalFlag2 == 1.0 ? "BREAKOUT BUY" : signalFlag2 == 2.0 ? "BULL ABSORB" : signalFlag2 == 3.0 ? "SNIPER BUY" : "WAIT"
+
+// Calculate zona locally on-chart to save memory
+rangeSr2 = math.max(rst2 - sup2, syminfo.mintick)
+rangePos2 = (now2 - sup2) / rangeSr2
+zona2 = rangePos2 <= 0.382 ? "MURAH" : rangePos2 <= 0.618 ? "MID" : "MAHAL"
+
+// State Machine logic
+longTpHit2 = activeSide2 == "BUY" and hi2 >= activeTp1_2
+longTp2Hit2 = activeSide2 == "BUY" and hi2 >= activeTp2_2
+longSlHit2 = activeSide2 == "BUY" and lo2 <= activeSl2
+
+bothHitLong2 = longTpHit2 and longSlHit2
+if bothHitLong2
+    if sameBarRule == "SL_FIRST"
+        longTpHit2 := false
+        longTp2Hit2 := false
+    else if sameBarRule == "TP_FIRST"
+        longSlHit2 := false
+    else if sameBarRule == "IGNORE"
+        longTpHit2 := false
+        longTp2Hit2 := false
+        longSlHit2 := false
+
+entryEvent2 = activeSide2 == "" and action2 == "BUY" ? "BUY_ENTRY" : "NONE"
+event2 = (activeSide2 == "BUY" and longSlHit2) ? "SL_HIT" : (activeSide2 == "BUY" and longTp2Hit2) ? "TP2_HIT" : (activeSide2 == "BUY" and longTpHit2) ? "TP1_HIT" : entryEvent2
+
+alertSide2 = event2 == "BUY_ENTRY" ? "BUY" : activeSide2
+alertEntry2 = event2 == "BUY_ENTRY" ? entry2 : activeEntry2
+alertTp1_2 = event2 == "BUY_ENTRY" ? tp1_2 : activeTp1_2
+alertTp2_2 = event2 == "BUY_ENTRY" ? tp2_2 : activeTp2_2
+alertSl2 = event2 == "BUY_ENTRY" ? sl_2 : activeSl2
+
+if event2 == "SL_HIT" or event2 == "TP1_HIT" or event2 == "TP2_HIT"
+    activeSide2 := ""
+    activeEntry2 := na
+    activeTp1_2 := na
+    activeTp2_2 := na
+    activeSl2 := na
+    activeMode2 := na
+else if event2 == "BUY_ENTRY"
+    activeSide2 := "BUY"
+    activeEntry2 := entry2
+    activeTp1_2 := tp1_2
+    activeTp2_2 := tp2_2
+    activeSl2 := sl_2
+    activeMode2 := signalFlag2
+
+sendAlert2 = event2 == "BUY_ENTRY" or event2 == "TP1_HIT" or event2 == "TP2_HIT" or event2 == "SL_HIT"
+canAlert2 = sendAlert2 and (event2 != lastEvent2 or na(lastBar2) or bar_index - lastBar2 >= cooldownBars)
+
+alertModeRaw2 = event2 == "BUY_ENTRY" ? signalFlag2 : activeMode2
+alertMode2 = alertModeRaw2 == 1.0 ? "BREAKOUT_BUY" : alertModeRaw2 == 2.0 ? "BULL_ABSORB" : alertModeRaw2 == 3.0 ? "SNIPER_BUY" : "NONE"
+
+// Display values - locked if position is active, else dynamic
+entryDisp2 = na(activeEntry2) ? entry2 : activeEntry2
+tp1Disp2 = na(activeTp1_2) ? tp1_2 : activeTp1_2
+tp2Disp2 = na(activeTp2_2) ? tp2_2 : activeTp2_2
+slDisp2 = na(activeSl2) ? sl_2 : activeSl2
+
+pctTp1_2 = entryDisp2 > 0 ? ((tp1Disp2 - entryDisp2) / entryDisp2) * 100.0 : na
+pctTp2_2 = entryDisp2 > 0 ? ((tp2Disp2 - entryDisp2) / entryDisp2) * 100.0 : na
+pnlPct2 = activeSide2 == "BUY" ? ((now2 - activeEntry2) / activeEntry2) * 100.0 : na
+
+// Override status for active trades
+status2 = activeSide2 == "BUY" ? "RUNNING" : (event2 == "TP1_HIT" or event2 == "TP2_HIT") ? "TP-HIT" : event2 == "SL_HIT" ? "SL-BROKE" : statusRaw2
+
+// --- Ticker 3 State Machine and Fetch ---
+var string activeSide3 = ""
+var float activeEntry3 = na
+var float activeTp1_3 = na
+var float activeTp2_3 = na
+var float activeSl3 = na
+var string lastEvent3 = ""
+var int lastBar3 = na
+var float activeMode3 = na
+
+[now3, hi3, lo3, sup3, rst3, entry3, tp1_3, tp2_3, sl_3, rsi3, rvolPct3, valueBar3, score3, packedFlags3] = request.security(tk3, tf, f_dashboard_engine("BANDAR"))
+
+// Unpack flags
+signalFlag3 = math.floor(packedFlags3 % 10)
+actionFlag3 = math.floor((packedFlags3 / 10) % 10)
+bandarFlag3 = math.floor((packedFlags3 / 100) % 10)
+macdFlag3   = math.floor((packedFlags3 / 1000) % 10)
+statusFlag3 = math.floor((packedFlags3 / 10000) % 10)
+
+// Decode flags locally
+statusRaw3 = statusFlag3 == 1.0 ? "SL-BROKE" : statusFlag3 == 2.0 ? "TP-HIT" : statusFlag3 == 3.0 ? "FLYING" : statusFlag3 == 4.0 ? "SETUP" : statusFlag3 == 5.0 ? "RUNNING" : "WAIT"
+macd3 = macdFlag3 == 1.0 ? "UP" : "DOWN"
+bandar3 = bandarFlag3 == 1.0 ? "BIG ACCUM" : bandarFlag3 == 2.0 ? "ACCUM" : bandarFlag3 == 3.0 ? "DIST AWAL" : bandarFlag3 == 4.0 ? "SEPI" : "NORMAL"
+action3 = actionFlag3 == 1.0 ? "WASPADA" : actionFlag3 == 2.0 ? "BUY" : "WAIT"
+signal3 = signalFlag3 == 1.0 ? "BREAKOUT BUY" : signalFlag3 == 2.0 ? "BULL ABSORB" : signalFlag3 == 3.0 ? "SNIPER BUY" : "WAIT"
+
+// Calculate zona locally on-chart to save memory
+rangeSr3 = math.max(rst3 - sup3, syminfo.mintick)
+rangePos3 = (now3 - sup3) / rangeSr3
+zona3 = rangePos3 <= 0.382 ? "MURAH" : rangePos3 <= 0.618 ? "MID" : "MAHAL"
+
+// State Machine logic
+longTpHit3 = activeSide3 == "BUY" and hi3 >= activeTp1_3
+longTp2Hit3 = activeSide3 == "BUY" and hi3 >= activeTp2_3
+longSlHit3 = activeSide3 == "BUY" and lo3 <= activeSl3
+
+bothHitLong3 = longTpHit3 and longSlHit3
+if bothHitLong3
+    if sameBarRule == "SL_FIRST"
+        longTpHit3 := false
+        longTp2Hit3 := false
+    else if sameBarRule == "TP_FIRST"
+        longSlHit3 := false
+    else if sameBarRule == "IGNORE"
+        longTpHit3 := false
+        longTp2Hit3 := false
+        longSlHit3 := false
+
+entryEvent3 = activeSide3 == "" and action3 == "BUY" ? "BUY_ENTRY" : "NONE"
+event3 = (activeSide3 == "BUY" and longSlHit3) ? "SL_HIT" : (activeSide3 == "BUY" and longTp2Hit3) ? "TP2_HIT" : (activeSide3 == "BUY" and longTpHit3) ? "TP1_HIT" : entryEvent3
+
+alertSide3 = event3 == "BUY_ENTRY" ? "BUY" : activeSide3
+alertEntry3 = event3 == "BUY_ENTRY" ? entry3 : activeEntry3
+alertTp1_3 = event3 == "BUY_ENTRY" ? tp1_3 : activeTp1_3
+alertTp2_3 = event3 == "BUY_ENTRY" ? tp2_3 : activeTp2_3
+alertSl3 = event3 == "BUY_ENTRY" ? sl_3 : activeSl3
+
+if event3 == "SL_HIT" or event3 == "TP1_HIT" or event3 == "TP2_HIT"
+    activeSide3 := ""
+    activeEntry3 := na
+    activeTp1_3 := na
+    activeTp2_3 := na
+    activeSl3 := na
+    activeMode3 := na
+else if event3 == "BUY_ENTRY"
+    activeSide3 := "BUY"
+    activeEntry3 := entry3
+    activeTp1_3 := tp1_3
+    activeTp2_3 := tp2_3
+    activeSl3 := sl_3
+    activeMode3 := signalFlag3
+
+sendAlert3 = event3 == "BUY_ENTRY" or event3 == "TP1_HIT" or event3 == "TP2_HIT" or event3 == "SL_HIT"
+canAlert3 = sendAlert3 and (event3 != lastEvent3 or na(lastBar3) or bar_index - lastBar3 >= cooldownBars)
+
+alertModeRaw3 = event3 == "BUY_ENTRY" ? signalFlag3 : activeMode3
+alertMode3 = alertModeRaw3 == 1.0 ? "BREAKOUT_BUY" : alertModeRaw3 == 2.0 ? "BULL_ABSORB" : alertModeRaw3 == 3.0 ? "SNIPER_BUY" : "NONE"
+
+// Display values - locked if position is active, else dynamic
+entryDisp3 = na(activeEntry3) ? entry3 : activeEntry3
+tp1Disp3 = na(activeTp1_3) ? tp1_3 : activeTp1_3
+tp2Disp3 = na(activeTp2_3) ? tp2_3 : activeTp2_3
+slDisp3 = na(activeSl3) ? sl_3 : activeSl3
+
+pctTp1_3 = entryDisp3 > 0 ? ((tp1Disp3 - entryDisp3) / entryDisp3) * 100.0 : na
+pctTp2_3 = entryDisp3 > 0 ? ((tp2Disp3 - entryDisp3) / entryDisp3) * 100.0 : na
+pnlPct3 = activeSide3 == "BUY" ? ((now3 - activeEntry3) / activeEntry3) * 100.0 : na
+
+// Override status for active trades
+status3 = activeSide3 == "BUY" ? "RUNNING" : (event3 == "TP1_HIT" or event3 == "TP2_HIT") ? "TP-HIT" : event3 == "SL_HIT" ? "SL-BROKE" : statusRaw3
+
+// --- Ticker 4 State Machine and Fetch ---
+var string activeSide4 = ""
+var float activeEntry4 = na
+var float activeTp1_4 = na
+var float activeTp2_4 = na
+var float activeSl4 = na
+var string lastEvent4 = ""
+var int lastBar4 = na
+var float activeMode4 = na
+
+[now4, hi4, lo4, sup4, rst4, entry4, tp1_4, tp2_4, sl_4, rsi4, rvolPct4, valueBar4, score4, packedFlags4] = request.security(tk4, tf, f_dashboard_engine("BANDAR"))
+
+// Unpack flags
+signalFlag4 = math.floor(packedFlags4 % 10)
+actionFlag4 = math.floor((packedFlags4 / 10) % 10)
+bandarFlag4 = math.floor((packedFlags4 / 100) % 10)
+macdFlag4   = math.floor((packedFlags4 / 1000) % 10)
+statusFlag4 = math.floor((packedFlags4 / 10000) % 10)
+
+// Decode flags locally
+statusRaw4 = statusFlag4 == 1.0 ? "SL-BROKE" : statusFlag4 == 2.0 ? "TP-HIT" : statusFlag4 == 3.0 ? "FLYING" : statusFlag4 == 4.0 ? "SETUP" : statusFlag4 == 5.0 ? "RUNNING" : "WAIT"
+macd4 = macdFlag4 == 1.0 ? "UP" : "DOWN"
+bandar4 = bandarFlag4 == 1.0 ? "BIG ACCUM" : bandarFlag4 == 2.0 ? "ACCUM" : bandarFlag4 == 3.0 ? "DIST AWAL" : bandarFlag4 == 4.0 ? "SEPI" : "NORMAL"
+action4 = actionFlag4 == 1.0 ? "WASPADA" : actionFlag4 == 2.0 ? "BUY" : "WAIT"
+signal4 = signalFlag4 == 1.0 ? "BREAKOUT BUY" : signalFlag4 == 2.0 ? "BULL ABSORB" : signalFlag4 == 3.0 ? "SNIPER BUY" : "WAIT"
+
+// Calculate zona locally on-chart to save memory
+rangeSr4 = math.max(rst4 - sup4, syminfo.mintick)
+rangePos4 = (now4 - sup4) / rangeSr4
+zona4 = rangePos4 <= 0.382 ? "MURAH" : rangePos4 <= 0.618 ? "MID" : "MAHAL"
+
+// State Machine logic
+longTpHit4 = activeSide4 == "BUY" and hi4 >= activeTp1_4
+longTp2Hit4 = activeSide4 == "BUY" and hi4 >= activeTp2_4
+longSlHit4 = activeSide4 == "BUY" and lo4 <= activeSl4
+
+bothHitLong4 = longTpHit4 and longSlHit4
+if bothHitLong4
+    if sameBarRule == "SL_FIRST"
+        longTpHit4 := false
+        longTp2Hit4 := false
+    else if sameBarRule == "TP_FIRST"
+        longSlHit4 := false
+    else if sameBarRule == "IGNORE"
+        longTpHit4 := false
+        longTp2Hit4 := false
+        longSlHit4 := false
+
+entryEvent4 = activeSide4 == "" and action4 == "BUY" ? "BUY_ENTRY" : "NONE"
+event4 = (activeSide4 == "BUY" and longSlHit4) ? "SL_HIT" : (activeSide4 == "BUY" and longTp2Hit4) ? "TP2_HIT" : (activeSide4 == "BUY" and longTpHit4) ? "TP1_HIT" : entryEvent4
+
+alertSide4 = event4 == "BUY_ENTRY" ? "BUY" : activeSide4
+alertEntry4 = event4 == "BUY_ENTRY" ? entry4 : activeEntry4
+alertTp1_4 = event4 == "BUY_ENTRY" ? tp1_4 : activeTp1_4
+alertTp2_4 = event4 == "BUY_ENTRY" ? tp2_4 : activeTp2_4
+alertSl4 = event4 == "BUY_ENTRY" ? sl_4 : activeSl4
+
+if event4 == "SL_HIT" or event4 == "TP1_HIT" or event4 == "TP2_HIT"
+    activeSide4 := ""
+    activeEntry4 := na
+    activeTp1_4 := na
+    activeTp2_4 := na
+    activeSl4 := na
+    activeMode4 := na
+else if event4 == "BUY_ENTRY"
+    activeSide4 := "BUY"
+    activeEntry4 := entry4
+    activeTp1_4 := tp1_4
+    activeTp2_4 := tp2_4
+    activeSl4 := sl_4
+    activeMode4 := signalFlag4
+
+sendAlert4 = event4 == "BUY_ENTRY" or event4 == "TP1_HIT" or event4 == "TP2_HIT" or event4 == "SL_HIT"
+canAlert4 = sendAlert4 and (event4 != lastEvent4 or na(lastBar4) or bar_index - lastBar4 >= cooldownBars)
+
+alertModeRaw4 = event4 == "BUY_ENTRY" ? signalFlag4 : activeMode4
+alertMode4 = alertModeRaw4 == 1.0 ? "BREAKOUT_BUY" : alertModeRaw4 == 2.0 ? "BULL_ABSORB" : alertModeRaw4 == 3.0 ? "SNIPER_BUY" : "NONE"
+
+// Display values - locked if position is active, else dynamic
+entryDisp4 = na(activeEntry4) ? entry4 : activeEntry4
+tp1Disp4 = na(activeTp1_4) ? tp1_4 : activeTp1_4
+tp2Disp4 = na(activeTp2_4) ? tp2_4 : activeTp2_4
+slDisp4 = na(activeSl4) ? sl_4 : activeSl4
+
+pctTp1_4 = entryDisp4 > 0 ? ((tp1Disp4 - entryDisp4) / entryDisp4) * 100.0 : na
+pctTp2_4 = entryDisp4 > 0 ? ((tp2Disp4 - entryDisp4) / entryDisp4) * 100.0 : na
+pnlPct4 = activeSide4 == "BUY" ? ((now4 - activeEntry4) / activeEntry4) * 100.0 : na
+
+// Override status for active trades
+status4 = activeSide4 == "BUY" ? "RUNNING" : (event4 == "TP1_HIT" or event4 == "TP2_HIT") ? "TP-HIT" : event4 == "SL_HIT" ? "SL-BROKE" : statusRaw4
+
+// --- Ticker 5 State Machine and Fetch ---
+var string activeSide5 = ""
+var float activeEntry5 = na
+var float activeTp1_5 = na
+var float activeTp2_5 = na
+var float activeSl5 = na
+var string lastEvent5 = ""
+var int lastBar5 = na
+var float activeMode5 = na
+
+[now5, hi5, lo5, sup5, rst5, entry5, tp1_5, tp2_5, sl_5, rsi5, rvolPct5, valueBar5, score5, packedFlags5] = request.security(tk5, tf, f_dashboard_engine("BANDAR"))
+
+// Unpack flags
+signalFlag5 = math.floor(packedFlags5 % 10)
+actionFlag5 = math.floor((packedFlags5 / 10) % 10)
+bandarFlag5 = math.floor((packedFlags5 / 100) % 10)
+macdFlag5   = math.floor((packedFlags5 / 1000) % 10)
+statusFlag5 = math.floor((packedFlags5 / 10000) % 10)
+
+// Decode flags locally
+statusRaw5 = statusFlag5 == 1.0 ? "SL-BROKE" : statusFlag5 == 2.0 ? "TP-HIT" : statusFlag5 == 3.0 ? "FLYING" : statusFlag5 == 4.0 ? "SETUP" : statusFlag5 == 5.0 ? "RUNNING" : "WAIT"
+macd5 = macdFlag5 == 1.0 ? "UP" : "DOWN"
+bandar5 = bandarFlag5 == 1.0 ? "BIG ACCUM" : bandarFlag5 == 2.0 ? "ACCUM" : bandarFlag5 == 3.0 ? "DIST AWAL" : bandarFlag5 == 4.0 ? "SEPI" : "NORMAL"
+action5 = actionFlag5 == 1.0 ? "WASPADA" : actionFlag5 == 2.0 ? "BUY" : "WAIT"
+signal5 = signalFlag5 == 1.0 ? "BREAKOUT BUY" : signalFlag5 == 2.0 ? "BULL ABSORB" : signalFlag5 == 3.0 ? "SNIPER BUY" : "WAIT"
+
+// Calculate zona locally on-chart to save memory
+rangeSr5 = math.max(rst5 - sup5, syminfo.mintick)
+rangePos5 = (now5 - sup5) / rangeSr5
+zona5 = rangePos5 <= 0.382 ? "MURAH" : rangePos5 <= 0.618 ? "MID" : "MAHAL"
+
+// State Machine logic
+longTpHit5 = activeSide5 == "BUY" and hi5 >= activeTp1_5
+longTp2Hit5 = activeSide5 == "BUY" and hi5 >= activeTp2_5
+longSlHit5 = activeSide5 == "BUY" and lo5 <= activeSl5
+
+bothHitLong5 = longTpHit5 and longSlHit5
+if bothHitLong5
+    if sameBarRule == "SL_FIRST"
+        longTpHit5 := false
+        longTp2Hit5 := false
+    else if sameBarRule == "TP_FIRST"
+        longSlHit5 := false
+    else if sameBarRule == "IGNORE"
+        longTpHit5 := false
+        longTp2Hit5 := false
+        longSlHit5 := false
+
+entryEvent5 = activeSide5 == "" and action5 == "BUY" ? "BUY_ENTRY" : "NONE"
+event5 = (activeSide5 == "BUY" and longSlHit5) ? "SL_HIT" : (activeSide5 == "BUY" and longTp2Hit5) ? "TP2_HIT" : (activeSide5 == "BUY" and longTpHit5) ? "TP1_HIT" : entryEvent5
+
+alertSide5 = event5 == "BUY_ENTRY" ? "BUY" : activeSide5
+alertEntry5 = event5 == "BUY_ENTRY" ? entry5 : activeEntry5
+alertTp1_5 = event5 == "BUY_ENTRY" ? tp1_5 : activeTp1_5
+alertTp2_5 = event5 == "BUY_ENTRY" ? tp2_5 : activeTp2_5
+alertSl5 = event5 == "BUY_ENTRY" ? sl_5 : activeSl5
+
+if event5 == "SL_HIT" or event5 == "TP1_HIT" or event5 == "TP2_HIT"
+    activeSide5 := ""
+    activeEntry5 := na
+    activeTp1_5 := na
+    activeTp2_5 := na
+    activeSl5 := na
+    activeMode5 := na
+else if event5 == "BUY_ENTRY"
+    activeSide5 := "BUY"
+    activeEntry5 := entry5
+    activeTp1_5 := tp1_5
+    activeTp2_5 := tp2_5
+    activeSl5 := sl_5
+    activeMode5 := signalFlag5
+
+sendAlert5 = event5 == "BUY_ENTRY" or event5 == "TP1_HIT" or event5 == "TP2_HIT" or event5 == "SL_HIT"
+canAlert5 = sendAlert5 and (event5 != lastEvent5 or na(lastBar5) or bar_index - lastBar5 >= cooldownBars)
+
+alertModeRaw5 = event5 == "BUY_ENTRY" ? signalFlag5 : activeMode5
+alertMode5 = alertModeRaw5 == 1.0 ? "BREAKOUT_BUY" : alertModeRaw5 == 2.0 ? "BULL_ABSORB" : alertModeRaw5 == 3.0 ? "SNIPER_BUY" : "NONE"
+
+// Display values - locked if position is active, else dynamic
+entryDisp5 = na(activeEntry5) ? entry5 : activeEntry5
+tp1Disp5 = na(activeTp1_5) ? tp1_5 : activeTp1_5
+tp2Disp5 = na(activeTp2_5) ? tp2_5 : activeTp2_5
+slDisp5 = na(activeSl5) ? sl_5 : activeSl5
+
+pctTp1_5 = entryDisp5 > 0 ? ((tp1Disp5 - entryDisp5) / entryDisp5) * 100.0 : na
+pctTp2_5 = entryDisp5 > 0 ? ((tp2Disp5 - entryDisp5) / entryDisp5) * 100.0 : na
+pnlPct5 = activeSide5 == "BUY" ? ((now5 - activeEntry5) / activeEntry5) * 100.0 : na
+
+// Override status for active trades
+status5 = activeSide5 == "BUY" ? "RUNNING" : (event5 == "TP1_HIT" or event5 == "TP2_HIT") ? "TP-HIT" : event5 == "SL_HIT" ? "SL-BROKE" : statusRaw5
+
+// --- Ticker 6 State Machine and Fetch ---
+var string activeSide6 = ""
+var float activeEntry6 = na
+var float activeTp1_6 = na
+var float activeTp2_6 = na
+var float activeSl6 = na
+var string lastEvent6 = ""
+var int lastBar6 = na
+var float activeMode6 = na
+
+[now6, hi6, lo6, sup6, rst6, entry6, tp1_6, tp2_6, sl_6, rsi6, rvolPct6, valueBar6, score6, packedFlags6] = request.security(tk6, tf, f_dashboard_engine("BANDAR"))
+
+// Unpack flags
+signalFlag6 = math.floor(packedFlags6 % 10)
+actionFlag6 = math.floor((packedFlags6 / 10) % 10)
+bandarFlag6 = math.floor((packedFlags6 / 100) % 10)
+macdFlag6   = math.floor((packedFlags6 / 1000) % 10)
+statusFlag6 = math.floor((packedFlags6 / 10000) % 10)
+
+// Decode flags locally
+statusRaw6 = statusFlag6 == 1.0 ? "SL-BROKE" : statusFlag6 == 2.0 ? "TP-HIT" : statusFlag6 == 3.0 ? "FLYING" : statusFlag6 == 4.0 ? "SETUP" : statusFlag6 == 5.0 ? "RUNNING" : "WAIT"
+macd6 = macdFlag6 == 1.0 ? "UP" : "DOWN"
+bandar6 = bandarFlag6 == 1.0 ? "BIG ACCUM" : bandarFlag6 == 2.0 ? "ACCUM" : bandarFlag6 == 3.0 ? "DIST AWAL" : bandarFlag6 == 4.0 ? "SEPI" : "NORMAL"
+action6 = actionFlag6 == 1.0 ? "WASPADA" : actionFlag6 == 2.0 ? "BUY" : "WAIT"
+signal6 = signalFlag6 == 1.0 ? "BREAKOUT BUY" : signalFlag6 == 2.0 ? "BULL ABSORB" : signalFlag6 == 3.0 ? "SNIPER BUY" : "WAIT"
+
+// Calculate zona locally on-chart to save memory
+rangeSr6 = math.max(rst6 - sup6, syminfo.mintick)
+rangePos6 = (now6 - sup6) / rangeSr6
+zona6 = rangePos6 <= 0.382 ? "MURAH" : rangePos6 <= 0.618 ? "MID" : "MAHAL"
+
+// State Machine logic
+longTpHit6 = activeSide6 == "BUY" and hi6 >= activeTp1_6
+longTp2Hit6 = activeSide6 == "BUY" and hi6 >= activeTp2_6
+longSlHit6 = activeSide6 == "BUY" and lo6 <= activeSl6
+
+bothHitLong6 = longTpHit6 and longSlHit6
+if bothHitLong6
+    if sameBarRule == "SL_FIRST"
+        longTpHit6 := false
+        longTp2Hit6 := false
+    else if sameBarRule == "TP_FIRST"
+        longSlHit6 := false
+    else if sameBarRule == "IGNORE"
+        longTpHit6 := false
+        longTp2Hit6 := false
+        longSlHit6 := false
+
+entryEvent6 = activeSide6 == "" and action6 == "BUY" ? "BUY_ENTRY" : "NONE"
+event6 = (activeSide6 == "BUY" and longSlHit6) ? "SL_HIT" : (activeSide6 == "BUY" and longTp2Hit6) ? "TP2_HIT" : (activeSide6 == "BUY" and longTpHit6) ? "TP1_HIT" : entryEvent6
+
+alertSide6 = event6 == "BUY_ENTRY" ? "BUY" : activeSide6
+alertEntry6 = event6 == "BUY_ENTRY" ? entry6 : activeEntry6
+alertTp1_6 = event6 == "BUY_ENTRY" ? tp1_6 : activeTp1_6
+alertTp2_6 = event6 == "BUY_ENTRY" ? tp2_6 : activeTp2_6
+alertSl6 = event6 == "BUY_ENTRY" ? sl_6 : activeSl6
+
+if event6 == "SL_HIT" or event6 == "TP1_HIT" or event6 == "TP2_HIT"
+    activeSide6 := ""
+    activeEntry6 := na
+    activeTp1_6 := na
+    activeTp2_6 := na
+    activeSl6 := na
+    activeMode6 := na
+else if event6 == "BUY_ENTRY"
+    activeSide6 := "BUY"
+    activeEntry6 := entry6
+    activeTp1_6 := tp1_6
+    activeTp2_6 := tp2_6
+    activeSl6 := sl_6
+    activeMode6 := signalFlag6
+
+sendAlert6 = event6 == "BUY_ENTRY" or event6 == "TP1_HIT" or event6 == "TP2_HIT" or event6 == "SL_HIT"
+canAlert6 = sendAlert6 and (event6 != lastEvent6 or na(lastBar6) or bar_index - lastBar6 >= cooldownBars)
+
+alertModeRaw6 = event6 == "BUY_ENTRY" ? signalFlag6 : activeMode6
+alertMode6 = alertModeRaw6 == 1.0 ? "BREAKOUT_BUY" : alertModeRaw6 == 2.0 ? "BULL_ABSORB" : alertModeRaw6 == 3.0 ? "SNIPER_BUY" : "NONE"
+
+// Display values - locked if position is active, else dynamic
+entryDisp6 = na(activeEntry6) ? entry6 : activeEntry6
+tp1Disp6 = na(activeTp1_6) ? tp1_6 : activeTp1_6
+tp2Disp6 = na(activeTp2_6) ? tp2_6 : activeTp2_6
+slDisp6 = na(activeSl6) ? sl_6 : activeSl6
+
+pctTp1_6 = entryDisp6 > 0 ? ((tp1Disp6 - entryDisp6) / entryDisp6) * 100.0 : na
+pctTp2_6 = entryDisp6 > 0 ? ((tp2Disp6 - entryDisp6) / entryDisp6) * 100.0 : na
+pnlPct6 = activeSide6 == "BUY" ? ((now6 - activeEntry6) / activeEntry6) * 100.0 : na
+
+// Override status for active trades
+status6 = activeSide6 == "BUY" ? "RUNNING" : (event6 == "TP1_HIT" or event6 == "TP2_HIT") ? "TP-HIT" : event6 == "SL_HIT" ? "SL-BROKE" : statusRaw6
+
+
+// ============================================================================
+// TABLE DISPLAY
+// ============================================================================
+tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
+var tbl = table.new(tbl_pos, 22, 7, border_width=1, border_color=#333333)
+
+if barstate.islast
+    f_header(tbl, 0, "TICKER")
+    f_header(tbl, 1, "TF")
+    f_header(tbl, 2, "SUP")
+    f_header(tbl, 3, "RST")
+    f_header(tbl, 4, "ENTRY")
+    f_header(tbl, 5, "NOW")
+    f_header(tbl, 6, "TP1")
+    f_header(tbl, 7, "TP2")
+    f_header(tbl, 8, "SL")
+    f_header(tbl, 9, "PnL%")
+    f_header(tbl, 10, "%TP1")
+    f_header(tbl, 11, "%TP2")
+    f_header(tbl, 12, "STATUS")
+    f_header(tbl, 13, "ZONA")
+    f_header(tbl, 14, "RSI")
+    f_header(tbl, 15, "MACD")
+    f_header(tbl, 16, "RVOL")
+    f_header(tbl, 17, "VALUE")
+    f_header(tbl, 18, "FLOW")
+    f_header(tbl, 19, "ACTION")
+    f_header(tbl, 20, "SCORE")
+    f_header(tbl, 21, "SINYAL")
+    // Row 1
+    pnlDisp1 = na(pnlPct1) ? "-" : (pnlPct1 >= 0.0 ? "+" : "") + str.tostring(pnlPct1, "#.##") + "%"
+    pnlBg1 = na(pnlPct1) ? cDark : (pnlPct1 >= 0.0 ? cGreen : cRed)
+    entryValDisp1 = na(entryDisp1) ? "-" : str.tostring(entryDisp1, "#.00")
+    tp1ValDisp1 = na(tp1Disp1) ? "-" : str.tostring(tp1Disp1, "#.00")
+    tp2ValDisp1 = na(tp2Disp1) ? "-" : str.tostring(tp2Disp1, "#.00")
+    slValDisp1 = na(slDisp1) ? "-" : str.tostring(slDisp1, "#.00")
+    
+    f_cell(tbl, 0, 1, "IQ", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 1, tf, cDark, color.white)
+    f_cell(tbl, 2, 1, str.tostring(sup1, "#.00"), cDark, color.white)
+    f_cell(tbl, 3, 1, str.tostring(rst1, "#.00"), cDark, color.white)
+    f_cell(tbl, 4, 1, entryValDisp1, cDark, color.white)
+    f_cell(tbl, 5, 1, str.tostring(now1, "#.00"), cDark, color.white)
+    f_cell(tbl, 6, 1, tp1ValDisp1, cDark, color.lime)
+    f_cell(tbl, 7, 1, tp2ValDisp1, cDark, color.green)
+    f_cell(tbl, 8, 1, slValDisp1, cDark, color.orange)
+    f_cell(tbl, 9, 1, pnlDisp1, pnlBg1, color.white)
+    f_cell(tbl, 10, 1, str.tostring(pctTp1_1, "#.##") + "%", pctTp1_1 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 1, str.tostring(pctTp2_1, "#.##") + "%", pctTp2_1 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 12, 1, status1, f_status_color(status1), color.white)
+    f_cell(tbl, 13, 1, zona1, f_zona_color(zona1), color.white)
+    f_cell(tbl, 14, 1, str.tostring(rsi1, "#.0"), rsi1 < 30 ? cRed : rsi1 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 15, 1, macd1, f_macd_color(macd1), color.white)
+    f_cell(tbl, 16, 1, str.tostring(rvolPct1, "#.0") + "%", rvolPct1 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 1, f_value_idr(valueBar1), valueBar1 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 18, 1, bandar1, f_signal_color(bandar1), color.white)
+    f_cell(tbl, 19, 1, action1, action1 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 20, 1, str.tostring(score1, "#"), f_score_color(score1), color.white)
+    f_cell(tbl, 21, 1, signal1, f_signal_color(signal1), color.white)
+    // Row 2
+    pnlDisp2 = na(pnlPct2) ? "-" : (pnlPct2 >= 0.0 ? "+" : "") + str.tostring(pnlPct2, "#.##") + "%"
+    pnlBg2 = na(pnlPct2) ? cDark : (pnlPct2 >= 0.0 ? cGreen : cRed)
+    entryValDisp2 = na(entryDisp2) ? "-" : str.tostring(entryDisp2, "#.00")
+    tp1ValDisp2 = na(tp1Disp2) ? "-" : str.tostring(tp1Disp2, "#.00")
+    tp2ValDisp2 = na(tp2Disp2) ? "-" : str.tostring(tp2Disp2, "#.00")
+    slValDisp2 = na(slDisp2) ? "-" : str.tostring(slDisp2, "#.00")
+    
+    f_cell(tbl, 0, 2, "LYFT", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 2, tf, cDark, color.white)
+    f_cell(tbl, 2, 2, str.tostring(sup2, "#.00"), cDark, color.white)
+    f_cell(tbl, 3, 2, str.tostring(rst2, "#.00"), cDark, color.white)
+    f_cell(tbl, 4, 2, entryValDisp2, cDark, color.white)
+    f_cell(tbl, 5, 2, str.tostring(now2, "#.00"), cDark, color.white)
+    f_cell(tbl, 6, 2, tp1ValDisp2, cDark, color.lime)
+    f_cell(tbl, 7, 2, tp2ValDisp2, cDark, color.green)
+    f_cell(tbl, 8, 2, slValDisp2, cDark, color.orange)
+    f_cell(tbl, 9, 2, pnlDisp2, pnlBg2, color.white)
+    f_cell(tbl, 10, 2, str.tostring(pctTp1_2, "#.##") + "%", pctTp1_2 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 2, str.tostring(pctTp2_2, "#.##") + "%", pctTp2_2 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 12, 2, status2, f_status_color(status2), color.white)
+    f_cell(tbl, 13, 2, zona2, f_zona_color(zona2), color.white)
+    f_cell(tbl, 14, 2, str.tostring(rsi2, "#.0"), rsi2 < 30 ? cRed : rsi2 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 15, 2, macd2, f_macd_color(macd2), color.white)
+    f_cell(tbl, 16, 2, str.tostring(rvolPct2, "#.0") + "%", rvolPct2 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 2, f_value_idr(valueBar2), valueBar2 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 18, 2, bandar2, f_signal_color(bandar2), color.white)
+    f_cell(tbl, 19, 2, action2, action2 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 20, 2, str.tostring(score2, "#"), f_score_color(score2), color.white)
+    f_cell(tbl, 21, 2, signal2, f_signal_color(signal2), color.white)
+    // Row 3
+    pnlDisp3 = na(pnlPct3) ? "-" : (pnlPct3 >= 0.0 ? "+" : "") + str.tostring(pnlPct3, "#.##") + "%"
+    pnlBg3 = na(pnlPct3) ? cDark : (pnlPct3 >= 0.0 ? cGreen : cRed)
+    entryValDisp3 = na(entryDisp3) ? "-" : str.tostring(entryDisp3, "#.00")
+    tp1ValDisp3 = na(tp1Disp3) ? "-" : str.tostring(tp1Disp3, "#.00")
+    tp2ValDisp3 = na(tp2Disp3) ? "-" : str.tostring(tp2Disp3, "#.00")
+    slValDisp3 = na(slDisp3) ? "-" : str.tostring(slDisp3, "#.00")
+    
+    f_cell(tbl, 0, 3, "NU", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 3, tf, cDark, color.white)
+    f_cell(tbl, 2, 3, str.tostring(sup3, "#.00"), cDark, color.white)
+    f_cell(tbl, 3, 3, str.tostring(rst3, "#.00"), cDark, color.white)
+    f_cell(tbl, 4, 3, entryValDisp3, cDark, color.white)
+    f_cell(tbl, 5, 3, str.tostring(now3, "#.00"), cDark, color.white)
+    f_cell(tbl, 6, 3, tp1ValDisp3, cDark, color.lime)
+    f_cell(tbl, 7, 3, tp2ValDisp3, cDark, color.green)
+    f_cell(tbl, 8, 3, slValDisp3, cDark, color.orange)
+    f_cell(tbl, 9, 3, pnlDisp3, pnlBg3, color.white)
+    f_cell(tbl, 10, 3, str.tostring(pctTp1_3, "#.##") + "%", pctTp1_3 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 3, str.tostring(pctTp2_3, "#.##") + "%", pctTp2_3 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 12, 3, status3, f_status_color(status3), color.white)
+    f_cell(tbl, 13, 3, zona3, f_zona_color(zona3), color.white)
+    f_cell(tbl, 14, 3, str.tostring(rsi3, "#.0"), rsi3 < 30 ? cRed : rsi3 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 15, 3, macd3, f_macd_color(macd3), color.white)
+    f_cell(tbl, 16, 3, str.tostring(rvolPct3, "#.0") + "%", rvolPct3 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 3, f_value_idr(valueBar3), valueBar3 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 18, 3, bandar3, f_signal_color(bandar3), color.white)
+    f_cell(tbl, 19, 3, action3, action3 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 20, 3, str.tostring(score3, "#"), f_score_color(score3), color.white)
+    f_cell(tbl, 21, 3, signal3, f_signal_color(signal3), color.white)
+    // Row 4
+    pnlDisp4 = na(pnlPct4) ? "-" : (pnlPct4 >= 0.0 ? "+" : "") + str.tostring(pnlPct4, "#.##") + "%"
+    pnlBg4 = na(pnlPct4) ? cDark : (pnlPct4 >= 0.0 ? cGreen : cRed)
+    entryValDisp4 = na(entryDisp4) ? "-" : str.tostring(entryDisp4, "#.00")
+    tp1ValDisp4 = na(tp1Disp4) ? "-" : str.tostring(tp1Disp4, "#.00")
+    tp2ValDisp4 = na(tp2Disp4) ? "-" : str.tostring(tp2Disp4, "#.00")
+    slValDisp4 = na(slDisp4) ? "-" : str.tostring(slDisp4, "#.00")
+    
+    f_cell(tbl, 0, 4, "XYZ", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 4, tf, cDark, color.white)
+    f_cell(tbl, 2, 4, str.tostring(sup4, "#.00"), cDark, color.white)
+    f_cell(tbl, 3, 4, str.tostring(rst4, "#.00"), cDark, color.white)
+    f_cell(tbl, 4, 4, entryValDisp4, cDark, color.white)
+    f_cell(tbl, 5, 4, str.tostring(now4, "#.00"), cDark, color.white)
+    f_cell(tbl, 6, 4, tp1ValDisp4, cDark, color.lime)
+    f_cell(tbl, 7, 4, tp2ValDisp4, cDark, color.green)
+    f_cell(tbl, 8, 4, slValDisp4, cDark, color.orange)
+    f_cell(tbl, 9, 4, pnlDisp4, pnlBg4, color.white)
+    f_cell(tbl, 10, 4, str.tostring(pctTp1_4, "#.##") + "%", pctTp1_4 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 4, str.tostring(pctTp2_4, "#.##") + "%", pctTp2_4 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 12, 4, status4, f_status_color(status4), color.white)
+    f_cell(tbl, 13, 4, zona4, f_zona_color(zona4), color.white)
+    f_cell(tbl, 14, 4, str.tostring(rsi4, "#.0"), rsi4 < 30 ? cRed : rsi4 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 15, 4, macd4, f_macd_color(macd4), color.white)
+    f_cell(tbl, 16, 4, str.tostring(rvolPct4, "#.0") + "%", rvolPct4 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 4, f_value_idr(valueBar4), valueBar4 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 18, 4, bandar4, f_signal_color(bandar4), color.white)
+    f_cell(tbl, 19, 4, action4, action4 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 20, 4, str.tostring(score4, "#"), f_score_color(score4), color.white)
+    f_cell(tbl, 21, 4, signal4, f_signal_color(signal4), color.white)
+    // Row 5
+    pnlDisp5 = na(pnlPct5) ? "-" : (pnlPct5 >= 0.0 ? "+" : "") + str.tostring(pnlPct5, "#.##") + "%"
+    pnlBg5 = na(pnlPct5) ? cDark : (pnlPct5 >= 0.0 ? cGreen : cRed)
+    entryValDisp5 = na(entryDisp5) ? "-" : str.tostring(entryDisp5, "#.00")
+    tp1ValDisp5 = na(tp1Disp5) ? "-" : str.tostring(tp1Disp5, "#.00")
+    tp2ValDisp5 = na(tp2Disp5) ? "-" : str.tostring(tp2Disp5, "#.00")
+    slValDisp5 = na(slDisp5) ? "-" : str.tostring(slDisp5, "#.00")
+    
+    f_cell(tbl, 0, 5, "BITF", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 5, tf, cDark, color.white)
+    f_cell(tbl, 2, 5, str.tostring(sup5, "#.00"), cDark, color.white)
+    f_cell(tbl, 3, 5, str.tostring(rst5, "#.00"), cDark, color.white)
+    f_cell(tbl, 4, 5, entryValDisp5, cDark, color.white)
+    f_cell(tbl, 5, 5, str.tostring(now5, "#.00"), cDark, color.white)
+    f_cell(tbl, 6, 5, tp1ValDisp5, cDark, color.lime)
+    f_cell(tbl, 7, 5, tp2ValDisp5, cDark, color.green)
+    f_cell(tbl, 8, 5, slValDisp5, cDark, color.orange)
+    f_cell(tbl, 9, 5, pnlDisp5, pnlBg5, color.white)
+    f_cell(tbl, 10, 5, str.tostring(pctTp1_5, "#.##") + "%", pctTp1_5 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 5, str.tostring(pctTp2_5, "#.##") + "%", pctTp2_5 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 12, 5, status5, f_status_color(status5), color.white)
+    f_cell(tbl, 13, 5, zona5, f_zona_color(zona5), color.white)
+    f_cell(tbl, 14, 5, str.tostring(rsi5, "#.0"), rsi5 < 30 ? cRed : rsi5 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 15, 5, macd5, f_macd_color(macd5), color.white)
+    f_cell(tbl, 16, 5, str.tostring(rvolPct5, "#.0") + "%", rvolPct5 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 5, f_value_idr(valueBar5), valueBar5 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 18, 5, bandar5, f_signal_color(bandar5), color.white)
+    f_cell(tbl, 19, 5, action5, action5 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 20, 5, str.tostring(score5, "#"), f_score_color(score5), color.white)
+    f_cell(tbl, 21, 5, signal5, f_signal_color(signal5), color.white)
+    // Row 6
+    pnlDisp6 = na(pnlPct6) ? "-" : (pnlPct6 >= 0.0 ? "+" : "") + str.tostring(pnlPct6, "#.##") + "%"
+    pnlBg6 = na(pnlPct6) ? cDark : (pnlPct6 >= 0.0 ? cGreen : cRed)
+    entryValDisp6 = na(entryDisp6) ? "-" : str.tostring(entryDisp6, "#.00")
+    tp1ValDisp6 = na(tp1Disp6) ? "-" : str.tostring(tp1Disp6, "#.00")
+    tp2ValDisp6 = na(tp2Disp6) ? "-" : str.tostring(tp2Disp6, "#.00")
+    slValDisp6 = na(slDisp6) ? "-" : str.tostring(slDisp6, "#.00")
+    
+    f_cell(tbl, 0, 6, "CLSK", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 1, 6, tf, cDark, color.white)
+    f_cell(tbl, 2, 6, str.tostring(sup6, "#.00"), cDark, color.white)
+    f_cell(tbl, 3, 6, str.tostring(rst6, "#.00"), cDark, color.white)
+    f_cell(tbl, 4, 6, entryValDisp6, cDark, color.white)
+    f_cell(tbl, 5, 6, str.tostring(now6, "#.00"), cDark, color.white)
+    f_cell(tbl, 6, 6, tp1ValDisp6, cDark, color.lime)
+    f_cell(tbl, 7, 6, tp2ValDisp6, cDark, color.green)
+    f_cell(tbl, 8, 6, slValDisp6, cDark, color.orange)
+    f_cell(tbl, 9, 6, pnlDisp6, pnlBg6, color.white)
+    f_cell(tbl, 10, 6, str.tostring(pctTp1_6, "#.##") + "%", pctTp1_6 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 11, 6, str.tostring(pctTp2_6, "#.##") + "%", pctTp2_6 >= 0 ? cGreen : cRed, color.white)
+    f_cell(tbl, 12, 6, status6, f_status_color(status6), color.white)
+    f_cell(tbl, 13, 6, zona6, f_zona_color(zona6), color.white)
+    f_cell(tbl, 14, 6, str.tostring(rsi6, "#.0"), rsi6 < 30 ? cRed : rsi6 > 70 ? cOrange : cBlue, color.white)
+    f_cell(tbl, 15, 6, macd6, f_macd_color(macd6), color.white)
+    f_cell(tbl, 16, 6, str.tostring(rvolPct6, "#.0") + "%", rvolPct6 >= 150 ? cGreen : cDark, color.white)
+    f_cell(tbl, 17, 6, f_value_idr(valueBar6), valueBar6 >= min_tv ? cGreen : cDark, color.white)
+    f_cell(tbl, 18, 6, bandar6, f_signal_color(bandar6), color.white)
+    f_cell(tbl, 19, 6, action6, action6 == "WASPADA" ? cOrange : cGreen, color.white)
+    f_cell(tbl, 20, 6, str.tostring(score6, "#"), f_score_color(score6), color.white)
+    f_cell(tbl, 21, 6, signal6, f_signal_color(signal6), color.white)
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+    if barstate.isconfirmed and canAlert1
+        msg_1 = '{"market": "US", "type": "US_BANDAR_V3", "event": "' + event1 + '", "side": "' + str.tostring(alertSide1) + '", "ticker": "IQ", "tf": "' + tf + '", "now": ' + str.tostring(now1) + ', "entry": ' + str.tostring(alertEntry1) + ', "tp1": ' + str.tostring(alertTp1_1) + ', "tp2": ' + str.tostring(alertTp2_1) + ', "sl": ' + str.tostring(alertSl1) + ', "tp_pct": ' + str.tostring(pctTp1_1) + ', "tp2_pct": ' + str.tostring(pctTp2_1) + ', "risk_pct": ' + str.tostring(not na(alertEntry1) and alertEntry1 > 0 ? math.abs(alertEntry1 - alertSl1) / alertEntry1 * 100.0 : 0.0) + ', "score": ' + str.tostring(score1) + ', "zona": "' + zona1 + '", "bandar": "' + bandar1 + '", "holding_hint": "swing 3-7 hari", "transaction_value": ' + str.tostring(valueBar1) + ', "action": "' + action1 + '", "signal": "' + event1 + '", "support": ' + str.tostring(sup1) + ', "resistance": ' + str.tostring(rst1) + ', "time": ' + str.tostring(time) + '}'
+        alert(msg_1, alert.freq_once_per_bar_close)
+        lastEvent1 := event1
+        lastBar1 := bar_index
+    if barstate.isconfirmed and canAlert2
+        msg_2 = '{"market": "US", "type": "US_BANDAR_V3", "event": "' + event2 + '", "side": "' + str.tostring(alertSide2) + '", "ticker": "LYFT", "tf": "' + tf + '", "now": ' + str.tostring(now2) + ', "entry": ' + str.tostring(alertEntry2) + ', "tp1": ' + str.tostring(alertTp1_2) + ', "tp2": ' + str.tostring(alertTp2_2) + ', "sl": ' + str.tostring(alertSl2) + ', "tp_pct": ' + str.tostring(pctTp1_2) + ', "tp2_pct": ' + str.tostring(pctTp2_2) + ', "risk_pct": ' + str.tostring(not na(alertEntry2) and alertEntry2 > 0 ? math.abs(alertEntry2 - alertSl2) / alertEntry2 * 100.0 : 0.0) + ', "score": ' + str.tostring(score2) + ', "zona": "' + zona2 + '", "bandar": "' + bandar2 + '", "holding_hint": "swing 3-7 hari", "transaction_value": ' + str.tostring(valueBar2) + ', "action": "' + action2 + '", "signal": "' + event2 + '", "support": ' + str.tostring(sup2) + ', "resistance": ' + str.tostring(rst2) + ', "time": ' + str.tostring(time) + '}'
+        alert(msg_2, alert.freq_once_per_bar_close)
+        lastEvent2 := event2
+        lastBar2 := bar_index
+    if barstate.isconfirmed and canAlert3
+        msg_3 = '{"market": "US", "type": "US_BANDAR_V3", "event": "' + event3 + '", "side": "' + str.tostring(alertSide3) + '", "ticker": "NU", "tf": "' + tf + '", "now": ' + str.tostring(now3) + ', "entry": ' + str.tostring(alertEntry3) + ', "tp1": ' + str.tostring(alertTp1_3) + ', "tp2": ' + str.tostring(alertTp2_3) + ', "sl": ' + str.tostring(alertSl3) + ', "tp_pct": ' + str.tostring(pctTp1_3) + ', "tp2_pct": ' + str.tostring(pctTp2_3) + ', "risk_pct": ' + str.tostring(not na(alertEntry3) and alertEntry3 > 0 ? math.abs(alertEntry3 - alertSl3) / alertEntry3 * 100.0 : 0.0) + ', "score": ' + str.tostring(score3) + ', "zona": "' + zona3 + '", "bandar": "' + bandar3 + '", "holding_hint": "swing 3-7 hari", "transaction_value": ' + str.tostring(valueBar3) + ', "action": "' + action3 + '", "signal": "' + event3 + '", "support": ' + str.tostring(sup3) + ', "resistance": ' + str.tostring(rst3) + ', "time": ' + str.tostring(time) + '}'
+        alert(msg_3, alert.freq_once_per_bar_close)
+        lastEvent3 := event3
+        lastBar3 := bar_index
+    if barstate.isconfirmed and canAlert4
+        msg_4 = '{"market": "US", "type": "US_BANDAR_V3", "event": "' + event4 + '", "side": "' + str.tostring(alertSide4) + '", "ticker": "XYZ", "tf": "' + tf + '", "now": ' + str.tostring(now4) + ', "entry": ' + str.tostring(alertEntry4) + ', "tp1": ' + str.tostring(alertTp1_4) + ', "tp2": ' + str.tostring(alertTp2_4) + ', "sl": ' + str.tostring(alertSl4) + ', "tp_pct": ' + str.tostring(pctTp1_4) + ', "tp2_pct": ' + str.tostring(pctTp2_4) + ', "risk_pct": ' + str.tostring(not na(alertEntry4) and alertEntry4 > 0 ? math.abs(alertEntry4 - alertSl4) / alertEntry4 * 100.0 : 0.0) + ', "score": ' + str.tostring(score4) + ', "zona": "' + zona4 + '", "bandar": "' + bandar4 + '", "holding_hint": "swing 3-7 hari", "transaction_value": ' + str.tostring(valueBar4) + ', "action": "' + action4 + '", "signal": "' + event4 + '", "support": ' + str.tostring(sup4) + ', "resistance": ' + str.tostring(rst4) + ', "time": ' + str.tostring(time) + '}'
+        alert(msg_4, alert.freq_once_per_bar_close)
+        lastEvent4 := event4
+        lastBar4 := bar_index
+    if barstate.isconfirmed and canAlert5
+        msg_5 = '{"market": "US", "type": "US_BANDAR_V3", "event": "' + event5 + '", "side": "' + str.tostring(alertSide5) + '", "ticker": "BITF", "tf": "' + tf + '", "now": ' + str.tostring(now5) + ', "entry": ' + str.tostring(alertEntry5) + ', "tp1": ' + str.tostring(alertTp1_5) + ', "tp2": ' + str.tostring(alertTp2_5) + ', "sl": ' + str.tostring(alertSl5) + ', "tp_pct": ' + str.tostring(pctTp1_5) + ', "tp2_pct": ' + str.tostring(pctTp2_5) + ', "risk_pct": ' + str.tostring(not na(alertEntry5) and alertEntry5 > 0 ? math.abs(alertEntry5 - alertSl5) / alertEntry5 * 100.0 : 0.0) + ', "score": ' + str.tostring(score5) + ', "zona": "' + zona5 + '", "bandar": "' + bandar5 + '", "holding_hint": "swing 3-7 hari", "transaction_value": ' + str.tostring(valueBar5) + ', "action": "' + action5 + '", "signal": "' + event5 + '", "support": ' + str.tostring(sup5) + ', "resistance": ' + str.tostring(rst5) + ', "time": ' + str.tostring(time) + '}'
+        alert(msg_5, alert.freq_once_per_bar_close)
+        lastEvent5 := event5
+        lastBar5 := bar_index
+    if barstate.isconfirmed and canAlert6
+        msg_6 = '{"market": "US", "type": "US_BANDAR_V3", "event": "' + event6 + '", "side": "' + str.tostring(alertSide6) + '", "ticker": "CLSK", "tf": "' + tf + '", "now": ' + str.tostring(now6) + ', "entry": ' + str.tostring(alertEntry6) + ', "tp1": ' + str.tostring(alertTp1_6) + ', "tp2": ' + str.tostring(alertTp2_6) + ', "sl": ' + str.tostring(alertSl6) + ', "tp_pct": ' + str.tostring(pctTp1_6) + ', "tp2_pct": ' + str.tostring(pctTp2_6) + ', "risk_pct": ' + str.tostring(not na(alertEntry6) and alertEntry6 > 0 ? math.abs(alertEntry6 - alertSl6) / alertEntry6 * 100.0 : 0.0) + ', "score": ' + str.tostring(score6) + ', "zona": "' + zona6 + '", "bandar": "' + bandar6 + '", "holding_hint": "swing 3-7 hari", "transaction_value": ' + str.tostring(valueBar6) + ', "action": "' + action6 + '", "signal": "' + event6 + '", "support": ' + str.tostring(sup6) + ', "resistance": ' + str.tostring(rst6) + ', "time": ' + str.tostring(time) + '}'
+        alert(msg_6, alert.freq_once_per_bar_close)
+        lastEvent6 := event6
+        lastBar6 := bar_index
+
+plot(close, display=display.none)

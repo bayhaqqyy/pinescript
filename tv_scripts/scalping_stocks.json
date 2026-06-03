@@ -3,7 +3,7 @@
   "strategy": "SCALPING_V2",
   "description": "Saham IDX < Rp1000 untuk scalping intraday (Gorengan Tier). TF: 5 menit.",
   "total": 210,
-  "batches": 21,
+  "batches": 26,
   "stocks": [
     {
       "ticker": "PNBN",
@@ -2115,37 +2115,39 @@
       "MARK",
       "KLBF",
       "PBSA",
-      "BSIM",
-      "HRUM",
-      "BFIN"
+      "BSIM"
     ],
     "batch_b": [
+      "HRUM",
+      "BFIN",
       "DSSA",
       "JECC",
       "BJBR",
       "CMNT",
       "SMCB",
-      "ESSA",
+      "ESSA"
+    ],
+    "batch_c": [
       "HMSP",
       "BNBA",
       "BRMS",
-      "BSDE"
-    ],
-    "batch_c": [
+      "BSDE",
       "EMTK",
       "ASSA",
       "PRAY",
-      "DKFT",
+      "DKFT"
+    ],
+    "batch_d": [
       "ELSA",
       "TBLA",
       "LPGI",
       "RIGS",
       "CTRA",
-      "MSIN"
-    ],
-    "batch_d": [
+      "MSIN",
       "KAEF",
-      "SIMP",
+      "SIMP"
+    ],
+    "batch_e": [
       "ROTI",
       "STAR",
       "LPCK",
@@ -2155,7 +2157,7 @@
       "BJTM",
       "TOBA"
     ],
-    "batch_e": [
+    "batch_f": [
       "MBMA",
       "NRCA",
       "MTLA",
@@ -2163,37 +2165,39 @@
       "MTSM",
       "PDES",
       "BMAS",
-      "NOBU",
-      "ARNA",
-      "IRSX"
+      "NOBU"
     ],
-    "batch_f": [
+    "batch_g": [
+      "ARNA",
+      "IRSX",
       "BPII",
       "PSAB",
       "KDSI",
       "TOWR",
       "DEWA",
-      "BSML",
+      "BSML"
+    ],
+    "batch_h": [
       "BULL",
       "TRIO",
       "SIDO",
-      "BANK"
-    ],
-    "batch_g": [
+      "BANK",
       "LPIN",
       "CLEO",
       "ERAA",
-      "ACES",
+      "ACES"
+    ],
+    "batch_i": [
       "INDS",
       "AMOR",
       "SGER",
       "SAFE",
       "CFIN",
-      "MINA"
-    ],
-    "batch_h": [
+      "MINA",
       "MMLP",
-      "GOOD",
+      "GOOD"
+    ],
+    "batch_j": [
       "SAME",
       "KBLM",
       "KBLI",
@@ -2203,7 +2207,7 @@
       "SMRA",
       "PWON"
     ],
-    "batch_i": [
+    "batch_k": [
       "PEHA",
       "PYFA",
       "KKGI",
@@ -2211,37 +2215,39 @@
       "MCAS",
       "WOMF",
       "BBYB",
-      "UNSP",
-      "ARII",
-      "NELY"
+      "UNSP"
     ],
-    "batch_j": [
+    "batch_l": [
+      "ARII",
+      "NELY",
       "CCSI",
       "AMAN",
       "INET",
       "PNLF",
       "MLIA",
-      "TOTO",
+      "TOTO"
+    ],
+    "batch_m": [
       "KOPI",
       "ITIC",
       "SCMA",
-      "MTRA"
-    ],
-    "batch_k": [
+      "MTRA",
       "SDRA",
       "PSKT",
       "AGAR",
-      "PTPP",
+      "PTPP"
+    ],
+    "batch_n": [
       "BIPI",
       "MITI",
       "VOKS",
       "MNCN",
       "PPGL",
-      "GTBO"
-    ],
-    "batch_l": [
+      "GTBO",
       "BUDI",
-      "BUMI",
+      "BUMI"
+    ],
+    "batch_o": [
       "URBN",
       "RAAM",
       "SPMA",
@@ -2251,7 +2257,7 @@
       "CINT",
       "CAMP"
     ],
-    "batch_m": [
+    "batch_p": [
       "AMAR",
       "ADHI",
       "HELI",
@@ -2259,37 +2265,39 @@
       "FOOD",
       "NIRO",
       "HUMI",
-      "BMHS",
-      "GZCO",
-      "AGRO"
+      "BMHS"
     ],
-    "batch_n": [
+    "batch_q": [
+      "GZCO",
+      "AGRO",
       "DEFI",
       "APLN",
       "PPRI",
       "SMKL",
       "BNBR",
-      "KIJA",
+      "KIJA"
+    ],
+    "batch_r": [
       "BOLA",
       "APEX",
       "KJEN",
-      "PADA"
-    ],
-    "batch_o": [
+      "PADA",
       "OCAP",
       "CAKK",
       "ESTI",
-      "MSIE",
+      "MSIE"
+    ],
+    "batch_s": [
       "SRIL",
       "KOTA",
       "UFOE",
       "GWSA",
       "FIRE",
-      "MDIA"
-    ],
-    "batch_p": [
+      "MDIA",
       "BUKA",
-      "BACA",
+      "BACA"
+    ],
+    "batch_t": [
       "BELL",
       "LCKM",
       "DNAR",
@@ -2299,7 +2307,7 @@
       "DFAM",
       "DILD"
     ],
-    "batch_q": [
+    "batch_u": [
       "BCIC",
       "TMAS",
       "WICO",
@@ -2307,37 +2315,39 @@
       "AISA",
       "BGTG",
       "GRIA",
-      "LUCK",
-      "BWPT",
-      "POLL"
+      "LUCK"
     ],
-    "batch_r": [
+    "batch_v": [
+      "BWPT",
+      "POLL",
       "MEDS",
       "GPRA",
       "HDFA",
       "RICY",
       "KIOS",
-      "CENT",
+      "CENT"
+    ],
+    "batch_w": [
       "YELO",
       "DYAN",
       "BKSL",
-      "CARS"
-    ],
-    "batch_s": [
+      "CARS",
       "IKAN",
       "ACST",
       "BPTR",
-      "GEMA",
+      "GEMA"
+    ],
+    "batch_x": [
       "WTON",
       "ZATA",
       "VRNA",
       "LPPS",
       "LPKR",
-      "TOOL"
-    ],
-    "batch_t": [
+      "TOOL",
       "JKON",
-      "EMDE",
+      "EMDE"
+    ],
+    "batch_y": [
       "BCIP",
       "MCOR",
       "AGRS",
@@ -2347,7 +2357,7 @@
       "MDLN",
       "REAL"
     ],
-    "batch_u": [
+    "batch_z": [
       "BABP",
       "PURE",
       "ARMY",
@@ -2355,16 +2365,14 @@
       "GOTO",
       "MAGP",
       "PLAS",
-      "POOL",
-      "SMRU",
-      "TRAM"
+      "POOL"
     ]
   },
   "whitelist_missing": [
+    "DPUM",
     "PACK",
-    "SHIP",
     "BLUE",
-    "FILM",
-    "DPUM"
+    "SHIP",
+    "FILM"
   ]
 }

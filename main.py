@@ -545,8 +545,8 @@ def format_idx_scalp_v2_alert(data: dict) -> str:
 # ============================================================================
 def format_us_v3_alert(data: dict) -> str:
     type_val = data.get("type", "US_SWING_V3")
-    ticker = h(data.get("ticker", "UNKNOWN"))
-    signal = h(data.get("signal", "UNKNOWN"))
+    ticker = h(data.get("ticker") or data.get("symbol") or "UNKNOWN")
+    signal = h(data.get("signal") or data.get("event") or "UNKNOWN")
     entry = data.get("entry", 0)
     tp1 = data.get("tp1", 0)
     tp2 = data.get("tp2", 0)
@@ -557,13 +557,35 @@ def format_us_v3_alert(data: dict) -> str:
     sup = data.get("support", 0)
     rst = data.get("resistance", 0)
     action = data.get("action", "BUY")
-    flow = h(data.get("bandar", "-"))
+    flow = h(data.get("bandar") or data.get("flow") or "-")
     zona = h(data.get("zona", "-"))
     
     strategy_name = "US SWING HUNTER V3" if "SWING" in type_val else "US BANDAR AI V3"
-    icon = "🚀" if "SWING" in type_val else "🎯"
     
-    msg = f"{icon} <b>{strategy_name}</b> {icon}\n"
+    signal_upper = signal.upper()
+    if "BUY_ENTRY" in signal_upper or "LONG_ENTRY" in signal_upper:
+        icon = "🟢"
+        title = f"{strategy_name} - ENTRY"
+        sentiment = "Premium institutional entry signal terdeteksi"
+    elif any(k in signal_upper for k in ["TP1_HIT", "TP2_HIT", "TP_HIT"]):
+        icon = "🎯"
+        title = f"{strategy_name} - TP HIT"
+        sentiment = "Target profit tercapai! Amankan keuntungan"
+    elif any(k in signal_upper for k in ["SL_HIT", "SL-BROKE"]):
+        icon = "🛑"
+        title = f"{strategy_name} - SL HIT"
+        sentiment = "Stop loss terpicu. Batasi risiko"
+    else:
+        icon = "🚀" if "SWING" in type_val else "🎯"
+        title = strategy_name
+        sentiment = "Premium institutional stock alert"
+
+    try:
+        sl_warn = " ⚠️(SL > Entry)" if float(sl) >= float(entry) and float(entry) > 0 else ""
+    except:
+        sl_warn = ""
+
+    msg = f"{icon} <b>{title}</b> {icon}\n"
     msg += f"━━━━━━━━━━━━━━━━━━\n"
     msg += f"🇺🇸 <b>Ticker</b>: <code>{ticker}</code> (US PENNY STOCK)\n"
     msg += f"📊 <b>Score</b>: {score} | <b>{signal}</b>\n"
@@ -573,13 +595,13 @@ def format_us_v3_alert(data: dict) -> str:
     msg += f"🎯 <b>Entry</b>: ${entry:.2f}\n"
     msg += f"✅ <b>TP1</b>: ${tp1:.2f}\n"
     msg += f"🚀 <b>TP2</b>: ${tp2:.2f}\n"
-    msg += f"🛑 <b>SL</b>: ${sl:.2f}\n"
+    msg += f"🛑 <b>SL</b>: ${sl:.2f}{sl_warn}\n"
     msg += f"📍 <b>SUP/RST</b>: ${sup:.2f} / ${rst:.2f}\n"
     msg += f"━━━━━━━━━━━━━━━━━━\n"
     msg += f"💰 <b>Flow</b>: {flow}\n"
     msg += f"🌡 <b>Zone</b>: {zona}\n"
     msg += f"━━━━━━━━━━━━━━━━━━\n"
-    msg += f"💡 <i>Premium institutional stock alert</i>\n"
+    msg += f"💡 <i>{sentiment}</i>\n"
     msg += f"⏳ {hint}\n"
     msg += f"#US_V3 #{ticker}"
     return msg
@@ -755,8 +777,14 @@ async def handle_webhook(request: Request):
     try:
         data = await request.json()
         if isinstance(data, dict):
+            # Key normalization for compatibility
+            if "symbol" in data and "ticker" not in data:
+                data["ticker"] = data["symbol"]
+            if "event" in data and "signal" not in data:
+                data["signal"] = data["event"]
+
             # Reject any SHORT signals for IDX/US equity/stocks
-            if data.get("type") in ("BANDAR_AI", "SCALP", "BANDAR_AI_V3", "SCALP_V3", "US_SWING_V3", "US_BANDAR_V3") or data.get("market") in ("IDX", "US"):
+            if data.get("type") in ("BANDAR_AI", "SCALP", "BANDAR_AI_V3", "SCALP_V3", "US_SWING_V3", "US_BANDAR_V3", "US_STOCKS_SIGNAL") or data.get("market") in ("IDX", "US"):
                 if data.get("side") == "SHORT" or "SHORT" in str(data.get("signal", "")) or "SHORT" in str(data.get("action", "")) or "SHORT" in str(data.get("event", "")):
                     print(f"[{ts}] ❌ Equity alert rejected: SHORT is not supported for stocks.")
                     return {"status": "ignored", "reason": "invalid_equity_event"}
@@ -771,7 +799,7 @@ async def handle_webhook(request: Request):
                     message_text = format_idx_scalp_v2_alert(data)
                 else:
                     message_text = format_idx_scalp_alert(data)
-            elif data.get("type") in ("US_SWING_V3", "US_BANDAR_V3"):
+            elif data.get("type") in ("US_SWING_V3", "US_BANDAR_V3", "US_STOCKS_SIGNAL"):
                 message_text = format_us_v3_alert(data)
             elif data.get("type") == "FUTURES_SIGNAL":
                 if FUTURES_FREEZE:

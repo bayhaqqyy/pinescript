@@ -69,3 +69,37 @@ def test_us_v3_alert_formatting():
     assert "$5,000,000" in msg or "5000000" in msg
     assert "BULL ABSORB" in msg
 
+
+def test_us_v3_alert_spot_terminology():
+    from main import format_us_v3_alert
+
+    # Payload with symbol (instead of ticker) and event (instead of signal) and spot term BUY_ENTRY
+    data = {
+        "type": "US_STOCKS_SIGNAL",
+        "symbol": "AMD",
+        "tf": "10",
+        "event": "BUY_ENTRY",
+        "action": "BUY",
+        "entry": 511.22,
+        "tp1": 518.08,
+        "tp2": 523.22,
+        "sl": 507.79,
+        "transaction_value": 201192948.45,
+        "score": 87,
+        "support": 505.00,
+        "resistance": 520.00,
+        "bandar": "ACCUM",
+        "zona": "MAHAL",
+        "holding_hint": "swing 3-7 hari"
+    }
+
+    msg = format_us_v3_alert(data)
+
+    assert "ENTRY" in msg
+    assert "AMD" in msg
+    assert "BUY_ENTRY" in msg
+    assert "511.22" in msg
+    assert "518.08" in msg
+    assert "523.22" in msg
+    assert "507.79" in msg
+

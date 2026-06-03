@@ -101,11 +101,11 @@ for w in WHITELIST_SCALPING:
 scalping_pool.sort(key=lambda x: x["price"], reverse=True)
 
 scalp_batches = {}
-for i in range(0, len(scalping_pool), 10):
-    idx = i // 10
+for i in range(0, len(scalping_pool), 8):
+    idx = i // 8
     if idx >= len(labels):
         break
-    scalp_batches[f"batch_{labels[idx].lower()}"] = [s["ticker"] for s in scalping_pool[i:i+10]]
+    scalp_batches[f"batch_{labels[idx].lower()}"] = [s["ticker"] for s in scalping_pool[i:i+8]]
 
 scalp_result = {
     "date": date_str,
@@ -174,11 +174,11 @@ for w in WHITELIST_BANDAR:
 bandar_pool.sort(key=lambda x: x["price"], reverse=True)
 
 bandar_batches = {}
-for i in range(0, len(bandar_pool), 10):
-    idx = i // 10
+for i in range(0, len(bandar_pool), 8):
+    idx = i // 8
     if idx >= len(labels):
         break
-    bandar_batches[f"batch_{labels[idx].lower()}"] = [s["ticker"] for s in bandar_pool[i:i+10]]
+    bandar_batches[f"batch_{labels[idx].lower()}"] = [s["ticker"] for s in bandar_pool[i:i+8]]
 
 bandar_result = {
     "date": date_str,
