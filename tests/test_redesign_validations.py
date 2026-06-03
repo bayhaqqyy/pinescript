@@ -116,3 +116,46 @@ async def test_webhook_reject_equity_short():
         res_data = response.json()
         assert res_data["status"] == "ignored"
         assert res_data["reason"] == "invalid_equity_event"
+
+@pytest.mark.asyncio
+async def test_webhook_reject_equity_unknown_wait():
+    main.WEBHOOK_SECRET = ""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Reject unknown/wait action/signal
+        payload = {
+            "type": "SCALP",
+            "market": "IDX",
+            "ticker": "GPRA",
+            "action": "UNKNOWN",
+            "entry": 99,
+            "tp": 0,
+            "sl": 98
+        }
+        response = await client.post("/webhook", json=payload)
+        assert response.status_code == 200
+        res_data = response.json()
+        assert res_data["status"] == "ignored"
+        assert res_data["reason"] == "non_actionable_equity_event"
+
+@pytest.mark.asyncio
+async def test_webhook_reject_equity_invalid_price():
+    main.WEBHOOK_SECRET = ""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Reject zero/invalid entry price
+        payload = {
+            "type": "SCALP",
+            "market": "IDX",
+            "ticker": "RICY",
+            "action": "BUY",
+            "entry": 0,
+            "tp": 78,
+            "sl": 75
+        }
+        response = await client.post("/webhook", json=payload)
+        assert response.status_code == 200
+        res_data = response.json()
+        assert res_data["status"] == "ignored"
+        assert res_data["reason"] == "invalid_entry_price"
+

@@ -788,6 +788,26 @@ async def handle_webhook(request: Request):
                 if data.get("side") == "SHORT" or "SHORT" in str(data.get("signal", "")) or "SHORT" in str(data.get("action", "")) or "SHORT" in str(data.get("event", "")):
                     print(f"[{ts}] ❌ Equity alert rejected: SHORT is not supported for stocks.")
                     return {"status": "ignored", "reason": "invalid_equity_event"}
+                
+                # Reject UNKNOWN / WAIT / NONE signals
+                action_str = str(data.get("action", "")).upper()
+                signal_str = str(data.get("signal", "")).upper()
+                event_str = str(data.get("event", "")).upper()
+                if any(x in action_str for x in ("UNKNOWN", "WAIT", "NONE")) or \
+                   any(x in signal_str for x in ("UNKNOWN", "WAIT", "NONE")) or \
+                   any(x in event_str for x in ("UNKNOWN", "WAIT", "NONE")):
+                    print(f"[{ts}] ❌ Equity alert rejected: Action/Signal/Event contains UNKNOWN, WAIT, or NONE.")
+                    return {"status": "ignored", "reason": "non_actionable_equity_event"}
+                
+                # Reject 0/invalid entry price
+                try:
+                    entry_val = float(data.get("entry") or data.get("price") or 0)
+                    if entry_val <= 0:
+                        print(f"[{ts}] ❌ Equity alert rejected: Entry price is 0 or negative.")
+                        return {"status": "ignored", "reason": "invalid_entry_price"}
+                except (ValueError, TypeError):
+                    print(f"[{ts}] ❌ Equity alert rejected: Entry price is invalid.")
+                    return {"status": "ignored", "reason": "invalid_entry_price"}
                     
             if data.get("type") in ("BANDAR_AI", "BANDAR_AI_V3"):
                 if "tier" in data:
