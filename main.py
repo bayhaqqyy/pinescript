@@ -349,21 +349,24 @@ def format_idx_bandar_alert(data: dict) -> str:
 # ============================================================================
 def format_idx_scalp_alert(data: dict) -> str:
     ticker = h(data.get("ticker", "UNKNOWN"))
-    action = h(data.get("action", "UNKNOWN"))
+    action_raw = str(data.get("action") or data.get("signal") or data.get("event") or "UNKNOWN")
     entry = h(data.get("entry", "0"))
-    tp = h(data.get("tp", "0"))
+    tp = h(data.get("tp") or data.get("tp1") or data.get("tp2") or "0")
     sl = h(data.get("sl", "0"))
     bandar = h(data.get("bandar", "-"))
     zona = h(data.get("zona", "-"))
 
-    action_upper = action.upper()
-    if action_upper == "HAKA":
+    action_upper = action_raw.upper()
+    if "BUY" in action_upper or "HAKA" in action_upper:
+        action = "BUY"
         icon = "🔥"
         sentiment = "Momentum HAKA super cepat terdeteksi! Siap pantau bid-offer."
-    elif action_upper == "HAKI":
+    elif "SELL" in action_upper or "HAKI" in action_upper or "EXIT" in action_upper:
+        action = "SELL"
         icon = "⚠️"
         sentiment = "Tekanan jual HAKI tinggi, amankan profit / ketat SL."
     else:
+        action = action_raw
         icon = "⚡"
         sentiment = "Sinyal Scalping aktif."
 
