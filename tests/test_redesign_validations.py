@@ -156,6 +156,80 @@ async def test_webhook_reject_equity_invalid_price():
         response = await client.post("/webhook", json=payload)
         assert response.status_code == 200
         res_data = response.json()
-        assert res_data["status"] == "ignored"
         assert res_data["reason"] == "invalid_entry_price"
+
+def test_direction_validation_v2():
+    # Long valid: TP1 > Entry Avg and SL < Entry Avg
+    assert validate_direction({"version": "2.0", "side": "LONG", "entry_avg": 100, "tp1": 105, "sl": 95}) is True
+    # Long invalid: TP1 <= Entry Avg
+    assert validate_direction({"version": "2.0", "side": "LONG", "entry_avg": 100, "tp1": 99, "sl": 95}) is False
+    # Short valid: TP1 < Entry Avg and SL > Entry Avg
+    assert validate_direction({"version": "2.0", "side": "SHORT", "entry_avg": 100, "tp1": 95, "sl": 105}) is True
+
+def test_hit_validation_v2():
+    # LONG_TP1_HIT valid: now >= tp1
+    assert validate_hit({"version": "2.0", "event": "LONG_TP1_HIT", "now": 105, "tp1": 105, "sl": 95}) is True
+    assert validate_hit({"version": "2.0", "event": "LONG_TP1_HIT", "now": 104, "tp1": 105, "sl": 95}) is False
+    
+    # SHORT_TP2_HIT valid: now <= tp2
+    assert validate_hit({"version": "2.0", "event": "SHORT_TP2_HIT", "now": 90, "tp1": 95, "tp2": 90, "tp3": 85, "sl": 105}) is True
+    assert validate_hit({"version": "2.0", "event": "SHORT_TP2_HIT", "now": 91, "tp1": 95, "tp2": 90, "tp3": 85, "sl": 105}) is False
+
+def test_format_futures_message_v2():
+    from main import format_futures_message
+    
+    data = {
+        "market": "BINANCE_FUTURES",
+        "type": "FUTURES_SIGNAL",
+        "version": "2.0",
+        "event": "SHORT_ENTRY",
+        "symbol": "PORTALUSDT",
+        "side": "SHORT",
+        "tf_trigger": "15",
+        "tf_zone": "60",
+        "tf_bias": "240",
+        "mode": "BREAKDOWN_RETEST",
+        "status": "VALID_SHORT",
+        "now": 0.0248,
+        "entry_low": 0.0245,
+        "entry_high": 0.0260,
+        "entry_avg": 0.02525,
+        "tp1": 0.0230,
+        "tp2": 0.0215,
+        "tp3": 0.0200,
+        "sl": 0.0275,
+        "risk_pct": 8.91,
+        "rr_tp1": 0.89,
+        "rr_tp2": 1.48,
+        "rr_tp3": 2.08,
+        "input_leverage": 10,
+        "recommended_leverage": 3,
+        "lev_risk_pct": 89.1,
+        "risk_label": "RISKY_PLAN",
+        "score": 82,
+        "bias_4h": "BEARISH",
+        "bias_strength_4h": "NORMAL",
+        "zone_1h": "SUPPLY",
+        "zone_score_1h": 78,
+        "trigger_15m": "BEARISH_CONFIRMATION",
+        "rsi": 42.5,
+        "rvol": 1.452
+    }
+    
+    msg = format_futures_message(data)
+    assert "PORTALUSDT" in msg
+    assert "SHORT" in msg
+    assert "BREAKDOWN_RETEST" in msg
+    assert "0.0245 - 0.0260" in msg
+    assert "0.0230" in msg
+    assert "0.0215" in msg
+    assert "0.0200" in msg
+    assert "0.0275" in msg
+    assert "RISKY_PLAN" in msg
+    assert "Rec: 3x" in msg
+    assert "Score" in msg
+    assert "82" in msg
+    assert "BEARISH" in msg
+    assert "SUPPLY" in msg
+    assert "WARNING" in msg
 

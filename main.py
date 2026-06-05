@@ -25,6 +25,8 @@ ALLOWED_FUTURES_EVENTS = {
     "LONG_ENTRY", "SHORT_ENTRY",
     "LONG_TP_HIT", "LONG_SL_HIT",
     "SHORT_TP_HIT", "SHORT_SL_HIT",
+    "LONG_TP1_HIT", "LONG_TP2_HIT", "LONG_TP3_HIT",
+    "SHORT_TP1_HIT", "SHORT_TP2_HIT", "SHORT_TP3_HIT",
 }
 
 ALLOWED_EQUITY_EVENTS = {
@@ -615,10 +617,16 @@ def format_us_v3_alert(data: dict) -> str:
 # ============================================================================
 def validate_direction(data: dict) -> bool:
     side = data.get("side", "")
+    version = data.get("version", "1.0")
     try:
-        entry = float(data.get("entry", 0))
-        tp = float(data.get("tp", 0))
-        sl = float(data.get("sl", 0))
+        if version == "2.0":
+            entry = float(data.get("entry_avg", 0))
+            tp = float(data.get("tp1", 0))
+            sl = float(data.get("sl", 0))
+        else:
+            entry = float(data.get("entry", 0))
+            tp = float(data.get("tp", 0))
+            sl = float(data.get("sl", 0))
     except (ValueError, TypeError):
         return False
         
@@ -633,10 +641,16 @@ def validate_direction(data: dict) -> bool:
 
 def validate_hit(data: dict) -> bool:
     event = data.get("event", "")
+    version = data.get("version", "1.0")
     try:
         now = float(data.get("now", 0))
-        tp = float(data.get("tp", 0))
         sl = float(data.get("sl", 0))
+        if version == "2.0":
+            tp1 = float(data.get("tp1", 0))
+            tp2 = float(data.get("tp2", 0))
+            tp3 = float(data.get("tp3", 0))
+        else:
+            tp = float(data.get("tp", 0))
     except (ValueError, TypeError):
         return False
         
@@ -644,6 +658,14 @@ def validate_hit(data: dict) -> bool:
     if event == "LONG_SL_HIT":   return now <= sl
     if event == "SHORT_TP_HIT":  return now <= tp
     if event == "SHORT_SL_HIT":  return now >= sl
+    
+    # Version 2.0 TP hits
+    if event == "LONG_TP1_HIT":  return now >= tp1
+    if event == "LONG_TP2_HIT":  return now >= tp2
+    if event == "LONG_TP3_HIT":  return now >= tp3
+    if event == "SHORT_TP1_HIT": return now <= tp1
+    if event == "SHORT_TP2_HIT": return now <= tp2
+    if event == "SHORT_TP3_HIT": return now <= tp3
     return True
 
 def validate_market_type(data: dict) -> bool:
@@ -662,8 +684,11 @@ def validate_market_type(data: dict) -> bool:
 def format_futures_message(data: dict) -> str:
     symbol = h(data.get("symbol", "UNKNOWN"))
     event = h(data.get("event", "UNKNOWN"))
-    tf = h(data.get("tf", "15"))
+    tf_trigger = h(data.get("tf_trigger", data.get("tf", "15")))
+    tf_zone = h(data.get("tf_zone", "60"))
+    tf_bias = h(data.get("tf_bias", "240"))
     side = h(data.get("side", "NONE"))
+    version = data.get("version", "1.0")
     
     price_decimals = data.get("price_decimals", 4)
     def fmt_price(key):
@@ -678,82 +703,178 @@ def format_futures_message(data: dict) -> str:
             return str(val)
 
     price_text = data.get("price_text", {})
-    now = h(price_text.get("now", fmt_price("now")))
-    entry = h(price_text.get("entry", fmt_price("entry")))
-    tp = h(price_text.get("tp", fmt_price("tp")))
-    sl = h(price_text.get("sl", fmt_price("sl")))
-    
-    # Format Header and Title based on event
-    if event == "LONG_ENTRY":
-        icon = "🟢"
-        title = "BINANCE FUTURES LONG - ENTRY"
-    elif event == "SHORT_ENTRY":
-        icon = "🔴"
-        title = "BINANCE FUTURES SHORT - ENTRY"
-    elif event == "LONG_TP_HIT":
-        icon = "🎯"
-        title = "TP HIT - LONG CLOSED"
-    elif event == "SHORT_TP_HIT":
-        icon = "🎯"
-        title = "TP HIT - SHORT CLOSED"
-    elif event == "LONG_SL_HIT":
-        icon = "🛑"
-        title = "SL HIT - LONG CLOSED"
-    elif event == "SHORT_SL_HIT":
-        icon = "🛑"
-        title = "SL HIT - SHORT CLOSED"
+    def get_price(key):
+        if key in price_text and price_text[key] != "-":
+            return h(price_text[key])
+        return fmt_price(key)
+
+    # Decode titles
+    if version == "2.0":
+        if event == "LONG_ENTRY":
+            icon, title = "🟢", "BINANCE FUTURES LONG - ENTRY"
+        elif event == "SHORT_ENTRY":
+            icon, title = "🔴", "BINANCE FUTURES SHORT - ENTRY"
+        elif event == "LONG_TP1_HIT":
+            icon, title = "🎯", "TP1 HIT - LONG PARTIAL"
+        elif event == "SHORT_TP1_HIT":
+            icon, title = "🎯", "TP1 HIT - SHORT PARTIAL"
+        elif event == "LONG_TP2_HIT":
+            icon, title = "🎯", "TP2 HIT - LONG PARTIAL"
+        elif event == "SHORT_TP2_HIT":
+            icon, title = "🎯", "TP2 HIT - SHORT PARTIAL"
+        elif event == "LONG_TP3_HIT":
+            icon, title = "🏆", "ALL TP HIT - LONG CLOSED"
+        elif event == "SHORT_TP3_HIT":
+            icon, title = "🏆", "ALL TP HIT - SHORT CLOSED"
+        elif event == "LONG_SL_HIT":
+            icon, title = "🛑", "SL HIT - LONG CLOSED"
+        elif event == "SHORT_SL_HIT":
+            icon, title = "🛑", "SL HIT - SHORT CLOSED"
+        else:
+            icon = "🟢" if "LONG" in side.upper() else "🔴"
+            title = f"BINANCE FUTURES {side.upper()}"
     else:
-        icon = "🟢" if "LONG" in side.upper() else "🔴"
-        title = f"BINANCE FUTURES {side.upper()}"
-    
-    if "LONG" in side.upper() or "LONG" in event:
-        tp_sign = "+"
-        sl_sign = "-"
-        l_tp_sign = "+"
-        l_risk_sign = "-"
+        # Legacy version 1.0 support
+        if event == "LONG_ENTRY":
+            icon, title = "🟢", "BINANCE FUTURES LONG - ENTRY"
+        elif event == "SHORT_ENTRY":
+            icon, title = "🔴", "BINANCE FUTURES SHORT - ENTRY"
+        elif event == "LONG_TP_HIT":
+            icon, title = "🎯", "TP HIT - LONG CLOSED"
+        elif event == "SHORT_TP_HIT":
+            icon, title = "🎯", "TP HIT - SHORT CLOSED"
+        elif event == "LONG_SL_HIT":
+            icon, title = "🛑", "SL HIT - LONG CLOSED"
+        elif event == "SHORT_SL_HIT":
+            icon, title = "🛑", "SL HIT - SHORT CLOSED"
+        else:
+            icon = "🟢" if "LONG" in side.upper() else "🔴"
+            title = f"BINANCE FUTURES {side.upper()}"
+
+    if version == "2.0":
+        now = get_price("now")
+        entry_low = get_price("entry_low")
+        entry_high = get_price("entry_high")
+        entry_avg = get_price("entry_avg")
+        tp1 = get_price("tp1")
+        tp2 = get_price("tp2")
+        tp3 = get_price("tp3")
+        sl = get_price("sl")
+        
+        mode = h(data.get("mode", "-"))
+        status = h(data.get("status", "-"))
+        risk_label = h(data.get("risk_label", "-"))
+        rec_lev = data.get("recommended_leverage", 1)
+        input_leverage = data.get("input_leverage", 10)
+        
+        score = data.get("score", 0)
+        bias_4h = h(data.get("bias_4h", "-"))
+        bias_strength_4h = h(data.get("bias_strength_4h", "-"))
+        zone_1h = h(data.get("zone_1h", "-"))
+        zone_score_1h = data.get("zone_score_1h", "-")
+        rsi = data.get("rsi", "-")
+        rvol = data.get("rvol", "-")
+        
+        # Format percentages
+        try:
+            rvol_pct = f"{float(rvol) * 100:.1f}%" if rvol != "-" else "-"
+        except:
+            rvol_pct = str(rvol)
+            
+        try:
+            risk_pct = float(data.get("risk_pct", 0.0))
+            risk_pct_str = f"{risk_pct:.2f}%"
+        except:
+            risk_pct_str = "-"
+            
+        rr_tp1 = data.get("rr_tp1", "-")
+        rr_tp2 = data.get("rr_tp2", "-")
+        rr_tp3 = data.get("rr_tp3", "-")
+        
+        msg = f"{icon} <b>{title}</b> {icon}\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        msg += f"🏷 <b>Symbol</b> : <code>{symbol}</code>\n"
+        msg += f"⏰ <b>TF</b>     : {tf_trigger}m / {tf_zone}m / {tf_bias}m\n"
+        msg += f"⚡ <b>Event</b>  : <b>{event}</b>\n"
+        msg += f"🎯 <b>Mode</b>   : {mode}\n\n"
+        
+        msg += f"💵 <b>NOW</b>    : {now}\n"
+        msg += f"📥 <b>ENTRY</b>  : {entry_low} - {entry_high} (Avg: {entry_avg})\n"
+        msg += f"🎯 <b>TP1</b>    : {tp1} (RR: {rr_tp1})\n"
+        msg += f"🎯 <b>TP2</b>    : {tp2} (RR: {rr_tp2})\n"
+        msg += f"🎯 <b>TP3</b>    : {tp3} (RR: {rr_tp3})\n"
+        msg += f"🛑 <b>SL</b>     : {sl} ({risk_pct_str})\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        
+        msg += f"📈 <b>LEV</b>    : {input_leverage}x (Rec: {rec_lev}x)\n"
+        msg += f"🛡️ <b>RISK</b>   : <b>{risk_label}</b>\n"
+        msg += f"📊 <b>Score</b>  : {score}\n\n"
+        
+        msg += f"🧭 <b>Bias 4H</b>: {bias_4h} ({bias_strength_4h})\n"
+        msg += f"🌡 <b>Zone 1H</b>: {zone_1h} (Score: {zone_score_1h})\n"
+        msg += f"📉 <b>RSI</b>    : {rsi}\n"
+        msg += f"🔊 <b>RVOL</b>   : {rvol_pct}\n"
+        
+        if risk_label == "RISKY_PLAN":
+            msg += f"━━━━━━━━━━━━━━━━━━\n"
+            msg += f"⚠️ <b>WARNING</b>: Gunakan leverage lebih kecil dari input, recommended leverage: <b>{rec_lev}x</b>\n"
+            
+        return msg
     else:
-        tp_sign = "-"
-        sl_sign = "+"
-        l_tp_sign = "+"
-        l_risk_sign = "-"
-    
-    rr = float(data.get("rr", 0.0))
-    tp_pct = float(data.get("tp_pct", 0.0))
-    risk_pct = float(data.get("risk_pct", 0.0))
-    
-    lev = data.get("leverage", 1)
-    l_tp = float(data.get("lev_tp_pct", 0.0))
-    l_risk = float(data.get("lev_risk_pct", 0.0))
-    max_lev = data.get("max_safe_leverage", "-")
-    liq = h(data.get("liq_warn", "SAFE"))
-    
-    score = data.get("score", 0)
-    flow = h(data.get("flow", "-"))
-    signal = h(data.get("signal", "-"))
-    
-    msg = f"{icon} <b>{title}</b> {icon}\n"
-    msg += f"━━━━━━━━━━━━━━━━━━\n"
-    msg += f"🏷 <b>Symbol</b> : <code>{symbol}</code>\n"
-    msg += f"⏰ <b>TF</b>     : {tf}m\n"
-    msg += f"⚡ <b>Event</b>  : <b>{event}</b>\n\n"
-    
-    msg += f"💵 <b>NOW</b>    : {now}\n"
-    msg += f"🎯 <b>ENTRY</b>  : {entry}\n"
-    msg += f"✅ <b>TP</b>     : {tp} ({tp_sign}{tp_pct:.2f}%)\n"
-    msg += f"🛑 <b>SL</b>     : {sl} ({sl_sign}{risk_pct:.2f}%)\n"
-    msg += f"⚖️ <b>RR</b>     : {rr:.2f}\n━━━━━━━━━━━━━━━━━━\n"
-    
-    msg += f"📈 <b>LEV</b>    : {lev}x\n"
-    msg += f"🚀 <b>L-TP</b>   : {l_tp_sign}{l_tp:.2f}%\n"
-    msg += f"📉 <b>L-RISK</b> : {l_risk_sign}{l_risk:.2f}%\n"
-    msg += f"🛡️ <b>MAX LEV</b>: {max_lev}x\n"
-    msg += f"🔥 <b>LIQ</b>    : {liq}\n━━━━━━━━━━━━━━━━━━\n"
-    
-    msg += f"📊 <b>Score</b>  : {score}\n"
-    msg += f"💰 <b>Flow</b>   : {flow}\n"
-    msg += f"🌡 <b>Signal</b> : {signal}\n"
-    
-    return msg
+        # Legacy v1 logic
+        now = h(price_text.get("now", fmt_price("now")))
+        entry = h(price_text.get("entry", fmt_price("entry")))
+        tp = h(price_text.get("tp", fmt_price("tp")))
+        sl = h(price_text.get("sl", fmt_price("sl")))
+        
+        if "LONG" in side.upper() or "LONG" in event:
+            tp_sign = "+"
+            sl_sign = "-"
+            l_tp_sign = "+"
+            l_risk_sign = "-"
+        else:
+            tp_sign = "-"
+            sl_sign = "+"
+            l_tp_sign = "+"
+            l_risk_sign = "-"
+        
+        rr = float(data.get("rr", 0.0))
+        tp_pct = float(data.get("tp_pct", 0.0))
+        risk_pct = float(data.get("risk_pct", 0.0))
+        
+        lev = data.get("leverage", 1)
+        l_tp = float(data.get("lev_tp_pct", 0.0))
+        l_risk = float(data.get("lev_risk_pct", 0.0))
+        max_lev = data.get("max_safe_leverage", "-")
+        liq = h(data.get("liq_warn", "SAFE"))
+        
+        score = data.get("score", 0)
+        flow = h(data.get("flow", "-"))
+        signal = h(data.get("signal", "-"))
+        
+        msg = f"{icon} <b>{title}</b> {icon}\n"
+        msg += f"━━━━━━━━━━━━━━━━━━\n"
+        msg += f"🏷 <b>Symbol</b> : <code>{symbol}</code>\n"
+        msg += f"⏰ <b>TF</b>     : {tf_trigger}m\n"
+        msg += f"⚡ <b>Event</b>  : <b>{event}</b>\n\n"
+        
+        msg += f"💵 <b>NOW</b>    : {now}\n"
+        msg += f"🎯 <b>ENTRY</b>  : {entry}\n"
+        msg += f"✅ <b>TP</b>     : {tp} ({tp_sign}{tp_pct:.2f}%)\n"
+        msg += f"🛑 <b>SL</b>     : {sl} ({sl_sign}{risk_pct:.2f}%)\n"
+        msg += f"⚖️ <b>RR</b>     : {rr:.2f}\n━━━━━━━━━━━━━━━━━━\n"
+        
+        msg += f"📈 <b>LEV</b>    : {lev}x\n"
+        msg += f"🚀 <b>L-TP</b>   : {l_tp_sign}{l_tp:.2f}%\n"
+        msg += f"📉 <b>L-RISK</b> : {l_risk_sign}{l_risk:.2f}%\n"
+        msg += f"🛡️ <b>MAX LEV</b>: {max_lev}x\n"
+        msg += f"🔥 <b>LIQ</b>    : {liq}\n━━━━━━━━━━━━━━━━━━\n"
+        
+        msg += f"📊 <b>Score</b>  : {score}\n"
+        msg += f"💰 <b>Flow</b>   : {flow}\n"
+        msg += f"🌡 <b>Signal</b> : {signal}\n"
+        
+        return msg
 
 
 # ============================================================================
