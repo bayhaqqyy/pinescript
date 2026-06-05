@@ -966,9 +966,9 @@ if barstate.isconfirmed and canAlert{idx}
 ''')
 
     pine_code = f"""// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// Strategy: Binance USD-M Autobot {batch_label}
+// Strategy: Binance USD-M Autobot V3 {batch_label}
 //@version=6
-indicator("Binance USD-M Autobot {batch_label}", overlay=true, max_bars_back=200)
+indicator("Binance USD-M Autobot V3 {batch_label}", overlay=true, max_bars_back=200)
 
 {ENGINE_TEMPLATE}
 

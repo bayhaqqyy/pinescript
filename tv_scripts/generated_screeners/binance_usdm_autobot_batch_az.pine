@@ -1,7 +1,7 @@
 // This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// Strategy: Binance USD-M Autobot AZ
+// Strategy: Binance USD-M Autobot V3 AZ
 //@version=6
-indicator("Binance USD-M Autobot AZ", overlay=true, max_bars_back=200)
+indicator("Binance USD-M Autobot V3 AZ", overlay=true, max_bars_back=200)
 
 
 // ============================================================================
@@ -469,9 +469,9 @@ f_plan_engine(float biasFlag, float biasStrength, float zoneFlag, float zoneLow,
 // ============================================================================
 // DATA FETCH
 // ============================================================================
-tk1 = "BINANCE:PTBUSDT.P"
-tick1 = 1e-07
-dec1 = 7
+tk1 = "BINANCE:FFUSDT.P"
+tick1 = 1e-05
+dec1 = 5
 
 var defaultBias = BiasResult.new(0.0, 0.0)
 var defaultZone = ZoneResult.new(0.0, na, na, 0.0)
@@ -649,7 +649,7 @@ alertMode1 = alertModeRaw1 == 1.0 ? "TREND_CONTINUATION" : alertModeRaw1 == 2.0 
 triggerStr1 = plan1.action == 1.0 ? "BULLISH_CONFIRMATION" : plan1.action == -1.0 ? "BEARISH_CONFIRMATION" : "NEUTRAL"
 
 if barstate.isconfirmed and canAlert1
-    msg_1 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "version": "2.0", "event": "' + event1 + '", "symbol": "PTBUSDT", "side": "' + alertSide1 + '", "tf_trigger": "' + tf + '", "tf_zone": "60", "tf_bias": "240", "mode": "' + alertMode1 + '", "status": "' + alertStatus1 + '", "now": ' + str.tostring(now1) + ', "entry_low": ' + (na(alertEntryLow1) ? 'null' : str.tostring(alertEntryLow1)) + ', "entry_high": ' + (na(alertEntryHigh1) ? 'null' : str.tostring(alertEntryHigh1)) + ', "entry_avg": ' + (na(alertEntryAvg1) ? 'null' : str.tostring(alertEntryAvg1)) + ', "tp1": ' + (na(alertTp11) ? 'null' : str.tostring(alertTp11)) + ', "tp2": ' + (na(alertTp21) ? 'null' : str.tostring(alertTp21)) + ', "tp3": ' + (na(alertTp31) ? 'null' : str.tostring(alertTp31)) + ', "sl": ' + (na(alertSl1) ? 'null' : str.tostring(alertSl1)) + ', "risk_pct": ' + (na(riskPct1) ? 'null' : str.tostring(riskPct1, "#.##")) + ', "rr_tp1": ' + (na(rrTp11) ? 'null' : str.tostring(rrTp11, "#.##")) + ', "rr_tp2": ' + (na(rrTp21) ? 'null' : str.tostring(rrTp21, "#.##")) + ', "rr_tp3": ' + (na(rrTp31) ? 'null' : str.tostring(rrTp31, "#.##")) + ', "input_leverage": ' + str.tostring(leverage) + ', "recommended_leverage": ' + (na(recommendedLeverage1) ? 'null' : str.tostring(recommendedLeverage1)) + ', "lev_risk_pct": ' + (na(levRiskPct1) ? 'null' : str.tostring(levRiskPct1, "#.##")) + ', "risk_label": "' + risk1 + '", "score": ' + str.tostring(plan1.score, "#") + ', "bias_4h": "' + biasStr1 + '", "bias_strength_4h": "' + biasStrengthStr1 + '", "zone_1h": "' + zoneStr1 + '", "zone_score_1h": ' + str.tostring(zone1.zoneScore, "#") + ', "trigger_15m": "' + triggerStr1 + '", "rsi": ' + str.tostring(plan1.rsi, "#.##") + ', "rvol": ' + str.tostring(plan1.rvolPct / 100.0, "#.##") + ', "price_text": {"now": "' + f_fmt_price(now1, tick1) + '", "entry_low": "' + (na(alertEntryLow1) ? '-' : f_fmt_price(alertEntryLow1, tick1)) + '", "entry_high": "' + (na(alertEntryHigh1) ? '-' : f_fmt_price(alertEntryHigh1, tick1)) + '", "tp1": "' + (na(alertTp11) ? '-' : f_fmt_price(alertTp11, tick1)) + '", "tp2": "' + (na(alertTp21) ? '-' : f_fmt_price(alertTp21, tick1)) + '", "tp3": "' + (na(alertTp31) ? '-' : f_fmt_price(alertTp31, tick1)) + '", "sl": "' + (na(alertSl1) ? '-' : f_fmt_price(alertSl1, tick1)) + '"}, "time": ' + str.tostring(time) + '}'
+    msg_1 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "version": "2.0", "event": "' + event1 + '", "symbol": "FFUSDT", "side": "' + alertSide1 + '", "tf_trigger": "' + tf + '", "tf_zone": "60", "tf_bias": "240", "mode": "' + alertMode1 + '", "status": "' + alertStatus1 + '", "now": ' + str.tostring(now1) + ', "entry_low": ' + (na(alertEntryLow1) ? 'null' : str.tostring(alertEntryLow1)) + ', "entry_high": ' + (na(alertEntryHigh1) ? 'null' : str.tostring(alertEntryHigh1)) + ', "entry_avg": ' + (na(alertEntryAvg1) ? 'null' : str.tostring(alertEntryAvg1)) + ', "tp1": ' + (na(alertTp11) ? 'null' : str.tostring(alertTp11)) + ', "tp2": ' + (na(alertTp21) ? 'null' : str.tostring(alertTp21)) + ', "tp3": ' + (na(alertTp31) ? 'null' : str.tostring(alertTp31)) + ', "sl": ' + (na(alertSl1) ? 'null' : str.tostring(alertSl1)) + ', "risk_pct": ' + (na(riskPct1) ? 'null' : str.tostring(riskPct1, "#.##")) + ', "rr_tp1": ' + (na(rrTp11) ? 'null' : str.tostring(rrTp11, "#.##")) + ', "rr_tp2": ' + (na(rrTp21) ? 'null' : str.tostring(rrTp21, "#.##")) + ', "rr_tp3": ' + (na(rrTp31) ? 'null' : str.tostring(rrTp31, "#.##")) + ', "input_leverage": ' + str.tostring(leverage) + ', "recommended_leverage": ' + (na(recommendedLeverage1) ? 'null' : str.tostring(recommendedLeverage1)) + ', "lev_risk_pct": ' + (na(levRiskPct1) ? 'null' : str.tostring(levRiskPct1, "#.##")) + ', "risk_label": "' + risk1 + '", "score": ' + str.tostring(plan1.score, "#") + ', "bias_4h": "' + biasStr1 + '", "bias_strength_4h": "' + biasStrengthStr1 + '", "zone_1h": "' + zoneStr1 + '", "zone_score_1h": ' + str.tostring(zone1.zoneScore, "#") + ', "trigger_15m": "' + triggerStr1 + '", "rsi": ' + str.tostring(plan1.rsi, "#.##") + ', "rvol": ' + str.tostring(plan1.rvolPct / 100.0, "#.##") + ', "price_text": {"now": "' + f_fmt_price(now1, tick1) + '", "entry_low": "' + (na(alertEntryLow1) ? '-' : f_fmt_price(alertEntryLow1, tick1)) + '", "entry_high": "' + (na(alertEntryHigh1) ? '-' : f_fmt_price(alertEntryHigh1, tick1)) + '", "tp1": "' + (na(alertTp11) ? '-' : f_fmt_price(alertTp11, tick1)) + '", "tp2": "' + (na(alertTp21) ? '-' : f_fmt_price(alertTp21, tick1)) + '", "tp3": "' + (na(alertTp31) ? '-' : f_fmt_price(alertTp31, tick1)) + '", "sl": "' + (na(alertSl1) ? '-' : f_fmt_price(alertSl1, tick1)) + '"}, "time": ' + str.tostring(time) + '}'
     alert(msg_1, alert.freq_once_per_bar_close)
     lastEvent1 := event1
     lastBar1 := bar_index
@@ -701,7 +701,7 @@ if barstate.islast
     scoreDisp1 = str.tostring(plan1.score, "#")
     signalDisp1 = plan1.action == 1.0 ? "LONG" : plan1.action == -1.0 ? "SHORT" : "NEUTRAL"
     
-    f_cell(tbl, 0, 1, "PTBUSDT", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 0, 1, "FFUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 1, biasDisp1, biasBg1, color.white)
     f_cell(tbl, 2, 1, zoneDisp1, zoneBg1, color.white)
     f_cell(tbl, 3, 1, f_fmt_price(now1, tick1), cDark, color.white)

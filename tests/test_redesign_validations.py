@@ -233,3 +233,35 @@ def test_format_futures_message_v2():
     assert "SUPPLY" in msg
     assert "WARNING" in msg
 
+def test_format_futures_message_legacy():
+    from main import format_futures_message
+    
+    data = {
+        "market": "BINANCE_FUTURES",
+        "type": "FUTURES_SIGNAL",
+        "event": "SHORT_SL_HIT",
+        "symbol": "MRVLUSDT",
+        "side": "SHORT",
+        "tf": "15",
+        "now": 303.76,
+        "entry": 298.8,
+        "tp": 291.7250969659,
+        "sl": 302.92702
+    }
+    
+    msg = format_futures_message(data)
+    assert "MRVLUSDT" in msg
+    # The formatted entry_low/entry_high/entry_avg should fallback to entry (298.8000)
+    assert "298.8000 - 298.8000" in msg
+    assert "Avg: 298.8000" in msg
+    # The tp1 should fallback to tp (291.7251)
+    assert "291.7251" in msg
+    # Risk calculation fallback
+    # abs(298.8 - 302.92702) / 298.8 * 100 = 1.38%
+    assert "1.38%" in msg
+    # R:R calculation fallback
+    # abs(298.8 - 291.7250969659) / abs(302.92702 - 298.8) = 7.074903 / 4.12702 = 1.714
+    # Wait, 1.714 or 1.71
+    assert "1.71" in msg
+
+

@@ -697,6 +697,14 @@ def format_futures_message(data: dict) -> str:
         val = data.get(key)
         if f"{key}_text" in data and data[f"{key}_text"] != "-":
             return h(data[f"{key}_text"])
+        
+        # Fallback for old payloads (v1)
+        if val is None or val == "-":
+            if key in ("entry_avg", "entry_low", "entry_high"):
+                val = data.get("entry")
+            elif key == "tp1":
+                val = data.get("tp")
+                
         if val is None or val == "-":
             return "-"
         try:
@@ -764,13 +772,46 @@ def format_futures_message(data: dict) -> str:
     except:
         rvol_pct = str(rvol)
         
+    # Fallback/calculate risk_pct if missing
+    risk_pct = data.get("risk_pct")
+    if risk_pct is None or risk_pct == "-":
+        try:
+            e_val = float(data.get("entry") or data.get("entry_avg", 0))
+            s_val = float(data.get("sl", 0))
+            if e_val > 0:
+                risk_pct = abs(e_val - s_val) / e_val * 100
+        except Exception:
+            pass
+            
     try:
-        risk_pct = float(data.get("risk_pct", 0.0))
-        risk_pct_str = f"{risk_pct:.2f}%"
+        if risk_pct is not None and risk_pct != "-":
+            risk_pct_str = f"{float(risk_pct):.2f}%"
+        else:
+            risk_pct_str = "-"
     except:
         risk_pct_str = "-"
         
-    rr_tp1 = data.get("rr_tp1", "-")
+    rr_tp1 = data.get("rr_tp1")
+    if rr_tp1 is None or rr_tp1 == "-":
+        try:
+            e_val = float(data.get("entry") or data.get("entry_avg", 0))
+            s_val = float(data.get("sl", 0))
+            t1_val = float(data.get("tp") or data.get("tp1", 0))
+            if e_val > 0 and s_val > 0 and t1_val > 0:
+                side_upper = side.upper() if side else ""
+                if side_upper == "LONG" or "LONG" in event:
+                    denom = e_val - s_val
+                    if denom != 0:
+                        rr_tp1 = f"{(t1_val - e_val) / denom:.2f}"
+                elif side_upper == "SHORT" or "SHORT" in event:
+                    denom = s_val - e_val
+                    if denom != 0:
+                        rr_tp1 = f"{(e_val - t1_val) / denom:.2f}"
+        except Exception:
+            pass
+    if rr_tp1 is None:
+        rr_tp1 = "-"
+        
     rr_tp2 = data.get("rr_tp2", "-")
     rr_tp3 = data.get("rr_tp3", "-")
     

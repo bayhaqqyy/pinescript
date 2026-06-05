@@ -1,7 +1,7 @@
 // This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// Strategy: Binance USD-M Autobot B
+// Strategy: Binance USD-M Autobot V3 B
 //@version=6
-indicator("Binance USD-M Autobot B", overlay=true, max_bars_back=200)
+indicator("Binance USD-M Autobot V3 B", overlay=true, max_bars_back=200)
 
 
 // ============================================================================
