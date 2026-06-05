@@ -17,7 +17,7 @@ phases:
     commands:
       - echo Preparing Elastic Beanstalk deployment files...
       - cp requirements-webhook.txt requirements.txt
-      - 'echo "web: TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID WEBHOOK_SECRET=$WEBHOOK_SECRET uvicorn main:app --host 0.0.0.0 --port 5000" > Procfile'
+      - 'echo "web: TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID WEBHOOK_SECRET=$WEBHOOK_SECRET uvicorn main:app --host 0.0.0.0 --port 8080" > Procfile'
 
 artifacts:
   files:
