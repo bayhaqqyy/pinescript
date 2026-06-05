@@ -469,15 +469,9 @@ f_plan_engine(float biasFlag, float biasStrength, float zoneFlag, float zoneLow,
 // ============================================================================
 // DATA FETCH
 // ============================================================================
-tk1 = "BINANCE:TRXUSDT.P"
-tk2 = "BINANCE:HUSDT.P"
-tk3 = "BINANCE:MUSDT.P"
+tk1 = "BINANCE:AERGOUSDT.P"
 tick1 = 1e-05
-tick2 = 1e-05
-tick3 = 0.0001
 dec1 = 5
-dec2 = 5
-dec3 = 4
 
 var defaultBias = BiasResult.new(0.0, 0.0)
 var defaultZone = ZoneResult.new(0.0, na, na, 0.0)
@@ -542,124 +536,6 @@ sideForRisk1 = activeSide1 != "" ? activeSide1 : (plan1.action == 1.0 ? "LONG" :
 liqWarn1 = sideForRisk1 == "LONG" ? liqWarnLong1 : sideForRisk1 == "SHORT" ? liqWarnShort1 : "SAFE"
 
 pnlPct1 = activeSide1 == "LONG" ? ((now1 - activeEntryAvg1) / activeEntryAvg1) * 100.0 * leverage : activeSide1 == "SHORT" ? ((activeEntryAvg1 - now1) / activeEntryAvg1) * 100.0 * leverage : na
-var string activeSide2 = ""
-var float activeEntryLow2 = na
-var float activeEntryHigh2 = na
-var float activeEntryAvg2 = na
-var float activeTp12 = na
-var float activeTp22 = na
-var float activeTp32 = na
-var float activeSl2 = na
-var bool activeTp1Hit2 = false
-var bool activeTp2Hit2 = false
-var bool activeTp3Hit2 = false
-var float activeMode2 = na
-var string lastEvent2 = ""
-var int lastBar2 = na
-
-biasRaw2 = request.security(tk2, "240", f_bias_engine())
-zoneRaw2 = request.security(tk2, "60", f_zone_engine())
-
-bias2 = not na(biasRaw2) ? biasRaw2 : defaultBias
-zone2 = not na(zoneRaw2) ? zoneRaw2 : defaultZone
-
-planRaw2 = request.security(tk2, tf, f_plan_engine(bias2.biasFlag, bias2.biasStrength, zone2.zoneFlag, zone2.zoneLow, zone2.zoneHigh, zone2.zoneScore))
-plan2 = not na(planRaw2) ? planRaw2 : defaultPlan
-
-now2 = plan2.now
-hi2 = plan2.high
-lo2 = plan2.low
-sup2 = plan2.sup
-rst2 = plan2.rst
-
-biasStr2 = bias2.biasFlag == 1.0 ? "BULLISH" : bias2.biasFlag == -1.0 ? "BEARISH" : "NEUTRAL"
-biasStrengthStr2 = bias2.biasStrength == 2.0 ? "STRONG" : bias2.biasStrength == 1.0 ? "NORMAL" : "WEAK"
-zoneStr2 = zone2.zoneFlag == 1.0 ? "DEMAND" : zone2.zoneFlag == -1.0 ? "SUPPLY" : "NONE"
-
-alertStatus2 = plan2.statusFlag == 1.0 ? "VALID_LONG" : plan2.statusFlag == 2.0 ? "VALID_SHORT" : plan2.statusFlag == 3.0 ? "WAIT_RETEST_LONG" : plan2.statusFlag == 4.0 ? "WAIT_RETEST_SHORT" : plan2.statusFlag == 5.0 ? "OVEREXTENDED" : plan2.statusFlag == 6.0 ? "CONFLICT" : plan2.statusFlag == 7.0 ? "RISKY_PLAN" : "NO_TRADE"
-
-pctTp12 = na(activeEntryAvg2) ? na : (activeEntryAvg2 > 0 ? math.abs(activeTp12 - activeEntryAvg2) / activeEntryAvg2 * 100.0 : na)
-riskPct2 = na(activeEntryAvg2) ? na : (activeEntryAvg2 > 0 ? math.abs(activeEntryAvg2 - activeSl2) / activeEntryAvg2 * 100.0 : na)
-rrTp12 = na(riskPct2) or riskPct2 == 0.0 ? na : pctTp12 / riskPct2
-
-pctTp22 = na(activeEntryAvg2) ? na : (activeEntryAvg2 > 0 ? math.abs(activeTp22 - activeEntryAvg2) / activeEntryAvg2 * 100.0 : na)
-rrTp22 = na(riskPct2) or riskPct2 == 0.0 ? na : pctTp22 / riskPct2
-
-pctTp32 = na(activeEntryAvg2) ? na : (activeEntryAvg2 > 0 ? math.abs(activeTp32 - activeEntryAvg2) / activeEntryAvg2 * 100.0 : na)
-rrTp32 = na(riskPct2) or riskPct2 == 0.0 ? na : pctTp32 / riskPct2
-
-levRiskPct2 = riskPct2 * leverage
-recommendedLeverage2 = riskPct2 > 0.0 ? math.max(1.0, math.floor(20.0 / riskPct2)) : 20.0
-isRiskyPlan2 = recommendedLeverage2 < leverage
-risk2 = f_risk_label(levRiskPct2, isRiskyPlan2)
-
-liqPriceLong2 = activeEntryAvg2 * (1 - 0.90 / leverage)
-liqPriceShort2 = activeEntryAvg2 * (1 + 0.90 / leverage)
-liqWarnLong2 = activeSl2 <= liqPriceLong2 ? "HIGH RISK" : activeSl2 <= liqPriceLong2 * 1.02 ? "WARNING" : "SAFE"
-liqWarnShort2 = activeSl2 >= liqPriceShort2 ? "HIGH RISK" : activeSl2 >= liqPriceShort2 * 0.98 ? "WARNING" : "SAFE"
-sideForRisk2 = activeSide2 != "" ? activeSide2 : (plan2.action == 1.0 ? "LONG" : plan2.action == -1.0 ? "SHORT" : "NONE")
-liqWarn2 = sideForRisk2 == "LONG" ? liqWarnLong2 : sideForRisk2 == "SHORT" ? liqWarnShort2 : "SAFE"
-
-pnlPct2 = activeSide2 == "LONG" ? ((now2 - activeEntryAvg2) / activeEntryAvg2) * 100.0 * leverage : activeSide2 == "SHORT" ? ((activeEntryAvg2 - now2) / activeEntryAvg2) * 100.0 * leverage : na
-var string activeSide3 = ""
-var float activeEntryLow3 = na
-var float activeEntryHigh3 = na
-var float activeEntryAvg3 = na
-var float activeTp13 = na
-var float activeTp23 = na
-var float activeTp33 = na
-var float activeSl3 = na
-var bool activeTp1Hit3 = false
-var bool activeTp2Hit3 = false
-var bool activeTp3Hit3 = false
-var float activeMode3 = na
-var string lastEvent3 = ""
-var int lastBar3 = na
-
-biasRaw3 = request.security(tk3, "240", f_bias_engine())
-zoneRaw3 = request.security(tk3, "60", f_zone_engine())
-
-bias3 = not na(biasRaw3) ? biasRaw3 : defaultBias
-zone3 = not na(zoneRaw3) ? zoneRaw3 : defaultZone
-
-planRaw3 = request.security(tk3, tf, f_plan_engine(bias3.biasFlag, bias3.biasStrength, zone3.zoneFlag, zone3.zoneLow, zone3.zoneHigh, zone3.zoneScore))
-plan3 = not na(planRaw3) ? planRaw3 : defaultPlan
-
-now3 = plan3.now
-hi3 = plan3.high
-lo3 = plan3.low
-sup3 = plan3.sup
-rst3 = plan3.rst
-
-biasStr3 = bias3.biasFlag == 1.0 ? "BULLISH" : bias3.biasFlag == -1.0 ? "BEARISH" : "NEUTRAL"
-biasStrengthStr3 = bias3.biasStrength == 2.0 ? "STRONG" : bias3.biasStrength == 1.0 ? "NORMAL" : "WEAK"
-zoneStr3 = zone3.zoneFlag == 1.0 ? "DEMAND" : zone3.zoneFlag == -1.0 ? "SUPPLY" : "NONE"
-
-alertStatus3 = plan3.statusFlag == 1.0 ? "VALID_LONG" : plan3.statusFlag == 2.0 ? "VALID_SHORT" : plan3.statusFlag == 3.0 ? "WAIT_RETEST_LONG" : plan3.statusFlag == 4.0 ? "WAIT_RETEST_SHORT" : plan3.statusFlag == 5.0 ? "OVEREXTENDED" : plan3.statusFlag == 6.0 ? "CONFLICT" : plan3.statusFlag == 7.0 ? "RISKY_PLAN" : "NO_TRADE"
-
-pctTp13 = na(activeEntryAvg3) ? na : (activeEntryAvg3 > 0 ? math.abs(activeTp13 - activeEntryAvg3) / activeEntryAvg3 * 100.0 : na)
-riskPct3 = na(activeEntryAvg3) ? na : (activeEntryAvg3 > 0 ? math.abs(activeEntryAvg3 - activeSl3) / activeEntryAvg3 * 100.0 : na)
-rrTp13 = na(riskPct3) or riskPct3 == 0.0 ? na : pctTp13 / riskPct3
-
-pctTp23 = na(activeEntryAvg3) ? na : (activeEntryAvg3 > 0 ? math.abs(activeTp23 - activeEntryAvg3) / activeEntryAvg3 * 100.0 : na)
-rrTp23 = na(riskPct3) or riskPct3 == 0.0 ? na : pctTp23 / riskPct3
-
-pctTp33 = na(activeEntryAvg3) ? na : (activeEntryAvg3 > 0 ? math.abs(activeTp33 - activeEntryAvg3) / activeEntryAvg3 * 100.0 : na)
-rrTp33 = na(riskPct3) or riskPct3 == 0.0 ? na : pctTp33 / riskPct3
-
-levRiskPct3 = riskPct3 * leverage
-recommendedLeverage3 = riskPct3 > 0.0 ? math.max(1.0, math.floor(20.0 / riskPct3)) : 20.0
-isRiskyPlan3 = recommendedLeverage3 < leverage
-risk3 = f_risk_label(levRiskPct3, isRiskyPlan3)
-
-liqPriceLong3 = activeEntryAvg3 * (1 - 0.90 / leverage)
-liqPriceShort3 = activeEntryAvg3 * (1 + 0.90 / leverage)
-liqWarnLong3 = activeSl3 <= liqPriceLong3 ? "HIGH RISK" : activeSl3 <= liqPriceLong3 * 1.02 ? "WARNING" : "SAFE"
-liqWarnShort3 = activeSl3 >= liqPriceShort3 ? "HIGH RISK" : activeSl3 >= liqPriceShort3 * 0.98 ? "WARNING" : "SAFE"
-sideForRisk3 = activeSide3 != "" ? activeSide3 : (plan3.action == 1.0 ? "LONG" : plan3.action == -1.0 ? "SHORT" : "NONE")
-liqWarn3 = sideForRisk3 == "LONG" ? liqWarnLong3 : sideForRisk3 == "SHORT" ? liqWarnShort3 : "SAFE"
-
-pnlPct3 = activeSide3 == "LONG" ? ((now3 - activeEntryAvg3) / activeEntryAvg3) * 100.0 * leverage : activeSide3 == "SHORT" ? ((activeEntryAvg3 - now3) / activeEntryAvg3) * 100.0 * leverage : na
 
 // ============================================================================
 // ALERT LOGIC
@@ -773,245 +649,17 @@ alertMode1 = alertModeRaw1 == 1.0 ? "TREND_CONTINUATION" : alertModeRaw1 == 2.0 
 triggerStr1 = plan1.action == 1.0 ? "BULLISH_CONFIRMATION" : plan1.action == -1.0 ? "BEARISH_CONFIRMATION" : "NEUTRAL"
 
 if barstate.isconfirmed and canAlert1
-    msg_1 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "version": "2.0", "event": "' + event1 + '", "symbol": "TRXUSDT", "side": "' + alertSide1 + '", "tf_trigger": "' + tf + '", "tf_zone": "60", "tf_bias": "240", "mode": "' + alertMode1 + '", "status": "' + alertStatus1 + '", "now": ' + str.tostring(now1) + ', "entry_low": ' + (na(alertEntryLow1) ? 'null' : str.tostring(alertEntryLow1)) + ', "entry_high": ' + (na(alertEntryHigh1) ? 'null' : str.tostring(alertEntryHigh1)) + ', "entry_avg": ' + (na(alertEntryAvg1) ? 'null' : str.tostring(alertEntryAvg1)) + ', "tp1": ' + (na(alertTp11) ? 'null' : str.tostring(alertTp11)) + ', "tp2": ' + (na(alertTp21) ? 'null' : str.tostring(alertTp21)) + ', "tp3": ' + (na(alertTp31) ? 'null' : str.tostring(alertTp31)) + ', "sl": ' + (na(alertSl1) ? 'null' : str.tostring(alertSl1)) + ', "risk_pct": ' + (na(riskPct1) ? 'null' : str.tostring(riskPct1, "#.##")) + ', "rr_tp1": ' + (na(rrTp11) ? 'null' : str.tostring(rrTp11, "#.##")) + ', "rr_tp2": ' + (na(rrTp21) ? 'null' : str.tostring(rrTp21, "#.##")) + ', "rr_tp3": ' + (na(rrTp31) ? 'null' : str.tostring(rrTp31, "#.##")) + ', "input_leverage": ' + str.tostring(leverage) + ', "recommended_leverage": ' + (na(recommendedLeverage1) ? 'null' : str.tostring(recommendedLeverage1)) + ', "lev_risk_pct": ' + (na(levRiskPct1) ? 'null' : str.tostring(levRiskPct1, "#.##")) + ', "risk_label": "' + risk1 + '", "score": ' + str.tostring(plan1.score, "#") + ', "bias_4h": "' + biasStr1 + '", "bias_strength_4h": "' + biasStrengthStr1 + '", "zone_1h": "' + zoneStr1 + '", "zone_score_1h": ' + str.tostring(zone1.zoneScore, "#") + ', "trigger_15m": "' + triggerStr1 + '", "rsi": ' + str.tostring(plan1.rsi, "#.##") + ', "rvol": ' + str.tostring(plan1.rvolPct / 100.0, "#.##") + ', "price_text": {"now": "' + f_fmt_price(now1, tick1) + '", "entry_low": "' + (na(alertEntryLow1) ? '-' : f_fmt_price(alertEntryLow1, tick1)) + '", "entry_high": "' + (na(alertEntryHigh1) ? '-' : f_fmt_price(alertEntryHigh1, tick1)) + '", "tp1": "' + (na(alertTp11) ? '-' : f_fmt_price(alertTp11, tick1)) + '", "tp2": "' + (na(alertTp21) ? '-' : f_fmt_price(alertTp21, tick1)) + '", "tp3": "' + (na(alertTp31) ? '-' : f_fmt_price(alertTp31, tick1)) + '", "sl": "' + (na(alertSl1) ? '-' : f_fmt_price(alertSl1, tick1)) + '"}, "time": ' + str.tostring(time) + '}'
+    msg_1 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "version": "2.0", "event": "' + event1 + '", "symbol": "AERGOUSDT", "side": "' + alertSide1 + '", "tf_trigger": "' + tf + '", "tf_zone": "60", "tf_bias": "240", "mode": "' + alertMode1 + '", "status": "' + alertStatus1 + '", "now": ' + str.tostring(now1) + ', "entry_low": ' + (na(alertEntryLow1) ? 'null' : str.tostring(alertEntryLow1)) + ', "entry_high": ' + (na(alertEntryHigh1) ? 'null' : str.tostring(alertEntryHigh1)) + ', "entry_avg": ' + (na(alertEntryAvg1) ? 'null' : str.tostring(alertEntryAvg1)) + ', "tp1": ' + (na(alertTp11) ? 'null' : str.tostring(alertTp11)) + ', "tp2": ' + (na(alertTp21) ? 'null' : str.tostring(alertTp21)) + ', "tp3": ' + (na(alertTp31) ? 'null' : str.tostring(alertTp31)) + ', "sl": ' + (na(alertSl1) ? 'null' : str.tostring(alertSl1)) + ', "risk_pct": ' + (na(riskPct1) ? 'null' : str.tostring(riskPct1, "#.##")) + ', "rr_tp1": ' + (na(rrTp11) ? 'null' : str.tostring(rrTp11, "#.##")) + ', "rr_tp2": ' + (na(rrTp21) ? 'null' : str.tostring(rrTp21, "#.##")) + ', "rr_tp3": ' + (na(rrTp31) ? 'null' : str.tostring(rrTp31, "#.##")) + ', "input_leverage": ' + str.tostring(leverage) + ', "recommended_leverage": ' + (na(recommendedLeverage1) ? 'null' : str.tostring(recommendedLeverage1)) + ', "lev_risk_pct": ' + (na(levRiskPct1) ? 'null' : str.tostring(levRiskPct1, "#.##")) + ', "risk_label": "' + risk1 + '", "score": ' + str.tostring(plan1.score, "#") + ', "bias_4h": "' + biasStr1 + '", "bias_strength_4h": "' + biasStrengthStr1 + '", "zone_1h": "' + zoneStr1 + '", "zone_score_1h": ' + str.tostring(zone1.zoneScore, "#") + ', "trigger_15m": "' + triggerStr1 + '", "rsi": ' + str.tostring(plan1.rsi, "#.##") + ', "rvol": ' + str.tostring(plan1.rvolPct / 100.0, "#.##") + ', "price_text": {"now": "' + f_fmt_price(now1, tick1) + '", "entry_low": "' + (na(alertEntryLow1) ? '-' : f_fmt_price(alertEntryLow1, tick1)) + '", "entry_high": "' + (na(alertEntryHigh1) ? '-' : f_fmt_price(alertEntryHigh1, tick1)) + '", "tp1": "' + (na(alertTp11) ? '-' : f_fmt_price(alertTp11, tick1)) + '", "tp2": "' + (na(alertTp21) ? '-' : f_fmt_price(alertTp21, tick1)) + '", "tp3": "' + (na(alertTp31) ? '-' : f_fmt_price(alertTp31, tick1)) + '", "sl": "' + (na(alertSl1) ? '-' : f_fmt_price(alertSl1, tick1)) + '"}, "time": ' + str.tostring(time) + '}'
     alert(msg_1, alert.freq_once_per_bar_close)
     lastEvent1 := event1
     lastBar1 := bar_index
-
-anyTpHitLong2 = (not activeTp1Hit2 and hi2 >= activeTp12) or (activeTp1Hit2 and not activeTp2Hit2 and hi2 >= activeTp22) or (activeTp2Hit2 and not activeTp3Hit2 and hi2 >= activeTp32)
-anyTpHitShort2 = (not activeTp1Hit2 and lo2 <= activeTp12) or (activeTp1Hit2 and not activeTp2Hit2 and lo2 <= activeTp22) or (activeTp2Hit2 and not activeTp3Hit2 and lo2 <= activeTp32)
-
-longSlHit2 = activeSide2 == "LONG" and lo2 <= activeSl2
-shortSlHit2 = activeSide2 == "SHORT" and hi2 >= activeSl2
-
-bothHitLong2 = activeSide2 == "LONG" and anyTpHitLong2 and longSlHit2
-bothHitShort2 = activeSide2 == "SHORT" and anyTpHitShort2 and shortSlHit2
-
-tpHitValidLong2 = activeSide2 == "LONG" and anyTpHitLong2
-slHitValidLong2 = longSlHit2
-
-tpHitValidShort2 = activeSide2 == "SHORT" and anyTpHitShort2
-slHitValidShort2 = shortSlHit2
-
-if bothHitLong2
-    if sameBarRule == "SL_FIRST"
-        tpHitValidLong2 := false
-    else if sameBarRule == "TP_FIRST"
-        slHitValidLong2 := false
-    else if sameBarRule == "IGNORE"
-        tpHitValidLong2 := false
-        slHitValidLong2 := false
-
-if bothHitShort2
-    if sameBarRule == "SL_FIRST"
-        tpHitValidShort2 := false
-    else if sameBarRule == "TP_FIRST"
-        slHitValidShort2 := false
-    else if sameBarRule == "IGNORE"
-        tpHitValidShort2 := false
-        slHitValidShort2 := false
-
-entryEvent2 = activeSide2 == "" and plan2.action == 1.0 ? "LONG_ENTRY" : activeSide2 == "" and plan2.action == -1.0 ? "SHORT_ENTRY" : "NONE"
-
-event2 = "NONE"
-if activeSide2 == "LONG"
-    if slHitValidLong2
-        event2 := "LONG_SL_HIT"
-    else if tpHitValidLong2
-        if hi2 >= activeTp32 and activeTp2Hit2
-            event2 := "LONG_TP3_HIT"
-        else if hi2 >= activeTp22 and activeTp1Hit2
-            event2 := "LONG_TP2_HIT"
-        else if hi2 >= activeTp12
-            event2 := "LONG_TP1_HIT"
-else if activeSide2 == "SHORT"
-    if slHitValidShort2
-        event2 := "SHORT_SL_HIT"
-    else if tpHitValidShort2
-        if lo2 <= activeTp32 and activeTp2Hit2
-            event2 := "SHORT_TP3_HIT"
-        else if lo2 <= activeTp22 and activeTp1Hit2
-            event2 := "SHORT_TP2_HIT"
-        else if lo2 <= activeTp12
-            event2 := "SHORT_TP1_HIT"
-else
-    event2 := entryEvent2
-
-isEntryEvent2 = event2 == "LONG_ENTRY" or event2 == "SHORT_ENTRY"
-alertSide2 = isEntryEvent2 ? (event2 == "LONG_ENTRY" ? "LONG" : "SHORT") : activeSide2
-alertEntryLow2 = isEntryEvent2 ? plan2.entryLow : activeEntryLow2
-alertEntryHigh2 = isEntryEvent2 ? plan2.entryHigh : activeEntryHigh2
-alertEntryAvg2 = isEntryEvent2 ? plan2.entryAvg : activeEntryAvg2
-alertTp12 = isEntryEvent2 ? plan2.tp1 : activeTp12
-alertTp22 = isEntryEvent2 ? plan2.tp2 : activeTp22
-alertTp32 = isEntryEvent2 ? plan2.tp3 : activeTp32
-alertSl2 = isEntryEvent2 ? plan2.sl : activeSl2
-alertModeRaw2 = isEntryEvent2 ? plan2.modeFlag : activeMode2
-
-if event2 == "LONG_SL_HIT" or event2 == "LONG_TP3_HIT" or event2 == "SHORT_SL_HIT" or event2 == "SHORT_TP3_HIT"
-    activeSide2 := ""
-    activeEntryLow2 := na
-    activeEntryHigh2 := na
-    activeEntryAvg2 := na
-    activeTp12 := na
-    activeTp22 := na
-    activeTp32 := na
-    activeSl2 := na
-    activeTp1Hit2 := false
-    activeTp2Hit2 := false
-    activeTp3Hit2 := false
-    activeMode2 := na
-else if event2 == "LONG_TP1_HIT" or event2 == "SHORT_TP1_HIT"
-    activeTp1Hit2 := true
-else if event2 == "LONG_TP2_HIT" or event2 == "SHORT_TP2_HIT"
-    activeTp1Hit2 := true
-    activeTp2Hit2 := true
-else if event2 == "LONG_ENTRY" or event2 == "SHORT_ENTRY"
-    activeSide2 := event2 == "LONG_ENTRY" ? "LONG" : "SHORT"
-    activeEntryLow2 := plan2.entryLow
-    activeEntryHigh2 := plan2.entryHigh
-    activeEntryAvg2 := plan2.entryAvg
-    activeTp12 := plan2.tp1
-    activeTp22 := plan2.tp2
-    activeTp32 := plan2.tp3
-    activeSl2 := plan2.sl
-    activeTp1Hit2 := false
-    activeTp2Hit2 := false
-    activeTp3Hit2 := false
-    activeMode2 := plan2.modeFlag
-
-sendAlert2 = event2 == "LONG_ENTRY" or event2 == "SHORT_ENTRY" or event2 == "LONG_TP1_HIT" or event2 == "LONG_TP2_HIT" or event2 == "LONG_TP3_HIT" or event2 == "LONG_SL_HIT" or event2 == "SHORT_TP1_HIT" or event2 == "SHORT_TP2_HIT" or event2 == "SHORT_TP3_HIT" or event2 == "SHORT_SL_HIT"
-canAlert2 = sendAlert2 and (event2 != lastEvent2 or na(lastBar2) or bar_index - lastBar2 >= cooldownBars)
-
-alertMode2 = alertModeRaw2 == 1.0 ? "TREND_CONTINUATION" : alertModeRaw2 == 2.0 ? "PULLBACK_ENTRY" : alertModeRaw2 == 3.0 ? "BREAKOUT_ENTRY" : alertModeRaw2 == 4.0 ? "BREAKDOWN_ENTRY" : alertModeRaw2 == 5.0 ? "SUPPLY_REJECTION" : alertModeRaw2 == 6.0 ? "DEMAND_REJECTION" : alertModeRaw2 == 7.0 ? "BREAKOUT_RETEST" : alertModeRaw2 == 8.0 ? "BREAKDOWN_RETEST" : "NONE"
-triggerStr2 = plan2.action == 1.0 ? "BULLISH_CONFIRMATION" : plan2.action == -1.0 ? "BEARISH_CONFIRMATION" : "NEUTRAL"
-
-if barstate.isconfirmed and canAlert2
-    msg_2 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "version": "2.0", "event": "' + event2 + '", "symbol": "HUSDT", "side": "' + alertSide2 + '", "tf_trigger": "' + tf + '", "tf_zone": "60", "tf_bias": "240", "mode": "' + alertMode2 + '", "status": "' + alertStatus2 + '", "now": ' + str.tostring(now2) + ', "entry_low": ' + (na(alertEntryLow2) ? 'null' : str.tostring(alertEntryLow2)) + ', "entry_high": ' + (na(alertEntryHigh2) ? 'null' : str.tostring(alertEntryHigh2)) + ', "entry_avg": ' + (na(alertEntryAvg2) ? 'null' : str.tostring(alertEntryAvg2)) + ', "tp1": ' + (na(alertTp12) ? 'null' : str.tostring(alertTp12)) + ', "tp2": ' + (na(alertTp22) ? 'null' : str.tostring(alertTp22)) + ', "tp3": ' + (na(alertTp32) ? 'null' : str.tostring(alertTp32)) + ', "sl": ' + (na(alertSl2) ? 'null' : str.tostring(alertSl2)) + ', "risk_pct": ' + (na(riskPct2) ? 'null' : str.tostring(riskPct2, "#.##")) + ', "rr_tp1": ' + (na(rrTp12) ? 'null' : str.tostring(rrTp12, "#.##")) + ', "rr_tp2": ' + (na(rrTp22) ? 'null' : str.tostring(rrTp22, "#.##")) + ', "rr_tp3": ' + (na(rrTp32) ? 'null' : str.tostring(rrTp32, "#.##")) + ', "input_leverage": ' + str.tostring(leverage) + ', "recommended_leverage": ' + (na(recommendedLeverage2) ? 'null' : str.tostring(recommendedLeverage2)) + ', "lev_risk_pct": ' + (na(levRiskPct2) ? 'null' : str.tostring(levRiskPct2, "#.##")) + ', "risk_label": "' + risk2 + '", "score": ' + str.tostring(plan2.score, "#") + ', "bias_4h": "' + biasStr2 + '", "bias_strength_4h": "' + biasStrengthStr2 + '", "zone_1h": "' + zoneStr2 + '", "zone_score_1h": ' + str.tostring(zone2.zoneScore, "#") + ', "trigger_15m": "' + triggerStr2 + '", "rsi": ' + str.tostring(plan2.rsi, "#.##") + ', "rvol": ' + str.tostring(plan2.rvolPct / 100.0, "#.##") + ', "price_text": {"now": "' + f_fmt_price(now2, tick2) + '", "entry_low": "' + (na(alertEntryLow2) ? '-' : f_fmt_price(alertEntryLow2, tick2)) + '", "entry_high": "' + (na(alertEntryHigh2) ? '-' : f_fmt_price(alertEntryHigh2, tick2)) + '", "tp1": "' + (na(alertTp12) ? '-' : f_fmt_price(alertTp12, tick2)) + '", "tp2": "' + (na(alertTp22) ? '-' : f_fmt_price(alertTp22, tick2)) + '", "tp3": "' + (na(alertTp32) ? '-' : f_fmt_price(alertTp32, tick2)) + '", "sl": "' + (na(alertSl2) ? '-' : f_fmt_price(alertSl2, tick2)) + '"}, "time": ' + str.tostring(time) + '}'
-    alert(msg_2, alert.freq_once_per_bar_close)
-    lastEvent2 := event2
-    lastBar2 := bar_index
-
-anyTpHitLong3 = (not activeTp1Hit3 and hi3 >= activeTp13) or (activeTp1Hit3 and not activeTp2Hit3 and hi3 >= activeTp23) or (activeTp2Hit3 and not activeTp3Hit3 and hi3 >= activeTp33)
-anyTpHitShort3 = (not activeTp1Hit3 and lo3 <= activeTp13) or (activeTp1Hit3 and not activeTp2Hit3 and lo3 <= activeTp23) or (activeTp2Hit3 and not activeTp3Hit3 and lo3 <= activeTp33)
-
-longSlHit3 = activeSide3 == "LONG" and lo3 <= activeSl3
-shortSlHit3 = activeSide3 == "SHORT" and hi3 >= activeSl3
-
-bothHitLong3 = activeSide3 == "LONG" and anyTpHitLong3 and longSlHit3
-bothHitShort3 = activeSide3 == "SHORT" and anyTpHitShort3 and shortSlHit3
-
-tpHitValidLong3 = activeSide3 == "LONG" and anyTpHitLong3
-slHitValidLong3 = longSlHit3
-
-tpHitValidShort3 = activeSide3 == "SHORT" and anyTpHitShort3
-slHitValidShort3 = shortSlHit3
-
-if bothHitLong3
-    if sameBarRule == "SL_FIRST"
-        tpHitValidLong3 := false
-    else if sameBarRule == "TP_FIRST"
-        slHitValidLong3 := false
-    else if sameBarRule == "IGNORE"
-        tpHitValidLong3 := false
-        slHitValidLong3 := false
-
-if bothHitShort3
-    if sameBarRule == "SL_FIRST"
-        tpHitValidShort3 := false
-    else if sameBarRule == "TP_FIRST"
-        slHitValidShort3 := false
-    else if sameBarRule == "IGNORE"
-        tpHitValidShort3 := false
-        slHitValidShort3 := false
-
-entryEvent3 = activeSide3 == "" and plan3.action == 1.0 ? "LONG_ENTRY" : activeSide3 == "" and plan3.action == -1.0 ? "SHORT_ENTRY" : "NONE"
-
-event3 = "NONE"
-if activeSide3 == "LONG"
-    if slHitValidLong3
-        event3 := "LONG_SL_HIT"
-    else if tpHitValidLong3
-        if hi3 >= activeTp33 and activeTp2Hit3
-            event3 := "LONG_TP3_HIT"
-        else if hi3 >= activeTp23 and activeTp1Hit3
-            event3 := "LONG_TP2_HIT"
-        else if hi3 >= activeTp13
-            event3 := "LONG_TP1_HIT"
-else if activeSide3 == "SHORT"
-    if slHitValidShort3
-        event3 := "SHORT_SL_HIT"
-    else if tpHitValidShort3
-        if lo3 <= activeTp33 and activeTp2Hit3
-            event3 := "SHORT_TP3_HIT"
-        else if lo3 <= activeTp23 and activeTp1Hit3
-            event3 := "SHORT_TP2_HIT"
-        else if lo3 <= activeTp13
-            event3 := "SHORT_TP1_HIT"
-else
-    event3 := entryEvent3
-
-isEntryEvent3 = event3 == "LONG_ENTRY" or event3 == "SHORT_ENTRY"
-alertSide3 = isEntryEvent3 ? (event3 == "LONG_ENTRY" ? "LONG" : "SHORT") : activeSide3
-alertEntryLow3 = isEntryEvent3 ? plan3.entryLow : activeEntryLow3
-alertEntryHigh3 = isEntryEvent3 ? plan3.entryHigh : activeEntryHigh3
-alertEntryAvg3 = isEntryEvent3 ? plan3.entryAvg : activeEntryAvg3
-alertTp13 = isEntryEvent3 ? plan3.tp1 : activeTp13
-alertTp23 = isEntryEvent3 ? plan3.tp2 : activeTp23
-alertTp33 = isEntryEvent3 ? plan3.tp3 : activeTp33
-alertSl3 = isEntryEvent3 ? plan3.sl : activeSl3
-alertModeRaw3 = isEntryEvent3 ? plan3.modeFlag : activeMode3
-
-if event3 == "LONG_SL_HIT" or event3 == "LONG_TP3_HIT" or event3 == "SHORT_SL_HIT" or event3 == "SHORT_TP3_HIT"
-    activeSide3 := ""
-    activeEntryLow3 := na
-    activeEntryHigh3 := na
-    activeEntryAvg3 := na
-    activeTp13 := na
-    activeTp23 := na
-    activeTp33 := na
-    activeSl3 := na
-    activeTp1Hit3 := false
-    activeTp2Hit3 := false
-    activeTp3Hit3 := false
-    activeMode3 := na
-else if event3 == "LONG_TP1_HIT" or event3 == "SHORT_TP1_HIT"
-    activeTp1Hit3 := true
-else if event3 == "LONG_TP2_HIT" or event3 == "SHORT_TP2_HIT"
-    activeTp1Hit3 := true
-    activeTp2Hit3 := true
-else if event3 == "LONG_ENTRY" or event3 == "SHORT_ENTRY"
-    activeSide3 := event3 == "LONG_ENTRY" ? "LONG" : "SHORT"
-    activeEntryLow3 := plan3.entryLow
-    activeEntryHigh3 := plan3.entryHigh
-    activeEntryAvg3 := plan3.entryAvg
-    activeTp13 := plan3.tp1
-    activeTp23 := plan3.tp2
-    activeTp33 := plan3.tp3
-    activeSl3 := plan3.sl
-    activeTp1Hit3 := false
-    activeTp2Hit3 := false
-    activeTp3Hit3 := false
-    activeMode3 := plan3.modeFlag
-
-sendAlert3 = event3 == "LONG_ENTRY" or event3 == "SHORT_ENTRY" or event3 == "LONG_TP1_HIT" or event3 == "LONG_TP2_HIT" or event3 == "LONG_TP3_HIT" or event3 == "LONG_SL_HIT" or event3 == "SHORT_TP1_HIT" or event3 == "SHORT_TP2_HIT" or event3 == "SHORT_TP3_HIT" or event3 == "SHORT_SL_HIT"
-canAlert3 = sendAlert3 and (event3 != lastEvent3 or na(lastBar3) or bar_index - lastBar3 >= cooldownBars)
-
-alertMode3 = alertModeRaw3 == 1.0 ? "TREND_CONTINUATION" : alertModeRaw3 == 2.0 ? "PULLBACK_ENTRY" : alertModeRaw3 == 3.0 ? "BREAKOUT_ENTRY" : alertModeRaw3 == 4.0 ? "BREAKDOWN_ENTRY" : alertModeRaw3 == 5.0 ? "SUPPLY_REJECTION" : alertModeRaw3 == 6.0 ? "DEMAND_REJECTION" : alertModeRaw3 == 7.0 ? "BREAKOUT_RETEST" : alertModeRaw3 == 8.0 ? "BREAKDOWN_RETEST" : "NONE"
-triggerStr3 = plan3.action == 1.0 ? "BULLISH_CONFIRMATION" : plan3.action == -1.0 ? "BEARISH_CONFIRMATION" : "NEUTRAL"
-
-if barstate.isconfirmed and canAlert3
-    msg_3 = '{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "version": "2.0", "event": "' + event3 + '", "symbol": "MUSDT", "side": "' + alertSide3 + '", "tf_trigger": "' + tf + '", "tf_zone": "60", "tf_bias": "240", "mode": "' + alertMode3 + '", "status": "' + alertStatus3 + '", "now": ' + str.tostring(now3) + ', "entry_low": ' + (na(alertEntryLow3) ? 'null' : str.tostring(alertEntryLow3)) + ', "entry_high": ' + (na(alertEntryHigh3) ? 'null' : str.tostring(alertEntryHigh3)) + ', "entry_avg": ' + (na(alertEntryAvg3) ? 'null' : str.tostring(alertEntryAvg3)) + ', "tp1": ' + (na(alertTp13) ? 'null' : str.tostring(alertTp13)) + ', "tp2": ' + (na(alertTp23) ? 'null' : str.tostring(alertTp23)) + ', "tp3": ' + (na(alertTp33) ? 'null' : str.tostring(alertTp33)) + ', "sl": ' + (na(alertSl3) ? 'null' : str.tostring(alertSl3)) + ', "risk_pct": ' + (na(riskPct3) ? 'null' : str.tostring(riskPct3, "#.##")) + ', "rr_tp1": ' + (na(rrTp13) ? 'null' : str.tostring(rrTp13, "#.##")) + ', "rr_tp2": ' + (na(rrTp23) ? 'null' : str.tostring(rrTp23, "#.##")) + ', "rr_tp3": ' + (na(rrTp33) ? 'null' : str.tostring(rrTp33, "#.##")) + ', "input_leverage": ' + str.tostring(leverage) + ', "recommended_leverage": ' + (na(recommendedLeverage3) ? 'null' : str.tostring(recommendedLeverage3)) + ', "lev_risk_pct": ' + (na(levRiskPct3) ? 'null' : str.tostring(levRiskPct3, "#.##")) + ', "risk_label": "' + risk3 + '", "score": ' + str.tostring(plan3.score, "#") + ', "bias_4h": "' + biasStr3 + '", "bias_strength_4h": "' + biasStrengthStr3 + '", "zone_1h": "' + zoneStr3 + '", "zone_score_1h": ' + str.tostring(zone3.zoneScore, "#") + ', "trigger_15m": "' + triggerStr3 + '", "rsi": ' + str.tostring(plan3.rsi, "#.##") + ', "rvol": ' + str.tostring(plan3.rvolPct / 100.0, "#.##") + ', "price_text": {"now": "' + f_fmt_price(now3, tick3) + '", "entry_low": "' + (na(alertEntryLow3) ? '-' : f_fmt_price(alertEntryLow3, tick3)) + '", "entry_high": "' + (na(alertEntryHigh3) ? '-' : f_fmt_price(alertEntryHigh3, tick3)) + '", "tp1": "' + (na(alertTp13) ? '-' : f_fmt_price(alertTp13, tick3)) + '", "tp2": "' + (na(alertTp23) ? '-' : f_fmt_price(alertTp23, tick3)) + '", "tp3": "' + (na(alertTp33) ? '-' : f_fmt_price(alertTp33, tick3)) + '", "sl": "' + (na(alertSl3) ? '-' : f_fmt_price(alertSl3, tick3)) + '"}, "time": ' + str.tostring(time) + '}'
-    alert(msg_3, alert.freq_once_per_bar_close)
-    lastEvent3 := event3
-    lastBar3 := bar_index
 
 
 // ============================================================================
 // UI TABLE
 // ============================================================================
 tbl_pos = pos == "Top Right" ? position.top_right : pos == "Top Left" ? position.top_left : pos == "Bottom Right" ? position.bottom_right : position.bottom_left
-var tbl = table.new(tbl_pos, 18, 4, border_width=1, border_color=#333333)
+var tbl = table.new(tbl_pos, 18, 2, border_width=1, border_color=#333333)
 
 if barstate.islast
     f_header(tbl, 0, "PAIR")
@@ -1053,7 +701,7 @@ if barstate.islast
     scoreDisp1 = str.tostring(plan1.score, "#")
     signalDisp1 = plan1.action == 1.0 ? "LONG" : plan1.action == -1.0 ? "SHORT" : "NEUTRAL"
     
-    f_cell(tbl, 0, 1, "TRXUSDT", color.rgb(30, 90, 180), color.white)
+    f_cell(tbl, 0, 1, "AERGOUSDT", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, 1, biasDisp1, biasBg1, color.white)
     f_cell(tbl, 2, 1, zoneDisp1, zoneBg1, color.white)
     f_cell(tbl, 3, 1, f_fmt_price(now1, tick1), cDark, color.white)
@@ -1071,81 +719,5 @@ if barstate.islast
     f_cell(tbl, 15, 1, statusDisp1, cDark, color.yellow)
     f_cell(tbl, 16, 1, scoreDisp1, f_score_color(plan1.score), color.white)
     f_cell(tbl, 17, 1, signalDisp1, f_signal_color(signalDisp1), color.white)
-    // Row 2
-    biasDisp2 = biasStr2 + " (" + biasStrengthStr2 + ")"
-    biasBg2 = bias2.biasFlag == 1.0 ? cLime : bias2.biasFlag == -1.0 ? cRed : cGray
-    zoneDisp2 = zoneStr2 == "NONE" ? "-" : zoneStr2 + " (" + str.tostring(zone2.zoneScore, "#") + ")"
-    zoneBg2 = zone2.zoneFlag == 1.0 ? color.rgb(0, 100, 200) : zone2.zoneFlag == -1.0 ? color.rgb(150, 50, 50) : cDark
-    entryRangeDisp2 = na(activeEntryLow2) ? "-" : f_fmt_price(activeEntryLow2, tick2) + "-" + f_fmt_price(activeEntryHigh2, tick2)
-    
-    tp1Disp2 = na(activeTp12) ? "-" : f_fmt_price(activeTp12, tick2) + (activeTp1Hit2 ? " ✓" : "")
-    tp2Disp2 = na(activeTp22) ? "-" : f_fmt_price(activeTp22, tick2) + (activeTp2Hit2 ? " ✓" : "")
-    tp3Disp2 = na(activeTp32) ? "-" : f_fmt_price(activeTp32, tick2) + (activeTp3Hit2 ? " ✓" : "")
-    slDisp2 = na(activeSl2) ? "-" : f_fmt_price(activeSl2, tick2)
-    
-    riskPctDisp2 = na(riskPct2) ? "-" : str.tostring(riskPct2, "#.##") + "%"
-    recLevDisp2 = na(recommendedLeverage2) ? "-" : str.tostring(recommendedLeverage2) + "x"
-    rvolDisp2 = na(plan2.rvolPct) ? "-" : str.tostring(plan2.rvolPct, "#") + "%"
-    modeDisp2 = alertMode2
-    statusDisp2 = alertStatus2
-    scoreDisp2 = str.tostring(plan2.score, "#")
-    signalDisp2 = plan2.action == 1.0 ? "LONG" : plan2.action == -1.0 ? "SHORT" : "NEUTRAL"
-    
-    f_cell(tbl, 0, 2, "HUSDT", color.rgb(30, 90, 180), color.white)
-    f_cell(tbl, 1, 2, biasDisp2, biasBg2, color.white)
-    f_cell(tbl, 2, 2, zoneDisp2, zoneBg2, color.white)
-    f_cell(tbl, 3, 2, f_fmt_price(now2, tick2), cDark, color.white)
-    f_cell(tbl, 4, 2, entryRangeDisp2, cDark, color.white)
-    f_cell(tbl, 5, 2, tp1Disp2, cDark, activeTp1Hit2 ? cLime : color.white)
-    f_cell(tbl, 6, 2, tp2Disp2, cDark, activeTp2Hit2 ? cLime : color.white)
-    f_cell(tbl, 7, 2, tp3Disp2, cDark, activeTp3Hit2 ? cLime : color.white)
-    f_cell(tbl, 8, 2, slDisp2, cDark, color.orange)
-    f_cell(tbl, 9, 2, riskPctDisp2, cDark, color.white)
-    f_cell(tbl, 10, 2, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 11, 2, recLevDisp2, isRiskyPlan2 ? cOrange : cLime, color.white)
-    f_cell(tbl, 12, 2, str.tostring(plan2.rsi, "#.0"), plan2.rsi < 30.0 ? cRed : plan2.rsi > 70.0 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 2, rvolDisp2, plan2.rvolPct >= 120.0 ? cGreen : cDark, color.white)
-    f_cell(tbl, 14, 2, modeDisp2, cDark, color.white)
-    f_cell(tbl, 15, 2, statusDisp2, cDark, color.yellow)
-    f_cell(tbl, 16, 2, scoreDisp2, f_score_color(plan2.score), color.white)
-    f_cell(tbl, 17, 2, signalDisp2, f_signal_color(signalDisp2), color.white)
-    // Row 3
-    biasDisp3 = biasStr3 + " (" + biasStrengthStr3 + ")"
-    biasBg3 = bias3.biasFlag == 1.0 ? cLime : bias3.biasFlag == -1.0 ? cRed : cGray
-    zoneDisp3 = zoneStr3 == "NONE" ? "-" : zoneStr3 + " (" + str.tostring(zone3.zoneScore, "#") + ")"
-    zoneBg3 = zone3.zoneFlag == 1.0 ? color.rgb(0, 100, 200) : zone3.zoneFlag == -1.0 ? color.rgb(150, 50, 50) : cDark
-    entryRangeDisp3 = na(activeEntryLow3) ? "-" : f_fmt_price(activeEntryLow3, tick3) + "-" + f_fmt_price(activeEntryHigh3, tick3)
-    
-    tp1Disp3 = na(activeTp13) ? "-" : f_fmt_price(activeTp13, tick3) + (activeTp1Hit3 ? " ✓" : "")
-    tp2Disp3 = na(activeTp23) ? "-" : f_fmt_price(activeTp23, tick3) + (activeTp2Hit3 ? " ✓" : "")
-    tp3Disp3 = na(activeTp33) ? "-" : f_fmt_price(activeTp33, tick3) + (activeTp3Hit3 ? " ✓" : "")
-    slDisp3 = na(activeSl3) ? "-" : f_fmt_price(activeSl3, tick3)
-    
-    riskPctDisp3 = na(riskPct3) ? "-" : str.tostring(riskPct3, "#.##") + "%"
-    recLevDisp3 = na(recommendedLeverage3) ? "-" : str.tostring(recommendedLeverage3) + "x"
-    rvolDisp3 = na(plan3.rvolPct) ? "-" : str.tostring(plan3.rvolPct, "#") + "%"
-    modeDisp3 = alertMode3
-    statusDisp3 = alertStatus3
-    scoreDisp3 = str.tostring(plan3.score, "#")
-    signalDisp3 = plan3.action == 1.0 ? "LONG" : plan3.action == -1.0 ? "SHORT" : "NEUTRAL"
-    
-    f_cell(tbl, 0, 3, "MUSDT", color.rgb(30, 90, 180), color.white)
-    f_cell(tbl, 1, 3, biasDisp3, biasBg3, color.white)
-    f_cell(tbl, 2, 3, zoneDisp3, zoneBg3, color.white)
-    f_cell(tbl, 3, 3, f_fmt_price(now3, tick3), cDark, color.white)
-    f_cell(tbl, 4, 3, entryRangeDisp3, cDark, color.white)
-    f_cell(tbl, 5, 3, tp1Disp3, cDark, activeTp1Hit3 ? cLime : color.white)
-    f_cell(tbl, 6, 3, tp2Disp3, cDark, activeTp2Hit3 ? cLime : color.white)
-    f_cell(tbl, 7, 3, tp3Disp3, cDark, activeTp3Hit3 ? cLime : color.white)
-    f_cell(tbl, 8, 3, slDisp3, cDark, color.orange)
-    f_cell(tbl, 9, 3, riskPctDisp3, cDark, color.white)
-    f_cell(tbl, 10, 3, str.tostring(leverage) + "x", cDark, color.white)
-    f_cell(tbl, 11, 3, recLevDisp3, isRiskyPlan3 ? cOrange : cLime, color.white)
-    f_cell(tbl, 12, 3, str.tostring(plan3.rsi, "#.0"), plan3.rsi < 30.0 ? cRed : plan3.rsi > 70.0 ? cOrange : cBlue, color.white)
-    f_cell(tbl, 13, 3, rvolDisp3, plan3.rvolPct >= 120.0 ? cGreen : cDark, color.white)
-    f_cell(tbl, 14, 3, modeDisp3, cDark, color.white)
-    f_cell(tbl, 15, 3, statusDisp3, cDark, color.yellow)
-    f_cell(tbl, 16, 3, scoreDisp3, f_score_color(plan3.score), color.white)
-    f_cell(tbl, 17, 3, signalDisp3, f_signal_color(signalDisp3), color.white)
 
 plot(close, display=display.none)
