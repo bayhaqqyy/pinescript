@@ -7,6 +7,9 @@ import asyncio
 import secrets
 import html
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
