@@ -1,0 +1,26 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo Installing dependencies for testing...
+      - pip install -r requirements-webhook.txt pytest pytest-asyncio
+
+  pre_build:
+    commands:
+      - echo Running unit tests...
+      - pytest
+
+  build:
+    commands:
+      - echo Preparing Elastic Beanstalk deployment files...
+      - cp requirements-webhook.txt requirements.txt
+      - echo "web: uvicorn main:app --host 0.0.0.0 --port 5000" > Procfile
+
+artifacts:
+  files:
+    - main.py
+    - requirements.txt
+    - Procfile
