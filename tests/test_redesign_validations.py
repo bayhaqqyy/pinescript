@@ -265,3 +265,240 @@ def test_format_futures_message_legacy():
     assert "1.71" in msg
 
 
+def test_validate_futures_payload_valid_v4():
+    from main import validate_futures_payload
+    payload = {
+        "market": "BINANCE_FUTURES",
+        "type": "FUTURES_SIGNAL",
+        "version": "4.0",
+        "event": "LONG_ENTRY",
+        "symbol": "BEUSDT",
+        "side": "LONG",
+        "entry_low": 247.40,
+        "entry_high": 248.20,
+        "entry_avg": 247.80,
+        "tp1": 250.0,
+        "tp2": 252.0,
+        "tp3": 255.0,
+        "sl": 245.0,
+        "mode": "DEMAND_REJECTION",
+        "status": "VALID_LONG",
+        "score": 85,
+        "risk_pct": 1.13,
+        "recommended_leverage": 17,
+        "risk_label": "SAFE",
+        "bias_4h": "BULLISH",
+        "zone_1h": "DEMAND",
+        "rsi": 55.4,
+        "rvol": 1.45
+    }
+    assert validate_futures_payload(payload) is True
+
+def test_validate_futures_payload_missing_field():
+    from main import validate_futures_payload
+    payload = {
+        "market": "BINANCE_FUTURES",
+        "type": "FUTURES_SIGNAL",
+        "version": "4.0",
+        "event": "LONG_ENTRY",
+        "symbol": "BEUSDT",
+        "side": "LONG",
+        # entry_low missing
+        "entry_high": 248.20,
+        "entry_avg": 247.80,
+        "tp1": 250.0,
+        "tp2": 252.0,
+        "tp3": 255.0,
+        "sl": 245.0,
+        "mode": "DEMAND_REJECTION",
+        "status": "VALID_LONG",
+        "score": 85,
+        "risk_pct": 1.13,
+        "recommended_leverage": 17,
+        "risk_label": "SAFE",
+        "bias_4h": "BULLISH",
+        "zone_1h": "DEMAND",
+        "rsi": 55.4,
+        "rvol": 1.45
+    }
+    assert validate_futures_payload(payload) is False
+
+def test_validate_futures_payload_mode_none():
+    from main import validate_futures_payload
+    payload = {
+        "market": "BINANCE_FUTURES",
+        "type": "FUTURES_SIGNAL",
+        "version": "4.0",
+        "event": "LONG_ENTRY",
+        "symbol": "BEUSDT",
+        "side": "LONG",
+        "entry_low": 247.4,
+        "entry_high": 248.20,
+        "entry_avg": 247.80,
+        "tp1": 250.0,
+        "tp2": 252.0,
+        "tp3": 255.0,
+        "sl": 245.0,
+        "mode": "NONE",
+        "status": "VALID_LONG",
+        "score": 85,
+        "risk_pct": 1.13,
+        "recommended_leverage": 17,
+        "risk_label": "SAFE",
+        "bias_4h": "BULLISH",
+        "zone_1h": "DEMAND",
+        "rsi": 55.4,
+        "rvol": 1.45
+    }
+    assert validate_futures_payload(payload) is False
+
+def test_validate_futures_payload_low_score():
+    from main import validate_futures_payload
+    payload = {
+        "market": "BINANCE_FUTURES",
+        "type": "FUTURES_SIGNAL",
+        "version": "4.0",
+        "event": "LONG_ENTRY",
+        "symbol": "BEUSDT",
+        "side": "LONG",
+        "entry_low": 247.4,
+        "entry_high": 248.20,
+        "entry_avg": 247.80,
+        "tp1": 250.0,
+        "tp2": 252.0,
+        "tp3": 255.0,
+        "sl": 245.0,
+        "mode": "DEMAND_REJECTION",
+        "status": "VALID_LONG",
+        "score": 79, # below 80
+        "risk_pct": 1.13,
+        "recommended_leverage": 17,
+        "risk_label": "SAFE",
+        "bias_4h": "BULLISH",
+        "zone_1h": "DEMAND",
+        "rsi": 55.4,
+        "rvol": 1.45
+    }
+    assert validate_futures_payload(payload) is False
+
+def test_validate_futures_payload_risky():
+    from main import validate_futures_payload
+    payload = {
+        "market": "BINANCE_FUTURES",
+        "type": "FUTURES_SIGNAL",
+        "version": "4.0",
+        "event": "LONG_ENTRY",
+        "symbol": "BEUSDT",
+        "side": "LONG",
+        "entry_low": 247.4,
+        "entry_high": 248.20,
+        "entry_avg": 247.80,
+        "tp1": 250.0,
+        "tp2": 252.0,
+        "tp3": 255.0,
+        "sl": 245.0,
+        "mode": "DEMAND_REJECTION",
+        "status": "VALID_LONG",
+        "score": 85,
+        "risk_pct": 1.13,
+        "recommended_leverage": 17,
+        "risk_label": "RISKY_PLAN", # rejected
+        "bias_4h": "BULLISH",
+        "zone_1h": "DEMAND",
+        "rsi": 55.4,
+        "rvol": 1.45
+    }
+    assert validate_futures_payload(payload) is False
+
+def test_format_futures_message_v4_full():
+    from main import format_futures_message
+    payload = {
+        "market": "BINANCE_FUTURES",
+        "type": "FUTURES_SIGNAL",
+        "version": "4.0",
+        "event": "LONG_ENTRY",
+        "symbol": "BEUSDT",
+        "side": "LONG",
+        "tf_trigger": "5",
+        "tf_setup": "15",
+        "tf_zone": "60",
+        "tf_bias": "240",
+        "entry_low": 247.40,
+        "entry_high": 248.20,
+        "entry_avg": 247.80,
+        "tp1": 250.0,
+        "tp2": 252.0,
+        "tp3": 255.0,
+        "sl": 245.0,
+        "mode": "DEMAND_REJECTION",
+        "status": "VALID_LONG",
+        "score": 85,
+        "risk_pct": 1.13,
+        "recommended_leverage": 17,
+        "risk_label": "SAFE",
+        "bias_4h": "BULLISH",
+        "bias_strength_4h": "NORMAL",
+        "zone_1h": "DEMAND",
+        "zone_score_1h": 80,
+        "trigger_5m": "BULLISH_REJECTION",
+        "setup_15m": "RETEST_STRUCTURE",
+        "rsi": 55.4,
+        "rvol": 1.45
+    }
+    msg = format_futures_message(payload)
+    assert "BEUSDT" in msg
+    assert "5m / 15m / 60m / 240m" in msg
+    assert "VALID_LONG" in msg
+    assert "DEMAND_REJECTION" in msg
+    assert "Rec: 17x" in msg
+    assert "Trigger 5m" in msg
+    assert "BULLISH_REJECTION" in msg
+    assert "Setup 15m" in msg
+    assert "RETEST_STRUCTURE" in msg
+    assert "145.0%" in msg
+
+@pytest.mark.asyncio
+async def test_wait_retest_filter_webhook():
+    main.WEBHOOK_SECRET = ""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Status WAIT_RETEST_LONG should be ignored from Telegram forwarding
+        payload = {
+            "market": "BINANCE_FUTURES",
+            "type": "FUTURES_SIGNAL",
+            "version": "4.0",
+            "event": "LONG_ENTRY",
+            "symbol": "BEUSDT",
+            "side": "LONG",
+            "tf_trigger": "5",
+            "tf_setup": "15",
+            "tf_zone": "60",
+            "tf_bias": "240",
+            "entry_low": 247.40,
+            "entry_high": 248.20,
+            "entry_avg": 247.80,
+            "tp1": 250.0,
+            "tp2": 252.0,
+            "tp3": 255.0,
+            "sl": 245.0,
+            "mode": "DEMAND_REJECTION",
+            "status": "WAIT_RETEST_LONG",
+            "score": 85,
+            "risk_pct": 1.13,
+            "recommended_leverage": 17,
+            "risk_label": "SAFE",
+            "bias_4h": "BULLISH",
+            "bias_strength_4h": "NORMAL",
+            "zone_1h": "DEMAND",
+            "zone_score_1h": 80,
+            "rsi": 55.4,
+            "rvol": 1.45
+        }
+        response = await client.post("/webhook", json=payload)
+        assert response.status_code == 200
+        res = response.json()
+        assert res["status"] == "ignored"
+        assert res["reason"] == "wait_retest_ignored"
+
+
+

@@ -258,6 +258,12 @@ type ZoneResult
     float zoneHigh
     float zoneScore
 
+type TriggerResult
+    float triggerFlag
+    string triggerType
+    float rsi5m
+    float rvol5m
+
 type PlanResult
     float now
     float high
@@ -280,17 +286,31 @@ type PlanResult
     float sl
     float riskPct
     float rrTp1
+    float rrTp2
+    float rrTp3
+    float recommendedLev
+    float riskLabel
 
 // ============================================================================
 // INPUTS
 // ============================================================================
-tf = input.timeframe("15", "Timeframe Screener")
+tfTrigger = input.timeframe("5", "Trigger TF")
+tfSetup   = input.timeframe("15", "Setup TF")
+tfZone    = input.timeframe("60", "Zone TF")
+tfBias    = input.timeframe("240", "Bias TF")
+
+enableStrictEntry = input.bool(true, "Enable Strict Entry")
+allowTrendContinuation = input.bool(false, "Allow Trend Continuation Entry")
+allowDirectBreakout = input.bool(false, "Allow Direct Breakout/Breakdown Entry")
+minRvolEntry = input.float(1.2, "Minimum RVOL Entry", step=0.1)
+minTriggerRvol = input.float(1.1, "Minimum Trigger RVOL", step=0.1)
+entryScore = input.int(80, "Entry Score")
+
+tf = tfSetup // Compatibility fallback
 
 srLen = input.int(14, "S/R Length")
 atrLen = input.int(14, "ATR Length")
 leverage = input.int(10, "Leverage", minval=1, maxval=125)
-
-entryScore = input.int(70, "Entry Score")
 scoreGap = input.int(6, "Score Gap")
 
 slAtrMult = input.float(1.4, "SL ATR Mult (Wider)", step=0.1)
@@ -300,7 +320,7 @@ minRR = input.float(1.6, "Minimum RR (Wider)", step=0.1)
 minSlRawPct = input.float(0.6, "Minimum SL Raw % (Wider)", step=0.1)
 minTpRawPct = input.float(1.0, "Minimum TP Raw % (Wider)", step=0.1)
 maxPlanRiskPct = input.float(2.0, "Max Raw Risk % For Action", step=0.5)
-maxLevRiskPct = input.float(25.0, "Max Leveraged Risk % For Action", step=5.0)
+maxLevRiskPct = input.float(50.0, "Max Leveraged Risk % For Action", step=5.0)
 
 breakoutBufferPct = input.float(0.05, "Breakout Buffer %", step=0.01)
 srAtrBuffer = input.float(0.20, "S/R ATR Buffer", step=0.05)
@@ -334,6 +354,12 @@ f_risk_label(levRiskPct, isRiskyPlan) =>
       levRiskPct <= 35.0 ? "SAFE" :
       levRiskPct <= 65.0 ? "RISKY" :
       "HIGH"
+
+f_risk_label_float(float levRiskPct, bool isRiskyPlan) =>
+    na(levRiskPct) ? 4.0 :
+      isRiskyPlan ? 3.0 :
+      levRiskPct <= 35.0 ? 0.0 :
+      levRiskPct <= 65.0 ? 1.0 : 2.0
 
 f_risk_color(risk) =>
     risk == "SAFE" ? cLime :
@@ -453,6 +479,46 @@ f_zone_engine() =>
     ZoneResult.new(zoneFlag, zoneLow, zoneHigh, zoneScore)
 
 // ============================================================================
+// 5m TRIGGER ENGINE
+// ============================================================================
+f_trigger_engine() =>
+    body = math.abs(close - open)
+    barRange = math.max(high - low, syminfo.mintick)
+    greenCandle = close > open
+    redCandle = close < open
+    
+    closeNearHigh = barRange > 0 ? close >= low + barRange * 0.65 : false
+    closeNearLow  = barRange > 0 ? close <= low + barRange * 0.35 : false
+    
+    lowerReject = body > 0 ? (math.min(open, close) - low) >= body * 0.8 : false
+    upperReject = body > 0 ? (high - math.max(open, close)) >= body * 0.8 : false
+    
+    rsiVal = ta.rsi(close, 14)
+    rsiUp = ta.change(rsiVal) > 0 or rsiVal > 50.0
+    rsiDown = ta.change(rsiVal) < 0 or rsiVal < 50.0
+    
+    [macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9)
+    histUp = ta.change(hist) > 0
+    histDown = ta.change(hist) < 0
+    
+    volMA = ta.sma(volume, 20)
+    rvol5m = volMA > 0 ? volume / volMA : 1.0
+    
+    bullishTrigger = closeNearHigh and (greenCandle or lowerReject) and (rsiUp or histUp) and rvol5m >= minTriggerRvol
+    bearishTrigger = closeNearLow and (redCandle or upperReject) and (rsiDown or histDown) and rvol5m >= minTriggerRvol
+    
+    triggerFlag = 0.0
+    triggerType = "NEUTRAL"
+    if bullishTrigger
+        triggerFlag := 1.0
+        triggerType := "BULLISH_REJECTION"
+    else if bearishTrigger
+        triggerFlag := -1.0
+        triggerType := "BEARISH_REJECTION"
+        
+    TriggerResult.new(triggerFlag, triggerType, rsiVal, rvol5m)
+
+// ============================================================================
 // 15m PLAN ENGINE
 // ============================================================================
 f_plan_engine(float biasFlag, float biasStrength, float zoneFlag, float zoneLow, float zoneHigh, float zoneScore) =>
@@ -513,12 +579,28 @@ f_plan_engine(float biasFlag, float biasStrength, float zoneFlag, float zoneLow,
     blockShort = (biasFlag == 1.0 and biasStrength == 2.0)
     blockLong = (biasFlag == -1.0 and biasStrength == 2.0)
     
-    longValid = validData and (longTrendAction or longPullbackAction or longBreakoutAction or longDemandRejection or longRetestAction) and not blockLong
-    shortValid = validData and (shortTrendAction or shortPullbackAction or shortBreakdownAction or shortSupplyRejection or shortRetestAction) and not blockShort
+    // Strict entry toggles
+    longTrendAllowed = allowTrendContinuation ? longTrendAction : false
+    shortTrendAllowed = allowTrendContinuation ? shortTrendAction : false
+    longBreakoutAllowed = allowDirectBreakout ? longBreakoutAction : false
+    shortBreakdownAllowed = allowDirectBreakout ? shortBreakdownAction : false
     
-    isWaitRetestLong = longValid and (close > emaFast + atrVal * 1.2 or (close - rst) > atrVal * 1.2)
-    isWaitRetestShort = shortValid and (close < emaFast - atrVal * 1.2 or (sup - close) > atrVal * 1.2)
+    longSetupValid = validData and (longTrendAllowed or longPullbackAction or longBreakoutAllowed or longDemandRejection or longRetestAction) and not blockLong
+    shortSetupValid = validData and (shortTrendAllowed or shortPullbackAction or shortBreakdownAllowed or shortSupplyRejection or shortRetestAction) and not blockShort
     
+    // Anti-telat filter (Section 6)
+    tooLateLong = longSetupValid and (close > emaFast + atrVal * 1.0 or close > rst + atrVal * 0.6)
+    tooLateShort = shortSetupValid and (close < emaFast - atrVal * 1.0 or close < sup - atrVal * 0.6)
+    
+    isWaitRetestLong = longSetupValid and tooLateLong
+    isWaitRetestShort = shortSetupValid and tooLateShort
+    
+    // If anti-telat triggered, entry is not valid yet
+    if tooLateLong
+        longSetupValid := false
+    if tooLateShort
+        shortSetupValid := false
+        
     // Entry Zone boundaries
     entryLow = close - atrVal * 0.25
     entryHigh = close + atrVal * 0.10
@@ -550,20 +632,22 @@ f_plan_engine(float biasFlag, float biasStrength, float zoneFlag, float zoneLow,
         
     entryAvg = (entryLow + entryHigh) / 2.0
     
-    // Stop Loss calculation
-    slLongBase = entryAvg - math.max(atrVal * slAtrMult, entryAvg * minSlRawPct / 100.0)
-    slLong = slLongBase
-    if zoneFlag == 1.0 and not na(zoneLow)
-        slLong := math.min(slLong, zoneLow - atrVal * 0.30)
-    slLong := math.min(slLong, sup - atrVal * 0.20)
+    // Stop Loss structure-based calculation (Section 9)
+    zoneLowVal = (zoneFlag == 1.0 and not na(zoneLow)) ? zoneLow : 99999999.0
+    slLong = math.min(
+         zoneLowVal - atrVal * 0.20,
+         sup - atrVal * 0.20
+     )
+    slLong := math.min(slLong, entryLow - math.max(atrVal * 1.8, entryAvg * 0.8 / 100.0))
     
-    slShortBase = entryAvg + math.max(atrVal * slAtrMult, entryAvg * minSlRawPct / 100.0)
-    slShort = slShortBase
-    if zoneFlag == -1.0 and not na(zoneHigh)
-        slShort := math.max(slShort, zoneHigh + atrVal * 0.30)
-    slShort := math.max(slShort, rst + atrVal * 0.20)
+    zoneHighVal = (zoneFlag == -1.0 and not na(zoneHigh)) ? zoneHigh : 0.0
+    slShort = math.max(
+         zoneHighVal + atrVal * 0.20,
+         rst + atrVal * 0.20
+     )
+    slShort := math.max(slShort, entryHigh + math.max(atrVal * 1.8, entryAvg * 0.8 / 100.0))
     
-    // TP calculation
+    // TP calculation (Section 10)
     riskLong = entryAvg - slLong
     tp1Long = entryAvg + riskLong * 1.0
     tp2Long = entryAvg + riskLong * 1.8
@@ -581,13 +665,13 @@ f_plan_engine(float biasFlag, float biasStrength, float zoneFlag, float zoneLow,
     float tp2 = na
     float tp3 = na
     
-    if longValid
+    if longSetupValid
         sl := slLong
         tp1 := tp1Long
         tp2 := tp2Long
         tp3 := tp3Long
         riskPct := entryAvg > 0.0 ? (riskLong / entryAvg * 100.0) : 0.0
-    else if shortValid
+    else if shortSetupValid
         sl := slShort
         tp1 := tp1Short
         tp2 := tp2Short
@@ -601,71 +685,79 @@ f_plan_engine(float biasFlag, float biasStrength, float zoneFlag, float zoneLow,
     
     // Enforce min RR and TP sequence rules
     tpSeqOk = false
-    if longValid
+    if longSetupValid
         tpSeqOk := tp1 > entryAvg and tp2 > tp1 and tp3 > tp2 and sl < entryLow and riskLong > 0.0
-    else if shortValid
+    else if shortSetupValid
         tpSeqOk := tp1 < entryAvg and tp2 < tp1 and tp3 < tp2 and sl > entryHigh and riskShort > 0.0
         
-    longValid := longValid and riskOk and tpSeqOk
-    shortValid := shortValid and riskOk and tpSeqOk
+    longSetupValid := longSetupValid and riskOk and tpSeqOk
+    shortSetupValid := shortSetupValid and riskOk and tpSeqOk
     
-    // Scoring
-    scoreLong = 0.0
-    scoreLong := scoreLong + (biasFlag == 1.0 ? 20.0 : 0.0)
-    scoreLong := scoreLong + (zoneFlag == 1.0 and zoneScore >= 70.0 ? 20.0 : 0.0)
-    scoreLong := scoreLong + 20.0
-    scoreLong := scoreLong + (volOk ? 15.0 : 0.0)
-    scoreLong := scoreLong + (rsiVal > 50.0 and rsiVal < 72.0 and hist > 0.0 ? 15.0 : 0.0)
-    scoreLong := scoreLong + 10.0
+    // Scoring system (Section 12) - Base score out of 80 (excluding 5m trigger)
+    scoreBiasLong = 0.0
+    if biasFlag == 1.0
+        scoreBiasLong := biasStrength == 2.0 ? 15.0 : 10.0
+    else if biasFlag == 0.0
+        scoreBiasLong := 5.0
+        
+    scoreBiasShort = 0.0
+    if biasFlag == -1.0
+        scoreBiasShort := biasStrength == 2.0 ? 15.0 : 10.0
+    else if biasFlag == 0.0
+        scoreBiasShort := 5.0
+        
+    scoreZoneLong = (zoneFlag == 1.0 and zoneScore >= 70.0) ? 20.0 : (zoneFlag == 1.0 ? 10.0 : 0.0)
+    scoreZoneShort = (zoneFlag == -1.0 and zoneScore >= 70.0) ? 20.0 : (zoneFlag == -1.0 ? 10.0 : 0.0)
     
-    scoreShort = 0.0
-    scoreShort := scoreShort + (biasFlag == -1.0 ? 20.0 : 0.0)
-    scoreShort := scoreShort + (zoneFlag == -1.0 and zoneScore >= 70.0 ? 20.0 : 0.0)
-    scoreShort := scoreShort + 20.0
-    scoreShort := scoreShort + (volOk ? 15.0 : 0.0)
-    scoreShort := scoreShort + (rsiVal < 50.0 and rsiVal > 28.0 and hist < 0.0 ? 15.0 : 0.0)
-    scoreShort := scoreShort + 10.0
+    scoreSetupLong = longSetupValid ? 20.0 : 0.0
+    scoreSetupShort = shortSetupValid ? 20.0 : 0.0
     
-    longValid := longValid and scoreLong >= entryScore
-    shortValid := shortValid and scoreShort >= entryScore
+    scoreRvol = (not na(rvol) and rvol >= minRvolEntry) ? 10.0 : (not na(rvol) and rvol >= 1.0 ? 5.0 : 0.0)
     
+    scoreTechLong = (rsiVal > 50.0 and hist > 0.0) ? 10.0 : (rsiVal > 50.0 or hist > 0.0 ? 5.0 : 0.0)
+    scoreTechShort = (rsiVal < 50.0 and hist < 0.0) ? 10.0 : (rsiVal < 50.0 or hist < 0.0 ? 5.0 : 0.0)
+    
+    scoreRisk = (recommendedLeverage >= leverage) ? 5.0 : 0.0
+    
+    baseScoreLong = scoreBiasLong + scoreZoneLong + scoreSetupLong + scoreRvol + scoreTechLong + scoreRisk
+    baseScoreShort = scoreBiasShort + scoreZoneShort + scoreSetupShort + scoreRvol + scoreTechShort + scoreRisk
+    
+    // Final action logic for 15m (will be combined with 5m trigger)
     action = 0.0
     statusFlag = 0.0
-    if longValid
-        if isWaitRetestLong
-            statusFlag := 3.0
-        else if isRiskyPlan
+    
+    // Set status flag based on setup conditions
+    if longSetupValid
+        if isRiskyPlan
             statusFlag := 7.0
-            action := 1.0
         else
             statusFlag := 1.0
             action := 1.0
-    else if shortValid
-        if isWaitRetestShort
-            statusFlag := 4.0
-        else if isRiskyPlan
+    else if shortSetupValid
+        if isRiskyPlan
             statusFlag := 7.0
-            action := -1.0
         else
             statusFlag := 2.0
             action := -1.0
-    else if overheat
-        statusFlag := 5.0
-    else if oversold
+    else if isWaitRetestLong
+        statusFlag := 3.0
+    else if isWaitRetestShort
+        statusFlag := 4.0
+    else if overheat or oversold
         statusFlag := 5.0
     else if (longTrendAction or longPullbackAction or longBreakoutAction or longDemandRejection or longRetestAction) and (shortTrendAction or shortPullbackAction or shortBreakdownAction or shortSupplyRejection or shortRetestAction)
         statusFlag := 6.0
         
     scoreVal = 0.0
-    if action == 1.0 or longValid
-        scoreVal := scoreLong
-    else if action == -1.0 or shortValid
-        scoreVal := scoreShort
+    if action == 1.0 or longSetupValid or isWaitRetestLong
+        scoreVal := baseScoreLong
+    else if action == -1.0 or shortSetupValid or isWaitRetestShort
+        scoreVal := baseScoreShort
     else
-        scoreVal := math.max(scoreLong, scoreShort)
+        scoreVal := math.max(baseScoreLong, baseScoreShort)
         
     modeFlag = 0.0
-    if action == 1.0 or longValid
+    if action == 1.0 or longSetupValid or isWaitRetestLong
         if longTrendAction
             modeFlag := 1.0
         else if longPullbackAction
@@ -676,7 +768,7 @@ f_plan_engine(float biasFlag, float biasStrength, float zoneFlag, float zoneLow,
             modeFlag := 6.0
         else if longRetestAction
             modeFlag := 7.0
-    else if action == -1.0 or shortValid
+    else if action == -1.0 or shortSetupValid or isWaitRetestShort
         if shortTrendAction
             modeFlag := 1.0
         else if shortPullbackAction
@@ -698,13 +790,31 @@ f_plan_engine(float biasFlag, float biasStrength, float zoneFlag, float zoneLow,
     flowFlag = bullImpulse15m and trendLong ? 1.0 : bearImpulse15m and trendShort ? 2.0 : longAbsorb15m ? 3.0 : shortAbsorb15m ? 4.0 : smallBodyHighVol15m ? 5.0 : (not na(rvol) and rvol < 0.5) ? 6.0 : 0.0
     
     rrTp1 = riskPct > 0.0 ? (tp1Long - entryAvg) / (entryAvg - slLong) : na
-    if action == -1.0 or shortValid
+    rrTp2 = riskPct > 0.0 ? (tp2Long - entryAvg) / (entryAvg - slLong) : na
+    rrTp3 = riskPct > 0.0 ? (tp3Long - entryAvg) / (entryAvg - slLong) : na
+    
+    if action == -1.0 or shortSetupValid or isWaitRetestShort
         rrTp1 := riskPct > 0.0 ? (entryAvg - tp1Short) / (slShort - entryAvg) : na
+        rrTp2 := riskPct > 0.0 ? (entryAvg - tp2Short) / (slShort - entryAvg) : na
+        rrTp3 := riskPct > 0.0 ? (entryAvg - tp3Short) / (slShort - entryAvg) : na
+        
+    riskLabel = f_risk_label_float(riskPct * leverage, isRiskyPlan)
         
     PlanResult.new(
         close, high, low, sup, rst, action, scoreVal, flowFlag, statusFlag, modeFlag,
-        rsiVal, rvol * 100.0, entryLow, entryHigh, entryAvg, tp1, tp2, tp3, sl, riskPct, rrTp1
+        rsiVal, rvol * 100.0, entryLow, entryHigh, entryAvg, tp1, tp2, tp3, sl, riskPct, rrTp1,
+        rrTp2, rrTp3, recommendedLeverage, riskLabel
     )
+
+f_setup_desc(float mode) =>
+    mode == 1.0 ? "TREND_CONTINUATION" :
+      mode == 2.0 ? "PULLBACK_EMA" :
+      mode == 5.0 ? "ZONE_REJECTION" :
+      mode == 6.0 ? "ZONE_REJECTION" :
+      mode == 7.0 ? "RETEST_STRUCTURE" :
+      mode == 8.0 ? "RETEST_STRUCTURE" :
+      mode == 3.0 ? "DIRECT_BREAKOUT" :
+      mode == 4.0 ? "DIRECT_BREAKOUT" : "NONE"
 """
 
 def generate_pine_script(symbols, batch_label):
@@ -733,17 +843,29 @@ var bool activeTp1Hit{idx} = false
 var bool activeTp2Hit{idx} = false
 var bool activeTp3Hit{idx} = false
 var float activeMode{idx} = na
+var float activeScore{idx} = na
+var string activeBias4h{idx} = ""
+var string activeBiasStrength4h{idx} = ""
+var string activeZone1h{idx} = ""
+var float activeZoneScore1h{idx} = na
+var float activeRsi{idx} = na
+var float activeRvol{idx} = na
+var string activeRiskLabel{idx} = ""
+var float activeRecommendedLev{idx} = na
+var string activeTrigger5m{idx} = ""
+var string activeSetup15m{idx} = ""
 var string lastEvent{idx} = ""
 var int lastBar{idx} = na
 
-biasRaw{idx} = request.security(tk{idx}, "240", f_bias_engine())
-zoneRaw{idx} = request.security(tk{idx}, "60", f_zone_engine())
+biasRaw{idx} = request.security(tk{idx}, tfBias, f_bias_engine())
+zoneRaw{idx} = request.security(tk{idx}, tfZone, f_zone_engine())
+planRaw{idx} = request.security(tk{idx}, tfSetup, f_plan_engine(not na(biasRaw{idx}) ? biasRaw{idx}.biasFlag : 0.0, not na(biasRaw{idx}) ? biasRaw{idx}.biasStrength : 0.0, not na(zoneRaw{idx}) ? zoneRaw{idx}.zoneFlag : 0.0, not na(zoneRaw{idx}) ? zoneRaw{idx}.zoneLow : na, not na(zoneRaw{idx}) ? zoneRaw{idx}.zoneHigh : na, not na(zoneRaw{idx}) ? zoneRaw{idx}.zoneScore : 0.0))
+trigRaw{idx} = request.security(tk{idx}, tfTrigger, f_trigger_engine())
 
 bias{idx} = not na(biasRaw{idx}) ? biasRaw{idx} : defaultBias
 zone{idx} = not na(zoneRaw{idx}) ? zoneRaw{idx} : defaultZone
-
-planRaw{idx} = request.security(tk{idx}, tf, f_plan_engine(bias{idx}.biasFlag, bias{idx}.biasStrength, zone{idx}.zoneFlag, zone{idx}.zoneLow, zone{idx}.zoneHigh, zone{idx}.zoneScore))
 plan{idx} = not na(planRaw{idx}) ? planRaw{idx} : defaultPlan
+trig{idx} = not na(trigRaw{idx}) ? trigRaw{idx} : defaultTrigger
 
 now{idx} = plan{idx}.now
 hi{idx} = plan{idx}.high
@@ -767,10 +889,20 @@ rrTp2{idx} = na(riskPct{idx}) or riskPct{idx} == 0.0 ? na : pctTp2{idx} / riskPc
 pctTp3{idx} = na(activeEntryAvg{idx}) ? na : (activeEntryAvg{idx} > 0 ? math.abs(activeTp3{idx} - activeEntryAvg{idx}) / activeEntryAvg{idx} * 100.0 : na)
 rrTp3{idx} = na(riskPct{idx}) or riskPct{idx} == 0.0 ? na : pctTp3{idx} / riskPct{idx}
 
-levRiskPct{idx} = riskPct{idx} * leverage
-recommendedLeverage{idx} = riskPct{idx} > 0.0 ? math.max(1.0, math.floor(20.0 / riskPct{idx})) : 20.0
-isRiskyPlan{idx} = recommendedLeverage{idx} < leverage
-risk{idx} = f_risk_label(levRiskPct{idx}, isRiskyPlan{idx})
+// Linear active/display calculations to prevent circular references
+activeRecLev{idx} = riskPct{idx} > 0.0 ? math.max(1.0, math.floor(20.0 / riskPct{idx})) : 20.0
+activeLevRiskPct{idx} = riskPct{idx} * leverage
+activeIsRiskyPlan{idx} = activeRecLev{idx} < leverage
+activeRiskLabelStr{idx} = f_risk_label(activeLevRiskPct{idx}, activeIsRiskyPlan{idx})
+
+displayRiskPct{idx} = activeSide{idx} != "" ? riskPct{idx} : plan{idx}.riskPct
+displayRecLev{idx} = activeSide{idx} != "" ? activeRecLev{idx} : plan{idx}.recommendedLev
+displayRisk{idx} = activeSide{idx} != "" ? activeRiskLabelStr{idx} : (plan{idx}.riskLabel == 0.0 ? "SAFE" : plan{idx}.riskLabel == 1.0 ? "RISKY" : plan{idx}.riskLabel == 2.0 ? "HIGH" : plan{idx}.riskLabel == 3.0 ? "RISKY_PLAN" : "NO_DATA")
+
+levRiskPct{idx} = displayRiskPct{idx} * leverage
+recommendedLeverage{idx} = displayRecLev{idx}
+isRiskyPlan{idx} = displayRecLev{idx} < leverage
+risk{idx} = displayRisk{idx}
 
 liqPriceLong{idx} = activeEntryAvg{idx} * (1 - 0.90 / leverage)
 liqPriceShort{idx} = activeEntryAvg{idx} * (1 + 0.90 / leverage)
@@ -779,7 +911,33 @@ liqWarnShort{idx} = activeSl{idx} >= liqPriceShort{idx} ? "HIGH RISK" : activeSl
 sideForRisk{idx} = activeSide{idx} != "" ? activeSide{idx} : (plan{idx}.action == 1.0 ? "LONG" : plan{idx}.action == -1.0 ? "SHORT" : "NONE")
 liqWarn{idx} = sideForRisk{idx} == "LONG" ? liqWarnLong{idx} : sideForRisk{idx} == "SHORT" ? liqWarnShort{idx} : "SAFE"
 
-pnlPct{idx} = activeSide{idx} == "LONG" ? ((now{idx} - activeEntryAvg{idx}) / activeEntryAvg{idx}) * 100.0 * leverage : activeSide{idx} == "SHORT" ? ((activeEntryAvg{idx} - now{idx}) / activeEntryAvg{idx}) * 100.0 * leverage : na''')
+pnlPct{idx} = activeSide{idx} == "LONG" ? ((now{idx} - activeEntryAvg{idx}) / activeEntryAvg{idx}) * 100.0 * leverage : activeSide{idx} == "SHORT" ? ((activeEntryAvg{idx} - now{idx}) / activeEntryAvg{idx}) * 100.0 * leverage : na
+
+// V4 Final Action Evaluated on 5m chart TF
+finalAction{idx} = 0.0
+finalScore{idx} = plan{idx}.score
+
+if activeSide{idx} == ""
+    // Check LONG entry conditions
+    isLongSetup = plan{idx}.statusFlag == 1.0 or plan{idx}.statusFlag == 3.0
+    priceInsideLong = now{idx} >= plan{idx}.entryLow and now{idx} <= plan{idx}.entryHigh
+    triggerLong = trig{idx}.triggerFlag == 1.0
+    scoreLong = plan{idx}.score + (triggerLong ? 20.0 : 0.0)
+    
+    if isLongSetup and priceInsideLong and triggerLong and scoreLong >= entryScore
+        finalAction{idx} := 1.0
+        finalScore{idx} := scoreLong
+        
+    // Check SHORT entry conditions
+    isShortSetup = plan{idx}.statusFlag == 2.0 or plan{idx}.statusFlag == 4.0
+    priceInsideShort = now{idx} >= plan{idx}.entryLow and now{idx} <= plan{idx}.entryHigh
+    triggerShort = trig{idx}.triggerFlag == -1.0
+    scoreShort = plan{idx}.score + (triggerShort ? 20.0 : 0.0)
+    
+    if isShortSetup and priceInsideShort and triggerShort and scoreShort >= entryScore
+        finalAction{idx} := -1.0
+        finalScore{idx} := scoreShort
+''')
 
     row_chunks = []
     for i in range(n):
@@ -799,13 +957,13 @@ pnlPct{idx} = activeSide{idx} == "LONG" ? ((now{idx} - activeEntryAvg{idx}) / ac
     tp3Disp{idx} = na(activeTp3{idx}) ? "-" : f_fmt_price(activeTp3{idx}, tick{idx}) + (activeTp3Hit{idx} ? " ✓" : "")
     slDisp{idx} = na(activeSl{idx}) ? "-" : f_fmt_price(activeSl{idx}, tick{idx})
     
-    riskPctDisp{idx} = na(riskPct{idx}) ? "-" : str.tostring(riskPct{idx}, "#.##") + "%"
-    recLevDisp{idx} = na(recommendedLeverage{idx}) ? "-" : str.tostring(recommendedLeverage{idx}) + "x"
+    riskPctDisp{idx} = na(displayRiskPct{idx}) ? "-" : str.tostring(displayRiskPct{idx}, "#.##") + "%"
+    recLevDisp{idx} = na(displayRecLev{idx}) ? "-" : str.tostring(displayRecLev{idx}) + "x"
     rvolDisp{idx} = na(plan{idx}.rvolPct) ? "-" : str.tostring(plan{idx}.rvolPct, "#") + "%"
     modeDisp{idx} = alertMode{idx}
     statusDisp{idx} = alertStatus{idx}
-    scoreDisp{idx} = str.tostring(plan{idx}.score, "#")
-    signalDisp{idx} = plan{idx}.action == 1.0 ? "LONG" : plan{idx}.action == -1.0 ? "SHORT" : "NEUTRAL"
+    scoreDisp{idx} = str.tostring(finalScore{idx}, "#")
+    signalDisp{idx} = finalAction{idx} == 1.0 ? "LONG" : finalAction{idx} == -1.0 ? "SHORT" : "NEUTRAL"
     
     f_cell(tbl, 0, {row}, "{t}", color.rgb(30, 90, 180), color.white)
     f_cell(tbl, 1, {row}, biasDisp{idx}, biasBg{idx}, color.white)
@@ -823,7 +981,7 @@ pnlPct{idx} = activeSide{idx} == "LONG" ? ((now{idx} - activeEntryAvg{idx}) / ac
     f_cell(tbl, 13, {row}, rvolDisp{idx}, plan{idx}.rvolPct >= 120.0 ? cGreen : cDark, color.white)
     f_cell(tbl, 14, {row}, modeDisp{idx}, cDark, color.white)
     f_cell(tbl, 15, {row}, statusDisp{idx}, cDark, color.yellow)
-    f_cell(tbl, 16, {row}, scoreDisp{idx}, f_score_color(plan{idx}.score), color.white)
+    f_cell(tbl, 16, {row}, scoreDisp{idx}, f_score_color(finalScore{idx}), color.white)
     f_cell(tbl, 17, {row}, signalDisp{idx}, f_signal_color(signalDisp{idx}), color.white)"""
         row_chunks.append(row_str)
 
@@ -883,7 +1041,7 @@ if bothHitShort{idx}
         tpHitValidShort{idx} := false
         slHitValidShort{idx} := false
 
-entryEvent{idx} = activeSide{idx} == "" and plan{idx}.action == 1.0 ? "LONG_ENTRY" : activeSide{idx} == "" and plan{idx}.action == -1.0 ? "SHORT_ENTRY" : "NONE"
+entryEvent{idx} = activeSide{idx} == "" and finalAction{idx} == 1.0 ? "LONG_ENTRY" : activeSide{idx} == "" and finalAction{idx} == -1.0 ? "SHORT_ENTRY" : "NONE"
 
 event{idx} = "NONE"
 if activeSide{idx} == "LONG"
@@ -933,6 +1091,17 @@ if event{idx} == "LONG_SL_HIT" or event{idx} == "LONG_TP3_HIT" or event{idx} == 
     activeTp2Hit{idx} := false
     activeTp3Hit{idx} := false
     activeMode{idx} := na
+    activeScore{idx} := na
+    activeBias4h{idx} := ""
+    activeBiasStrength4h{idx} := ""
+    activeZone1h{idx} := ""
+    activeZoneScore1h{idx} := na
+    activeRsi{idx} := na
+    activeRvol{idx} := na
+    activeRiskLabel{idx} := ""
+    activeRecommendedLev{idx} := na
+    activeTrigger5m{idx} := ""
+    activeSetup15m{idx} := ""
 else if event{idx} == "LONG_TP1_HIT" or event{idx} == "SHORT_TP1_HIT"
     activeTp1Hit{idx} := true
 else if event{idx} == "LONG_TP2_HIT" or event{idx} == "SHORT_TP2_HIT"
@@ -951,24 +1120,52 @@ else if event{idx} == "LONG_ENTRY" or event{idx} == "SHORT_ENTRY"
     activeTp2Hit{idx} := false
     activeTp3Hit{idx} := false
     activeMode{idx} := plan{idx}.modeFlag
+    activeScore{idx} := finalScore{idx}
+    activeBias4h{idx} := biasStr{idx}
+    activeBiasStrength4h{idx} := biasStrengthStr{idx}
+    activeZone1h{idx} := zoneStr{idx}
+    activeZoneScore1h{idx} := zone{idx}.zoneScore
+    activeRsi{idx} := plan{idx}.rsi
+    activeRvol{idx} := plan{idx}.rvolPct
+    activeRiskLabel{idx} := risk{idx}
+    activeRecommendedLev{idx} := recommendedLeverage{idx}
+    activeTrigger5m{idx} := trig{idx}.triggerType
+    activeSetup15m{idx} := f_setup_desc(plan{idx}.modeFlag)
 
 sendAlert{idx} = event{idx} == "LONG_ENTRY" or event{idx} == "SHORT_ENTRY" or event{idx} == "LONG_TP1_HIT" or event{idx} == "LONG_TP2_HIT" or event{idx} == "LONG_TP3_HIT" or event{idx} == "LONG_SL_HIT" or event{idx} == "SHORT_TP1_HIT" or event{idx} == "SHORT_TP2_HIT" or event{idx} == "SHORT_TP3_HIT" or event{idx} == "SHORT_SL_HIT"
 canAlert{idx} = sendAlert{idx} and (event{idx} != lastEvent{idx} or na(lastBar{idx}) or bar_index - lastBar{idx} >= cooldownBars)
 
 alertMode{idx} = alertModeRaw{idx} == 1.0 ? "TREND_CONTINUATION" : alertModeRaw{idx} == 2.0 ? "PULLBACK_ENTRY" : alertModeRaw{idx} == 3.0 ? "BREAKOUT_ENTRY" : alertModeRaw{idx} == 4.0 ? "BREAKDOWN_ENTRY" : alertModeRaw{idx} == 5.0 ? "SUPPLY_REJECTION" : alertModeRaw{idx} == 6.0 ? "DEMAND_REJECTION" : alertModeRaw{idx} == 7.0 ? "BREAKOUT_RETEST" : alertModeRaw{idx} == 8.0 ? "BREAKDOWN_RETEST" : "NONE"
-triggerStr{idx} = plan{idx}.action == 1.0 ? "BULLISH_CONFIRMATION" : plan{idx}.action == -1.0 ? "BEARISH_CONFIRMATION" : "NEUTRAL"
+
+alertScore{idx} = isEntryEvent{idx} ? finalScore{idx} : activeScore{idx}
+alertBias4h{idx} = isEntryEvent{idx} ? biasStr{idx} : activeBias4h{idx}
+alertBiasStrength4h{idx} = isEntryEvent{idx} ? biasStrengthStr{idx} : activeBiasStrength4h{idx}
+alertZone1h{idx} = isEntryEvent{idx} ? zoneStr{idx} : activeZone1h{idx}
+alertZoneScore1h{idx} = isEntryEvent{idx} ? zone{idx}.zoneScore : activeZoneScore1h{idx}
+alertRsi{idx} = isEntryEvent{idx} ? plan{idx}.rsi : activeRsi{idx}
+alertRvol{idx} = isEntryEvent{idx} ? plan{idx}.rvolPct : activeRvol{idx}
+alertRiskLabel{idx} = isEntryEvent{idx} ? risk{idx} : activeRiskLabel{idx}
+alertRecLev{idx} = isEntryEvent{idx} ? recommendedLeverage{idx} : activeRecommendedLev{idx}
+alertTrigger5m{idx} = isEntryEvent{idx} ? trig{idx}.triggerType : activeTrigger5m{idx}
+alertSetup15m{idx} = isEntryEvent{idx} ? f_setup_desc(plan{idx}.modeFlag) : f_setup_desc(activeMode{idx})
+
+alertRiskPct{idx} = isEntryEvent{idx} ? plan{idx}.riskPct : riskPct{idx}
+alertRrTp1{idx} = isEntryEvent{idx} ? plan{idx}.rrTp1 : rrTp1{idx}
+alertRrTp2{idx} = isEntryEvent{idx} ? plan{idx}.rrTp2 : rrTp2{idx}
+alertRrTp3{idx} = isEntryEvent{idx} ? plan{idx}.rrTp3 : rrTp3{idx}
+alertLevRiskPct{idx} = isEntryEvent{idx} ? (plan{idx}.riskPct * leverage) : levRiskPct{idx}
 
 if barstate.isconfirmed and canAlert{idx}
-    msg_{idx} = '{{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "version": "2.0", "event": "' + event{idx} + '", "symbol": "{t}", "side": "' + alertSide{idx} + '", "tf_trigger": "' + tf + '", "tf_zone": "60", "tf_bias": "240", "mode": "' + alertMode{idx} + '", "status": "' + alertStatus{idx} + '", "now": ' + str.tostring(now{idx}) + ', "entry_low": ' + (na(alertEntryLow{idx}) ? 'null' : str.tostring(alertEntryLow{idx})) + ', "entry_high": ' + (na(alertEntryHigh{idx}) ? 'null' : str.tostring(alertEntryHigh{idx})) + ', "entry_avg": ' + (na(alertEntryAvg{idx}) ? 'null' : str.tostring(alertEntryAvg{idx})) + ', "tp1": ' + (na(alertTp1{idx}) ? 'null' : str.tostring(alertTp1{idx})) + ', "tp2": ' + (na(alertTp2{idx}) ? 'null' : str.tostring(alertTp2{idx})) + ', "tp3": ' + (na(alertTp3{idx}) ? 'null' : str.tostring(alertTp3{idx})) + ', "sl": ' + (na(alertSl{idx}) ? 'null' : str.tostring(alertSl{idx})) + ', "risk_pct": ' + (na(riskPct{idx}) ? 'null' : str.tostring(riskPct{idx}, "#.##")) + ', "rr_tp1": ' + (na(rrTp1{idx}) ? 'null' : str.tostring(rrTp1{idx}, "#.##")) + ', "rr_tp2": ' + (na(rrTp2{idx}) ? 'null' : str.tostring(rrTp2{idx}, "#.##")) + ', "rr_tp3": ' + (na(rrTp3{idx}) ? 'null' : str.tostring(rrTp3{idx}, "#.##")) + ', "input_leverage": ' + str.tostring(leverage) + ', "recommended_leverage": ' + (na(recommendedLeverage{idx}) ? 'null' : str.tostring(recommendedLeverage{idx})) + ', "lev_risk_pct": ' + (na(levRiskPct{idx}) ? 'null' : str.tostring(levRiskPct{idx}, "#.##")) + ', "risk_label": "' + risk{idx} + '", "score": ' + str.tostring(plan{idx}.score, "#") + ', "bias_4h": "' + biasStr{idx} + '", "bias_strength_4h": "' + biasStrengthStr{idx} + '", "zone_1h": "' + zoneStr{idx} + '", "zone_score_1h": ' + str.tostring(zone{idx}.zoneScore, "#") + ', "trigger_15m": "' + triggerStr{idx} + '", "rsi": ' + str.tostring(plan{idx}.rsi, "#.##") + ', "rvol": ' + str.tostring(plan{idx}.rvolPct / 100.0, "#.##") + ', "price_text": {{"now": "' + f_fmt_price(now{idx}, tick{idx}) + '", "entry_low": "' + (na(alertEntryLow{idx}) ? '-' : f_fmt_price(alertEntryLow{idx}, tick{idx})) + '", "entry_high": "' + (na(alertEntryHigh{idx}) ? '-' : f_fmt_price(alertEntryHigh{idx}, tick{idx})) + '", "tp1": "' + (na(alertTp1{idx}) ? '-' : f_fmt_price(alertTp1{idx}, tick{idx})) + '", "tp2": "' + (na(alertTp2{idx}) ? '-' : f_fmt_price(alertTp2{idx}, tick{idx})) + '", "tp3": "' + (na(alertTp3{idx}) ? '-' : f_fmt_price(alertTp3{idx}, tick{idx})) + '", "sl": "' + (na(alertSl{idx}) ? '-' : f_fmt_price(alertSl{idx}, tick{idx})) + '"}}, "time": ' + str.tostring(time) + '}}'
+    msg_{idx} = '{{"market": "BINANCE_FUTURES", "type": "FUTURES_SIGNAL", "version": "4.0", "event": "' + event{idx} + '", "symbol": "{t}", "side": "' + alertSide{idx} + '", "tf_trigger": "5", "tf_setup": "15", "tf_zone": "60", "tf_bias": "240", "mode": "' + alertMode{idx} + '", "status": "' + alertStatus{idx} + '", "now": ' + str.tostring(now{idx}) + ', "entry_low": ' + (na(alertEntryLow{idx}) ? 'null' : str.tostring(alertEntryLow{idx})) + ', "entry_high": ' + (na(alertEntryHigh{idx}) ? 'null' : str.tostring(alertEntryHigh{idx})) + ', "entry_avg": ' + (na(alertEntryAvg{idx}) ? 'null' : str.tostring(alertEntryAvg{idx})) + ', "tp1": ' + (na(alertTp1{idx}) ? 'null' : str.tostring(alertTp1{idx})) + ', "tp2": ' + (na(alertTp2{idx}) ? 'null' : str.tostring(alertTp2{idx})) + ', "tp3": ' + (na(alertTp3{idx}) ? 'null' : str.tostring(alertTp3{idx})) + ', "sl": ' + (na(alertSl{idx}) ? 'null' : str.tostring(alertSl{idx})) + ', "risk_pct": ' + (na(alertRiskPct{idx}) ? 'null' : str.tostring(alertRiskPct{idx}, "#.##")) + ', "rr_tp1": ' + (na(alertRrTp1{idx}) ? 'null' : str.tostring(alertRrTp1{idx}, "#.##")) + ', "rr_tp2": ' + (na(alertRrTp2{idx}) ? 'null' : str.tostring(alertRrTp2{idx}, "#.##")) + ', "rr_tp3": ' + (na(alertRrTp3{idx}) ? 'null' : str.tostring(alertRrTp3{idx}, "#.##")) + ', "input_leverage": ' + str.tostring(leverage) + ', "recommended_leverage": ' + (na(alertRecLev{idx}) ? 'null' : str.tostring(alertRecLev{idx})) + ', "lev_risk_pct": ' + (na(alertLevRiskPct{idx}) ? 'null' : str.tostring(alertLevRiskPct{idx}, "#.##")) + ', "risk_label": "' + alertRiskLabel{idx} + '", "score": ' + str.tostring(alertScore{idx}, "#") + ', "bias_4h": "' + alertBias4h{idx} + '", "bias_strength_4h": "' + alertBiasStrength4h{idx} + '", "zone_1h": "' + alertZone1h{idx} + '", "zone_score_1h": ' + str.tostring(alertZoneScore1h{idx}, "#") + ', "trigger_5m": "' + alertTrigger5m{idx} + '", "setup_15m": "' + alertSetup15m{idx} + '", "rsi": ' + str.tostring(alertRsi{idx}, "#.##") + ', "rvol": ' + str.tostring(alertRvol{idx} / 100.0, "#.##") + ', "price_text": {{"now": "' + f_fmt_price(now{idx}, tick{idx}) + '", "entry_low": "' + (na(alertEntryLow{idx}) ? '-' : f_fmt_price(alertEntryLow{idx}, tick{idx})) + '", "entry_high": "' + (na(alertEntryHigh{idx}) ? '-' : f_fmt_price(alertEntryHigh{idx}, tick{idx})) + '", "tp1": "' + (na(alertTp1{idx}) ? '-' : f_fmt_price(alertTp1{idx}, tick{idx})) + '", "tp2": "' + (na(alertTp2{idx}) ? '-' : f_fmt_price(alertTp2{idx}, tick{idx})) + '", "tp3": "' + (na(alertTp3{idx}) ? '-' : f_fmt_price(alertTp3{idx}, tick{idx})) + '", "sl": "' + (na(alertSl{idx}) ? '-' : f_fmt_price(alertSl{idx}, tick{idx})) + '"}}, "time": ' + str.tostring(time) + '}}'
     alert(msg_{idx}, alert.freq_once_per_bar_close)
     lastEvent{idx} := event{idx}
     lastBar{idx} := bar_index
 ''')
 
     pine_code = f"""// This Pine Script(TM) v6 indicator is subject to the terms of the Mozilla Public License 2.0
-// Strategy: Binance USD-M Autobot V3 {batch_label}
+// Strategy: Binance USD-M Autobot V4 {batch_label}
 //@version=6
-indicator("Binance USD-M Autobot V3 {batch_label}", overlay=true, max_bars_back=200)
+indicator("Binance USD-M Autobot V4 {batch_label}", overlay=true, max_bars_back=200)
 
 {ENGINE_TEMPLATE}
 
@@ -981,7 +1178,8 @@ indicator("Binance USD-M Autobot V3 {batch_label}", overlay=true, max_bars_back=
 
 var defaultBias = BiasResult.new(0.0, 0.0)
 var defaultZone = ZoneResult.new(0.0, na, na, 0.0)
-var defaultPlan = PlanResult.new(na, na, na, na, na, 0.0, 0.0, 0.0, 0.0, 0.0, na, na, na, na, na, na, na, na, na, na, na)
+var defaultTrigger = TriggerResult.new(0.0, "NEUTRAL", na, na)
+var defaultPlan = PlanResult.new(na, na, na, na, na, 0.0, 0.0, 0.0, 0.0, 0.0, na, na, na, na, na, na, na, na, na, na, na, na, na, na, na)
 
 {chr(10).join(security_lines)}
 
@@ -1027,6 +1225,7 @@ def main():
         print(f"[CLEANUP] Cleaned up {len(old_files)} old batch files")
 
     num_batches = (len(symbols) + BATCH_SIZE - 1) // BATCH_SIZE
+    num_batches = min(num_batches, 5) # Limit to first 5 batches (A, B, C, D, E) as requested
     for i in range(num_batches):
         batch_syms = symbols[i*BATCH_SIZE : (i+1)*BATCH_SIZE]
         
@@ -1038,9 +1237,9 @@ def main():
             temp = (temp // 26) - 1
             
         generate_pine_script(batch_syms, batch_label)
-        print(f"  [BINANCE V3] Batch {batch_label} -> {len(batch_syms)} tickers")
+        print(f"  [BINANCE V4] Batch {batch_label} -> {len(batch_syms)} tickers")
         
-    print(f"\n[DONE] Generated Binance USD-M V3 files")
+    print(f"\n[DONE] Generated Binance USD-M V4 files")
 
 if __name__ == "__main__":
     main()

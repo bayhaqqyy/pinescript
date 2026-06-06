@@ -622,7 +622,7 @@ def validate_direction(data: dict) -> bool:
     side = data.get("side", "")
     version = data.get("version", "1.0")
     try:
-        if version == "2.0":
+        if version in ("2.0", "3.0", "4.0"):
             entry = float(data.get("entry_avg", 0))
             tp = float(data.get("tp1", 0))
             sl = float(data.get("sl", 0))
@@ -648,7 +648,7 @@ def validate_hit(data: dict) -> bool:
     try:
         now = float(data.get("now", 0))
         sl = float(data.get("sl", 0))
-        if version == "2.0":
+        if version in ("2.0", "3.0", "4.0"):
             tp1 = float(data.get("tp1", 0))
             tp2 = float(data.get("tp2", 0))
             tp3 = float(data.get("tp3", 0))
@@ -680,6 +680,43 @@ def validate_market_type(data: dict) -> bool:
             return False
     return True
 
+def validate_futures_payload(data: dict) -> bool:
+    if data.get("type") != "FUTURES_SIGNAL":
+        return True
+
+    event = str(data.get("event", ""))
+    version = str(data.get("version", ""))
+
+    if version in ("4.0", "3.0", "2.0"):
+        required = [
+            "symbol", "side",
+            "entry_low", "entry_high", "entry_avg",
+            "tp1", "tp2", "tp3", "sl",
+            "mode", "status", "score",
+            "risk_pct", "recommended_leverage",
+            "bias_4h", "zone_1h", "rsi", "rvol"
+        ]
+
+        for key in required:
+            if key not in data or data.get(key) in (None, "", "-"):
+                print(f"Rejected futures payload: missing {key}")
+                return False
+
+        if data.get("mode") == "NONE":
+            print("Rejected futures payload: mode NONE")
+            return False
+
+        if event in ("LONG_ENTRY", "SHORT_ENTRY"):
+            if float(data.get("score", 0)) < 80:
+                print("Rejected futures payload: score below 80")
+                return False
+
+            if data.get("risk_label") in ("HIGH", "RISKY_PLAN", "NO_DATA"):
+                print("Rejected futures payload: invalid risk")
+                return False
+
+    return True
+
 
 # ============================================================================
 # BINANCE FUTURES — JSON Alert Parser
@@ -687,9 +724,20 @@ def validate_market_type(data: dict) -> bool:
 def format_futures_message(data: dict) -> str:
     symbol = h(data.get("symbol", "UNKNOWN"))
     event = h(data.get("event", "UNKNOWN"))
-    tf_trigger = h(data.get("tf_trigger", data.get("tf", "15")))
-    tf_zone = h(data.get("tf_zone", "60"))
-    tf_bias = h(data.get("tf_bias", "240"))
+    version = str(data.get("version", "1.0"))
+    
+    if version == "4.0":
+        tf_trigger = h(data.get("tf_trigger", "5"))
+        tf_setup = h(data.get("tf_setup", "15"))
+        tf_zone = h(data.get("tf_zone", "60"))
+        tf_bias = h(data.get("tf_bias", "240"))
+        tf_line = f"⏰ <b>TF</b>     : {tf_trigger}m / {tf_setup}m / {tf_zone}m / {tf_bias}m"
+    else:
+        tf_trigger = h(data.get("tf_trigger", data.get("tf", "15")))
+        tf_zone = h(data.get("tf_zone", "60"))
+        tf_bias = h(data.get("tf_bias", "240"))
+        tf_line = f"⏰ <b>TF</b>     : {tf_trigger}m / {tf_zone}m / {tf_bias}m"
+        
     side = h(data.get("side", "NONE"))
     
     price_decimals = data.get("price_decimals", 4)
@@ -755,7 +803,14 @@ def format_futures_message(data: dict) -> str:
     mode = h(data.get("mode", "-"))
     status = h(data.get("status", "-"))
     risk_label = h(data.get("risk_label", "-"))
-    rec_lev = data.get("recommended_leverage", 1)
+    
+    # Recommended Leverage fallback fix (not defaulting to 1x)
+    rec_lev_val = data.get("recommended_leverage")
+    if rec_lev_val is None or rec_lev_val == "-":
+        rec_lev_str = "-"
+    else:
+        rec_lev_str = f"{rec_lev_val}x"
+        
     input_leverage = data.get("input_leverage", 10)
     
     score = data.get("score", 0)
@@ -818,9 +873,13 @@ def format_futures_message(data: dict) -> str:
     msg = f"{icon} <b>{title}</b> {icon}\n"
     msg += f"━━━━━━━━━━━━━━━━━━\n"
     msg += f"🏷 <b>Symbol</b> : <code>{symbol}</code>\n"
-    msg += f"⏰ <b>TF</b>     : {tf_trigger}m / {tf_zone}m / {tf_bias}m\n"
+    msg += f"{tf_line}\n"
     msg += f"⚡ <b>Event</b>  : <b>{event}</b>\n"
-    msg += f"🎯 <b>Mode</b>   : {mode}\n\n"
+    msg += f"🎯 <b>Mode</b>   : {mode}\n"
+    if version == "4.0":
+        msg += f"📌 <b>Status</b> : {status}\n\n"
+    else:
+        msg += f"\n"
     
     msg += f"💵 <b>NOW</b>    : {now}\n"
     msg += f"📥 <b>ENTRY</b>  : {entry_low} - {entry_high} (Avg: {entry_avg})\n"
@@ -830,7 +889,7 @@ def format_futures_message(data: dict) -> str:
     msg += f"🛑 <b>SL</b>     : {sl} ({risk_pct_str})\n"
     msg += f"━━━━━━━━━━━━━━━━━━\n"
     
-    msg += f"📈 <b>LEV</b>    : {input_leverage}x (Rec: {rec_lev}x)\n"
+    msg += f"📈 <b>LEV</b>    : {input_leverage}x (Rec: {rec_lev_str})\n"
     msg += f"🛡️ <b>RISK</b>   : <b>{risk_label}</b>\n"
     msg += f"📊 <b>Score</b>  : {score}\n\n"
     
@@ -839,9 +898,15 @@ def format_futures_message(data: dict) -> str:
     msg += f"📉 <b>RSI</b>    : {rsi}\n"
     msg += f"🔊 <b>RVOL</b>   : {rvol_pct}\n"
     
+    if version == "4.0":
+        trigger_5m = h(data.get("trigger_5m", "-"))
+        setup_15m = h(data.get("setup_15m", "-"))
+        msg += f"⚡ <b>Trigger 5m</b>: {trigger_5m}\n"
+        msg += f"📐 <b>Setup 15m</b>: {setup_15m}\n"
+    
     if risk_label == "RISKY_PLAN":
         msg += f"━━━━━━━━━━━━━━━━━━\n"
-        msg += f"⚠️ <b>WARNING</b>: Gunakan leverage lebih kecil dari input, recommended leverage: <b>{rec_lev}x</b>\n"
+        msg += f"⚠️ <b>WARNING</b>: Gunakan leverage lebih kecil dari input, recommended leverage: <b>{rec_lev_str}</b>\n"
         
     return msg
 
@@ -928,6 +993,18 @@ async def handle_webhook(request: Request):
                         return {"status": "ignored", "reason": "invalid_direction"}
                     if not validate_hit(data):
                         return {"status": "ignored", "reason": "invalid_hit"}
+                    
+                    # V4 payload validation
+                    if not validate_futures_payload(data):
+                        return {"status": "ignored", "reason": "invalid_futures_payload"}
+                    
+                    # Filter WAIT_RETEST status/event from Telegram forwarding
+                    status_val = str(data.get("status", ""))
+                    event_val = str(data.get("event", ""))
+                    if "WAIT_RETEST" in status_val or "WAIT_RETEST" in event_val:
+                        print(f"[{ts}] ⏳ WAIT_RETEST alert for {data.get('symbol')} ignored from Telegram forwarding.")
+                        return {"status": "ignored", "reason": "wait_retest_ignored"}
+                        
                     message_text = format_futures_message(data)
             elif "message" in data and "type" not in data:
                 message_text = h(data["message"])
@@ -967,8 +1044,12 @@ async def handle_webhook(request: Request):
         tv_val = data.get("transaction_value", "-")
         type_val = data.get("type", "UNKNOWN")
         
-        # P2-01: Cooldown
-        key = f"{ticker_val}:{signal_val}"
+        # P2-01: Cooldown (event-specific for futures signals)
+        if type_val == "FUTURES_SIGNAL":
+            key = f"{type_val}:{data.get('symbol') or ticker_val}:{data.get('event') or signal_val}"
+        else:
+            key = f"{ticker_val}:{signal_val}"
+            
         now = datetime.now().timestamp()
         if now - last_alert.get(key, 0) < COOLDOWN_SECONDS:
             print(f"[{ts}] ⏳ Skipping alert for {key} due to cooldown.")
