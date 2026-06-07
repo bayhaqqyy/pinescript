@@ -57,16 +57,37 @@ async def test_webhook_reject_invalid_direction():
     main.WEBHOOK_SECRET = ""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Invalid long direction TP <= Entry
+        # Invalid long direction tp1 <= entry_avg
         payload = {
             "type": "FUTURES_SIGNAL",
             "market": "BINANCE_FUTURES",
+            "version": "4.0",
             "event": "LONG_ENTRY",
             "side": "LONG",
             "symbol": "GRASSUSDT",
-            "entry": 0.5,
-            "tp": 0.45,
-            "sl": 0.48
+            "tf_trigger": "5",
+            "tf_setup": "15",
+            "tf_zone": "60",
+            "tf_bias": "240",
+            "entry_low": 0.49,
+            "entry_high": 0.51,
+            "entry_avg": 0.50,
+            "tp1": 0.45,
+            "tp2": 0.55,
+            "tp3": 0.60,
+            "sl": 0.48,
+            "mode": "DEMAND_REJECTION",
+            "status": "VALID_LONG",
+            "score": 85,
+            "risk_pct": 1.13,
+            "recommended_leverage": 17,
+            "risk_label": "SAFE",
+            "bias_4h": "BULLISH",
+            "zone_1h": "DEMAND",
+            "rsi": 55.4,
+            "rvol": 1.45,
+            "bar_high": 0.52,
+            "bar_low": 0.49
         }
         response = await client.post("/webhook", json=payload)
         assert response.status_code == 200
@@ -79,17 +100,38 @@ async def test_webhook_reject_invalid_hit():
     main.WEBHOOK_SECRET = ""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Invalid hit: LONG_TP_HIT but now < tp
+        # Invalid hit: LONG_TP1_HIT but now < tp1
         payload = {
             "type": "FUTURES_SIGNAL",
             "market": "BINANCE_FUTURES",
-            "event": "LONG_TP_HIT",
+            "version": "4.0",
+            "event": "LONG_TP1_HIT",
             "side": "LONG",
             "symbol": "GRASSUSDT",
+            "tf_trigger": "5",
+            "tf_setup": "15",
+            "tf_zone": "60",
+            "tf_bias": "240",
             "now": 0.52,
-            "entry": 0.5,
-            "tp": 0.55,
-            "sl": 0.48
+            "entry_low": 0.49,
+            "entry_high": 0.51,
+            "entry_avg": 0.50,
+            "tp1": 0.55,
+            "tp2": 0.60,
+            "tp3": 0.65,
+            "sl": 0.48,
+            "mode": "DEMAND_REJECTION",
+            "status": "VALID_LONG",
+            "score": 85,
+            "risk_pct": 1.13,
+            "recommended_leverage": 17,
+            "risk_label": "SAFE",
+            "bias_4h": "BULLISH",
+            "zone_1h": "DEMAND",
+            "rsi": 55.4,
+            "rvol": 1.45,
+            "bar_high": 0.53,
+            "bar_low": 0.51
         }
         response = await client.post("/webhook", json=payload)
         assert response.status_code == 200
@@ -290,7 +332,9 @@ def test_validate_futures_payload_valid_v4():
         "bias_4h": "BULLISH",
         "zone_1h": "DEMAND",
         "rsi": 55.4,
-        "rvol": 1.45
+        "rvol": 1.45,
+        "bar_high": 248.50,
+        "bar_low": 247.10
     }
     assert validate_futures_payload(payload) is True
 
@@ -319,7 +363,9 @@ def test_validate_futures_payload_missing_field():
         "bias_4h": "BULLISH",
         "zone_1h": "DEMAND",
         "rsi": 55.4,
-        "rvol": 1.45
+        "rvol": 1.45,
+        "bar_high": 248.50,
+        "bar_low": 247.10
     }
     assert validate_futures_payload(payload) is False
 
@@ -348,7 +394,9 @@ def test_validate_futures_payload_mode_none():
         "bias_4h": "BULLISH",
         "zone_1h": "DEMAND",
         "rsi": 55.4,
-        "rvol": 1.45
+        "rvol": 1.45,
+        "bar_high": 248.50,
+        "bar_low": 247.10
     }
     assert validate_futures_payload(payload) is False
 
@@ -377,7 +425,9 @@ def test_validate_futures_payload_low_score():
         "bias_4h": "BULLISH",
         "zone_1h": "DEMAND",
         "rsi": 55.4,
-        "rvol": 1.45
+        "rvol": 1.45,
+        "bar_high": 248.50,
+        "bar_low": 247.10
     }
     assert validate_futures_payload(payload) is False
 
@@ -406,7 +456,9 @@ def test_validate_futures_payload_risky():
         "bias_4h": "BULLISH",
         "zone_1h": "DEMAND",
         "rsi": 55.4,
-        "rvol": 1.45
+        "rvol": 1.45,
+        "bar_high": 248.50,
+        "bar_low": 247.10
     }
     assert validate_futures_payload(payload) is False
 
@@ -443,7 +495,9 @@ def test_format_futures_message_v4_full():
         "trigger_5m": "BULLISH_REJECTION",
         "setup_15m": "RETEST_STRUCTURE",
         "rsi": 55.4,
-        "rvol": 1.45
+        "rvol": 1.45,
+        "bar_high": 248.50,
+        "bar_low": 247.10
     }
     msg = format_futures_message(payload)
     assert "BEUSDT" in msg
@@ -456,13 +510,60 @@ def test_format_futures_message_v4_full():
     assert "Setup 15m" in msg
     assert "RETEST_STRUCTURE" in msg
     assert "145.0%" in msg
+    assert "📊 <b>BAR</b>" in msg
+    assert "H 248.50 / L 247.10" in msg or "H 248.5000 / L 247.1000" in msg
 
 @pytest.mark.asyncio
 async def test_wait_retest_filter_webhook():
     main.WEBHOOK_SECRET = ""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Status WAIT_RETEST_LONG should be ignored from Telegram forwarding
+        # Status WAIT_RETEST_LONG should be ignored from Telegram forwarding (for non-entry events)
+        payload = {
+            "market": "BINANCE_FUTURES",
+            "type": "FUTURES_SIGNAL",
+            "version": "4.0",
+            "event": "LONG_TP1_HIT",
+            "symbol": "BEUSDT",
+            "side": "LONG",
+            "tf_trigger": "5",
+            "tf_setup": "15",
+            "tf_zone": "60",
+            "tf_bias": "240",
+            "entry_low": 247.40,
+            "entry_high": 248.20,
+            "entry_avg": 247.80,
+            "tp1": 250.0,
+            "tp2": 252.0,
+            "tp3": 255.0,
+            "sl": 245.0,
+            "mode": "DEMAND_REJECTION",
+            "status": "WAIT_RETEST_LONG",
+            "score": 85,
+            "risk_pct": 1.13,
+            "recommended_leverage": 17,
+            "risk_label": "SAFE",
+            "bias_4h": "BULLISH",
+            "bias_strength_4h": "NORMAL",
+            "zone_1h": "DEMAND",
+            "zone_score_1h": 80,
+            "rsi": 55.4,
+            "rvol": 1.45,
+            "bar_high": 251.00,
+            "bar_low": 246.00
+        }
+        response = await client.post("/webhook", json=payload)
+        assert response.status_code == 200
+        res = response.json()
+        assert res["status"] == "ignored"
+        assert res["reason"] == "wait_retest_ignored"
+
+@pytest.mark.asyncio
+async def test_entry_wait_retest_guard_webhook():
+    main.WEBHOOK_SECRET = ""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Guard should reject entry events with WAIT_RETEST status
         payload = {
             "market": "BINANCE_FUTURES",
             "type": "FUTURES_SIGNAL",
@@ -492,13 +593,98 @@ async def test_wait_retest_filter_webhook():
             "zone_1h": "DEMAND",
             "zone_score_1h": 80,
             "rsi": 55.4,
+            "rvol": 1.45,
+            "bar_high": 248.50,
+            "bar_low": 247.10
+        }
+        response = await client.post("/webhook", json=payload)
+        assert response.status_code == 200
+        res = response.json()
+        assert res["status"] == "ignored"
+        assert res["reason"] == "entry_status_wait_retest_invalid"
+
+@pytest.mark.asyncio
+async def test_webhook_reject_legacy_payload():
+    main.WEBHOOK_SECRET = ""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Legacy version 3.0
+        payload = {
+            "market": "BINANCE_FUTURES",
+            "type": "FUTURES_SIGNAL",
+            "version": "3.0",
+            "event": "LONG_ENTRY",
+            "symbol": "BEUSDT",
+            "side": "LONG",
+            "tf_trigger": "15",
+            "entry_low": 247.40,
+            "entry_high": 248.20,
+            "entry_avg": 247.80,
+            "tp1": 250.0,
+            "tp2": 252.0,
+            "tp3": 255.0,
+            "sl": 245.0,
+            "mode": "DEMAND_REJECTION",
+            "status": "VALID_LONG",
+            "score": 85,
+            "risk_pct": 1.13,
+            "recommended_leverage": 17,
+            "risk_label": "SAFE",
+            "bias_4h": "BULLISH",
+            "zone_1h": "DEMAND",
+            "rsi": 55.4,
             "rvol": 1.45
         }
         response = await client.post("/webhook", json=payload)
         assert response.status_code == 200
         res = response.json()
         assert res["status"] == "ignored"
-        assert res["reason"] == "wait_retest_ignored"
+        assert res["reason"] == "legacy_futures_payload"
+
+
+@pytest.mark.asyncio
+async def test_webhook_reject_missing_risk_label():
+    main.WEBHOOK_SECRET = ""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Missing risk_label
+        payload = {
+            "market": "BINANCE_FUTURES",
+            "type": "FUTURES_SIGNAL",
+            "version": "4.0",
+            "event": "LONG_ENTRY",
+            "symbol": "GRASSUSDT",
+            "side": "LONG",
+            "tf_trigger": "5",
+            "tf_setup": "15",
+            "tf_zone": "60",
+            "tf_bias": "240",
+            "entry_low": 0.49,
+            "entry_high": 0.51,
+            "entry_avg": 0.50,
+            "tp1": 0.55,
+            "tp2": 0.60,
+            "tp3": 0.65,
+            "sl": 0.48,
+            "mode": "DEMAND_REJECTION",
+            "status": "VALID_LONG",
+            "score": 85,
+            "risk_pct": 1.13,
+            "recommended_leverage": 17,
+            "bias_4h": "BULLISH",
+            "zone_1h": "DEMAND",
+            "rsi": 55.4,
+            "rvol": 1.45,
+            "bar_high": 0.53,
+            "bar_low": 0.49
+        }
+        response = await client.post("/webhook", json=payload)
+        assert response.status_code == 200
+        res = response.json()
+        assert res["status"] == "ignored"
+        assert res["reason"] == "invalid_futures_payload"
+
+
 
 
 

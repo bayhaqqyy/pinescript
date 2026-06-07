@@ -8,57 +8,22 @@
       "price_decimals": 5
     },
     {
-      "symbol": "BLUAIUSDT",
-      "tick_size": 1e-06,
-      "price_decimals": 6
-    },
-    {
-      "symbol": "VELVETUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "ASRUSDT",
-      "tick_size": 0.001,
-      "price_decimals": 3
-    },
-    {
-      "symbol": "AIOUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "CLOUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "HEIUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "SIRENUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
-    },
-    {
       "symbol": "SKYAIUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
     {
-      "symbol": "USUSDT",
-      "tick_size": 1e-06,
-      "price_decimals": 6
+      "symbol": "LABUSDT",
+      "tick_size": 0.001,
+      "price_decimals": 3
     },
     {
-      "symbol": "BEATUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
+      "symbol": "GWEIUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
     },
     {
-      "symbol": "ESPORTSUSDT",
+      "symbol": "BANKUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
@@ -68,42 +33,52 @@
       "price_decimals": 6
     },
     {
-      "symbol": "ARCUSDT",
+      "symbol": "BEATUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "FIDAUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
     {
-      "symbol": "FOLKSUSDT",
+      "symbol": "CLOUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "VELVETUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "EDENUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "TAKEUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "ASRUSDT",
       "tick_size": 0.001,
       "price_decimals": 3
     },
     {
-      "symbol": "HMSTRUSDT",
-      "tick_size": 1e-07,
-      "price_decimals": 7
+      "symbol": "ESPORTSUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
     },
     {
-      "symbol": "SANTOSUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
+      "symbol": "HUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
     },
     {
-      "symbol": "DODOXUSDT",
-      "tick_size": 1e-06,
-      "price_decimals": 6
-    },
-    {
-      "symbol": "TRADOORUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
-    },
-    {
-      "symbol": "ZECUSDT",
-      "tick_size": 0.01,
-      "price_decimals": 2
-    },
-    {
-      "symbol": "HIGHUSDT",
+      "symbol": "SIRENUSDT",
       "tick_size": 0.0001,
       "price_decimals": 4
     },
@@ -113,57 +88,22 @@
       "price_decimals": 5
     },
     {
-      "symbol": "CYSUSDT",
+      "symbol": "GIGGLEUSDT",
+      "tick_size": 0.01,
+      "price_decimals": 2
+    },
+    {
+      "symbol": "1000LUNCUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "MUSDT",
       "tick_size": 0.0001,
       "price_decimals": 4
     },
     {
-      "symbol": "LYNUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "BASUSDT",
-      "tick_size": 1e-06,
-      "price_decimals": 6
-    },
-    {
-      "symbol": "BANKUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "JSTUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "ESPUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "CTRUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "INJUSDT",
-      "tick_size": 0.001,
-      "price_decimals": 3
-    },
-    {
-      "symbol": "CCUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "EVAAUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
-    },
-    {
-      "symbol": "ENAUSDT",
+      "symbol": "PORTALUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
@@ -173,52 +113,17 @@
       "price_decimals": 6
     },
     {
-      "symbol": "GWEIUSDT",
+      "symbol": "BSBUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
     {
-      "symbol": "SPXUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
-    },
-    {
-      "symbol": "KASUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "BTCDOMUSDT",
-      "tick_size": 0.1,
-      "price_decimals": 1
-    },
-    {
-      "symbol": "XLMUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "APRUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "GPSUSDT",
+      "symbol": "BLUAIUSDT",
       "tick_size": 1e-06,
       "price_decimals": 6
     },
     {
-      "symbol": "VVVUSDT",
-      "tick_size": 0.001,
-      "price_decimals": 3
-    },
-    {
-      "symbol": "JCTUSDT",
-      "tick_size": 1e-06,
-      "price_decimals": 6
-    },
-    {
-      "symbol": "HANAUSDT",
+      "symbol": "MANTAUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
@@ -228,72 +133,87 @@
       "price_decimals": 4
     },
     {
-      "symbol": "STXUSDT",
+      "symbol": "SOONUSDT",
       "tick_size": 0.0001,
       "price_decimals": 4
     },
     {
-      "symbol": "RIVERUSDT",
-      "tick_size": 0.001,
-      "price_decimals": 3
-    },
-    {
-      "symbol": "POWERUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "KNCUSDT",
+      "symbol": "FORMUSDT",
       "tick_size": 0.0001,
       "price_decimals": 4
     },
     {
-      "symbol": "KITEUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "SOLVUSDT",
+      "symbol": "4USDT",
       "tick_size": 1e-06,
       "price_decimals": 6
     },
     {
-      "symbol": "PLAYUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
+      "symbol": "BUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
     },
     {
-      "symbol": "OGUSDT",
-      "tick_size": 0.001,
-      "price_decimals": 3
+      "symbol": "EVAAUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
     },
     {
-      "symbol": "ALCHUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "VICUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "ACXUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "CATIUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "USDCUSDT",
+      "symbol": "GPSUSDT",
       "tick_size": 1e-06,
       "price_decimals": 6
     },
     {
-      "symbol": "DRIFTUSDT",
+      "symbol": "TUTUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "HIGHUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "AIOUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "ACUUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "HUMAUSDT",
+      "tick_size": 1e-06,
+      "price_decimals": 6
+    },
+    {
+      "symbol": "CCUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "BASEDUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "NAORISUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "USTCUSDT",
+      "tick_size": 1e-06,
+      "price_decimals": 6
+    },
+    {
+      "symbol": "GUAUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "RESOLVUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
@@ -303,107 +223,42 @@
       "price_decimals": 5
     },
     {
-      "symbol": "DISUSDT",
+      "symbol": "BBXUSDT",
       "tick_size": 0.01,
       "price_decimals": 2
     },
     {
-      "symbol": "PENDLEUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
-    },
-    {
-      "symbol": "GUNUSDT",
+      "symbol": "JCTUSDT",
       "tick_size": 1e-06,
       "price_decimals": 6
     },
     {
-      "symbol": "JASMYUSDT",
-      "tick_size": 1e-06,
-      "price_decimals": 6
-    },
-    {
-      "symbol": "NFPUSDT",
+      "symbol": "STABLEUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
     {
-      "symbol": "4USDT",
-      "tick_size": 1e-06,
-      "price_decimals": 6
-    },
-    {
-      "symbol": "NVOUSDT",
-      "tick_size": 0.01,
-      "price_decimals": 2
-    },
-    {
-      "symbol": "UBUSDT",
+      "symbol": "FHEUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
     {
-      "symbol": "HDUSDT",
-      "tick_size": 0.01,
-      "price_decimals": 2
-    },
-    {
-      "symbol": "ALPINEUSDT",
+      "symbol": "B2USDT",
       "tick_size": 0.0001,
       "price_decimals": 4
     },
     {
-      "symbol": "NMRUSDT",
+      "symbol": "TSTUSDT",
+      "tick_size": 1e-06,
+      "price_decimals": 6
+    },
+    {
+      "symbol": "OGUSDT",
       "tick_size": 0.001,
       "price_decimals": 3
     },
     {
-      "symbol": "BEAMXUSDT",
-      "tick_size": 1e-06,
-      "price_decimals": 6
-    },
-    {
-      "symbol": "WLFIUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "CROSSUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "CHZUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "SENTUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "GIGGLEUSDT",
-      "tick_size": 0.01,
-      "price_decimals": 2
-    },
-    {
-      "symbol": "CUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "WMTUSDT",
-      "tick_size": 0.01,
-      "price_decimals": 2
-    },
-    {
-      "symbol": "PUMPBTCUSDT",
-      "tick_size": 1e-05,
-      "price_decimals": 5
-    },
-    {
-      "symbol": "FLOWUSDT",
+      "symbol": "XLMUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
@@ -413,9 +268,44 @@
       "price_decimals": 5
     },
     {
-      "symbol": "EPICUSDT",
+      "symbol": "INUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "HMSTRUSDT",
+      "tick_size": 1e-07,
+      "price_decimals": 7
+    },
+    {
+      "symbol": "SUIUSDT",
       "tick_size": 0.0001,
       "price_decimals": 4
+    },
+    {
+      "symbol": "KITEUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "MRVLUSDT",
+      "tick_size": 0.01,
+      "price_decimals": 2
+    },
+    {
+      "symbol": "AINUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "SPXUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "CUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
     },
     {
       "symbol": "UAIUSDT",
@@ -423,14 +313,84 @@
       "price_decimals": 4
     },
     {
-      "symbol": "CAKEUSDT",
+      "symbol": "CHRUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "PENGUUSDT",
+      "tick_size": 1e-06,
+      "price_decimals": 6
+    },
+    {
+      "symbol": "CTRUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "HYPERUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "TRADOORUSDT",
       "tick_size": 0.0001,
       "price_decimals": 4
     },
     {
-      "symbol": "HUMAUSDT",
-      "tick_size": 1e-06,
-      "price_decimals": 6
+      "symbol": "ROBOUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "ZESTUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "EPICUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "CRMUSDT",
+      "tick_size": 0.01,
+      "price_decimals": 2
+    },
+    {
+      "symbol": "MYXUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "ACTUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "FOLKSUSDT",
+      "tick_size": 0.001,
+      "price_decimals": 3
+    },
+    {
+      "symbol": "TAGUSDT",
+      "tick_size": 1e-07,
+      "price_decimals": 7
+    },
+    {
+      "symbol": "AKTUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "ARMUSDT",
+      "tick_size": 0.01,
+      "price_decimals": 2
     },
     {
       "symbol": "DOGSUSDT",
@@ -438,57 +398,47 @@
       "price_decimals": 8
     },
     {
-      "symbol": "SUNUSDT",
+      "symbol": "BEAMXUSDT",
       "tick_size": 1e-06,
       "price_decimals": 6
     },
     {
-      "symbol": "TRXUSDT",
+      "symbol": "PLAYUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
     {
-      "symbol": "LLYUSDT",
-      "tick_size": 0.01,
-      "price_decimals": 2
+      "symbol": "UBUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
     },
     {
-      "symbol": "LITUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
-    },
-    {
-      "symbol": "ALGOUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
-    },
-    {
-      "symbol": "BROCCOLIF3BUSDT",
+      "symbol": "BANANAS31USDT",
       "tick_size": 1e-06,
       "price_decimals": 6
     },
     {
-      "symbol": "CRVUSDT",
+      "symbol": "RKLBUSDT",
+      "tick_size": 0.01,
+      "price_decimals": 2
+    },
+    {
+      "symbol": "ONUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "CAKEUSDT",
       "tick_size": 0.0001,
       "price_decimals": 4
     },
     {
-      "symbol": "LDOUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
+      "symbol": "QNTUSDT",
+      "tick_size": 0.01,
+      "price_decimals": 2
     },
     {
-      "symbol": "COWUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
-    },
-    {
-      "symbol": "FRAXUSDT",
-      "tick_size": 0.0001,
-      "price_decimals": 4
-    },
-    {
-      "symbol": "FFUSDT",
+      "symbol": "SENTUSDT",
       "tick_size": 1e-05,
       "price_decimals": 5
     },
@@ -501,6 +451,56 @@
       "symbol": "DASHUSDT",
       "tick_size": 0.01,
       "price_decimals": 2
+    },
+    {
+      "symbol": "JTOUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "KMNOUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "GUNUSDT",
+      "tick_size": 1e-06,
+      "price_decimals": 6
+    },
+    {
+      "symbol": "SANTOSUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "MONUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
+    },
+    {
+      "symbol": "NMRUSDT",
+      "tick_size": 0.001,
+      "price_decimals": 3
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "FETUSDT",
+      "tick_size": 0.0001,
+      "price_decimals": 4
+    },
+    {
+      "symbol": "TOSHIUSDT",
+      "tick_size": 1e-07,
+      "price_decimals": 7
+    },
+    {
+      "symbol": "ATUSDT",
+      "tick_size": 1e-05,
+      "price_decimals": 5
     }
   ]
 }

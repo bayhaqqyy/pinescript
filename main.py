@@ -647,6 +647,8 @@ def validate_hit(data: dict) -> bool:
     version = data.get("version", "1.0")
     try:
         now = float(data.get("now", 0))
+        bar_high = float(data.get("bar_high", now))
+        bar_low = float(data.get("bar_low", now))
         sl = float(data.get("sl", 0))
         if version in ("2.0", "3.0", "4.0"):
             tp1 = float(data.get("tp1", 0))
@@ -657,18 +659,18 @@ def validate_hit(data: dict) -> bool:
     except (ValueError, TypeError):
         return False
         
-    if event == "LONG_TP_HIT":   return now >= tp
-    if event == "LONG_SL_HIT":   return now <= sl
-    if event == "SHORT_TP_HIT":  return now <= tp
-    if event == "SHORT_SL_HIT":  return now >= sl
+    if event == "LONG_TP_HIT":   return bar_high >= tp
+    if event == "LONG_SL_HIT":   return bar_low <= sl
+    if event == "SHORT_TP_HIT":  return bar_low <= tp
+    if event == "SHORT_SL_HIT":  return bar_high >= sl
     
     # Version 2.0 TP hits
-    if event == "LONG_TP1_HIT":  return now >= tp1
-    if event == "LONG_TP2_HIT":  return now >= tp2
-    if event == "LONG_TP3_HIT":  return now >= tp3
-    if event == "SHORT_TP1_HIT": return now <= tp1
-    if event == "SHORT_TP2_HIT": return now <= tp2
-    if event == "SHORT_TP3_HIT": return now <= tp3
+    if event == "LONG_TP1_HIT":  return bar_high >= tp1
+    if event == "LONG_TP2_HIT":  return bar_high >= tp2
+    if event == "LONG_TP3_HIT":  return bar_high >= tp3
+    if event == "SHORT_TP1_HIT": return bar_low <= tp1
+    if event == "SHORT_TP2_HIT": return bar_low <= tp2
+    if event == "SHORT_TP3_HIT": return bar_low <= tp3
     return True
 
 def validate_market_type(data: dict) -> bool:
@@ -687,33 +689,41 @@ def validate_futures_payload(data: dict) -> bool:
     event = str(data.get("event", ""))
     version = str(data.get("version", ""))
 
-    if version in ("4.0", "3.0", "2.0"):
-        required = [
-            "symbol", "side",
-            "entry_low", "entry_high", "entry_avg",
-            "tp1", "tp2", "tp3", "sl",
-            "mode", "status", "score",
-            "risk_pct", "recommended_leverage",
-            "bias_4h", "zone_1h", "rsi", "rvol"
-        ]
+    if version != "4.0":
+        print(f"Rejected futures payload: version {version} is not 4.0")
+        return False
 
-        for key in required:
-            if key not in data or data.get(key) in (None, "", "-"):
-                print(f"Rejected futures payload: missing {key}")
-                return False
+    required = [
+        "symbol", "side",
+        "entry_low", "entry_high", "entry_avg",
+        "tp1", "tp2", "tp3", "sl",
+        "mode", "status", "score",
+        "risk_pct", "recommended_leverage", "risk_label",
+        "bias_4h", "zone_1h", "rsi", "rvol",
+        "bar_high", "bar_low"
+    ]
 
-        if data.get("mode") == "NONE":
-            print("Rejected futures payload: mode NONE")
+    for key in required:
+        if key not in data or data.get(key) in (None, "", "-"):
+            print(f"Rejected futures payload: missing {key}")
             return False
 
-        if event in ("LONG_ENTRY", "SHORT_ENTRY"):
+    if data.get("mode") == "NONE":
+        print("Rejected futures payload: mode NONE")
+        return False
+
+    if event in ("LONG_ENTRY", "SHORT_ENTRY"):
+        try:
             if float(data.get("score", 0)) < 80:
                 print("Rejected futures payload: score below 80")
                 return False
+        except (ValueError, TypeError):
+            print("Rejected futures payload: invalid score")
+            return False
 
-            if data.get("risk_label") in ("HIGH", "RISKY_PLAN", "NO_DATA"):
-                print("Rejected futures payload: invalid risk")
-                return False
+        if data.get("risk_label") in ("HIGH", "RISKY_PLAN", "NO_DATA"):
+            print("Rejected futures payload: invalid risk")
+            return False
 
     return True
 
@@ -792,6 +802,8 @@ def format_futures_message(data: dict) -> str:
         title = f"BINANCE FUTURES {side.upper()}"
 
     now = get_price("now")
+    bar_high = get_price("bar_high")
+    bar_low = get_price("bar_low")
     entry_low = get_price("entry_low")
     entry_high = get_price("entry_high")
     entry_avg = get_price("entry_avg")
@@ -882,6 +894,8 @@ def format_futures_message(data: dict) -> str:
         msg += f"\n"
     
     msg += f"💵 <b>NOW</b>    : {now}\n"
+    if version == "4.0":
+        msg += f"📊 <b>BAR</b>    : H {bar_high} / L {bar_low}\n"
     msg += f"📥 <b>ENTRY</b>  : {entry_low} - {entry_high} (Avg: {entry_avg})\n"
     msg += f"🎯 <b>TP1</b>    : {tp1} (RR: {rr_tp1})\n"
     msg += f"🎯 <b>TP2</b>    : {tp2} (RR: {rr_tp2})\n"
@@ -984,6 +998,10 @@ async def handle_webhook(request: Request):
                     print(f"[{ts}] ❄️ Webhook ignored: FUTURES_SIGNAL is currently FROZEN.")
                     return {"status": "frozen"}
                 if data.get("market") == "BINANCE_FUTURES":
+                    if str(data.get("version")) != "4.0":
+                        print(f"[{ts}] ❌ Futures legacy payload rejected: version={data.get('version')}")
+                        return {"status": "ignored", "reason": "legacy_futures_payload"}
+                    
                     event = data.get("event")
                     if event not in ALLOWED_FUTURES_EVENTS:
                         return {"status": "ignored", "reason": "non_actionable_event"}
@@ -998,8 +1016,13 @@ async def handle_webhook(request: Request):
                     if not validate_futures_payload(data):
                         return {"status": "ignored", "reason": "invalid_futures_payload"}
                     
-                    # Filter WAIT_RETEST status/event from Telegram forwarding
+                    # Guard for Entry Event with WAIT_RETEST status
                     status_val = str(data.get("status", ""))
+                    if event in ("LONG_ENTRY", "SHORT_ENTRY") and "WAIT_RETEST" in status_val:
+                        print(f"[{ts}] ❌ Rejected entry with WAIT_RETEST status.")
+                        return {"status": "ignored", "reason": "entry_status_wait_retest_invalid"}
+                    
+                    # Filter WAIT_RETEST status/event from Telegram forwarding
                     event_val = str(data.get("event", ""))
                     if "WAIT_RETEST" in status_val or "WAIT_RETEST" in event_val:
                         print(f"[{ts}] ⏳ WAIT_RETEST alert for {data.get('symbol')} ignored from Telegram forwarding.")
@@ -1086,7 +1109,7 @@ async def health_check():
             "US Bandar AI V3 (JSON)",
             "IDX Bandar AI V3 (JSON)",
             "IDX Scalping V3 (JSON)",
-            "USD-M Autobot V3 (JSON)"
+            "USD-M Autobot V4.3 (JSON)"
         ]
     }
 
